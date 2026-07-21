@@ -1121,27 +1121,66 @@ async function npCheckout(){
   alert(msg);
   curProj=npProj; stage='prep'; view='proj'; render();
 }
+
+// ===== 프로젝트 준비: 품목(모델)별 묶어서 고르기 =====
+function npUnits(nm){ return eqRows().filter(function(e){ return (ev(e,E.name)||'(이름없음)')===nm; }); }
+function npModelQty(nm){ return npUnits(nm).reduce(function(a,e){ return a+(npSel[e[E.id]]||0); },0); }
+function npModelAvail(nm){ return npUnits(nm).reduce(function(a,e){ var v=realStock(e[E.id]); return a+(v==null?0:v); },0); }
+function npPlusOne(us){
+  for(var i=0;i<us.length;i++){ var id=us[i][E.id]; var av=realStock(id); av=(av==null?0:av);
+    if((npSel[id]||0) < av){ npSel[id]=(npSel[id]||0)+1; return; } }
+  var id0=us[0][E.id]; npSel[id0]=(npSel[id0]||0)+1; // 재고 초과분 → 렌탈 판정으로
+}
+function npMinusOne(us){
+  for(var j=us.length-1;j>=0;j--){ var id=us[j][E.id];
+    if(npSel[id]){ npSel[id]--; if(!npSel[id]) delete npSel[id]; return; } }
+}
+function npModelAdd(nm,d){ var us=npUnits(nm); if(!us.length)return; if(d>0) npPlusOne(us); else npMinusOne(us); render(); }
+function npModelSet(nm,v){
+  var us=npUnits(nm); if(!us.length)return;
+  us.forEach(function(e){ delete npSel[e[E.id]]; });
+  var n=Math.max(0,parseInt(v,10)||0);
+  for(var i=0;i<n;i++) npPlusOne(us);
+  render();
+}
+function npModelClear(nm){ npUnits(nm).forEach(function(e){ delete npSel[e[E.id]]; }); render(); }
 function vPrepNew(){
   const projs=npProjects();
   const opts='<option value="">프로젝트 선택…</option>'+projs.map(p=>`<option ${p===npProj?'selected':''}>${Q(p)}</option>`).join('');
   const curLines=npProj?allSrc().filter(r=>r[S.proj]===npProj).length:0;
   const catChips=['<span class="chip '+(npCat===''?'on':'')+'" onclick="npCat=\'\';render()">전체</span>'].concat(
     npCats().map(c=>`<span class="chip ${npCat===c?'on':''}" onclick="npCat='${QJ(c)}';render()">${Q(c)}</span>`)).join('');
-  const invRows=eqRows().filter(e=>(!npCat||ev(e,E.cat)===npCat)&&(!q||((ev(e,E.name)+' '+ev(e,E.brand)+' '+e[E.id]).toLowerCase().includes(q.toLowerCase())))).map(e=>{
-    const id=e[E.id]; const av=realStock(id); const sel=npSel[id]||0;
-    const cls=av<=0?'p-zero':(av<=1?'p-warn':'p-ok');
-    return `<tr><td>${Q(ev(e,E.name))} <span style="color:#aaa;font-size:11px">· ${Q(ev(e,E.cat))}</span></td>
-      <td class="n">${Q(id)}</td>
-      <td class="n"><span class="pill ${cls}">${av}</span></td>
-      <td class="n" style="white-space:nowrap"><button class="mini" onclick="npAdd('${QJ(id)}',-1)">−</button>
-        <input id="npq_${QJ(id)}" type="number" min="0" value="${sel}" style="width:52px;text-align:center" onchange="npSet('${QJ(id)}',this.value)">
-        <button class="mini" onclick="npAdd('${QJ(id)}',1)">＋</button></td></tr>`;
+  var _g={};
+  eqRows().forEach(function(e){
+    if(npCat && ev(e,E.cat)!==npCat) return;
+    var nm=ev(e,E.name)||'(이름없음)';
+    if(q && !((nm+' '+ev(e,E.brand)+' '+e[E.id]).toLowerCase().includes(q.toLowerCase()))) return;
+    (_g[nm]=_g[nm]||[]).push(e);
+  });
+  const invRows=Object.keys(_g).sort().map(function(nm){
+    var us=_g[nm]; var e0=us[0];
+    var av=npModelAvail(nm); var sel=npModelQty(nm);
+    var cls=av<=0?'p-zero':(av<=1?'p-warn':'p-ok');
+    var codes=us.map(function(e){return e[E.id];});
+    var codeTxt = codes.length>1 ? (Q(codes[0])+' <span style="color:#aaa;font-size:10.5px">외 '+(codes.length-1)+'</span>') : Q(codes[0]);
+    return '<tr><td>'+Q(nm)+(us.length>1?' <span class="pill" style="background:#eaf1f9;color:#2f6db0">'+us.length+'대</span>':'')
+      +' <span style="color:#aaa;font-size:11px">· '+Q(ev(e0,E.cat))+'</span></td>'
+      +'<td class="n" style="font-family:ui-monospace,monospace;font-size:11px">'+codeTxt+'</td>'
+      +'<td class="n"><span class="pill '+cls+'">'+av+'</span></td>'
+      +'<td class="n" style="white-space:nowrap"><button class="mini" onclick="npModelAdd(\''+QJ(nm)+'\',-1)">−</button>'
+      +'<input id="npq_'+QJ(nm)+'" type="number" min="0" value="'+sel+'" style="width:52px;text-align:center" onchange="npModelSet(\''+QJ(nm)+'\',this.value)">'
+      +'<button class="mini" onclick="npModelAdd(\''+QJ(nm)+'\',1)">＋</button></td></tr>';
   }).join('');
-  const selRows=Object.keys(npSel).map(id=>{
-    const e=eqRows().find(r=>r[E.id]===id); if(!e)return '';
-    const qy=npSel[id]; const av=realStock(id);
-    const j=qy<=av?'<span class="j-ok">보유 충당 ✔</span>':('<span class="j-rent">'+(qy-av)+'개 부족 → 렌탈</span>');
-    return `<tr><td>${Q(ev(e,E.name))}</td><td class="n">${qy}</td><td class="n">${av}</td><td>${j}</td><td class="n"><button class="mini" onclick="npAdd('${QJ(id)}',-99999)">×</button></td></tr>`;
+  var _sg={};
+  Object.keys(npSel).forEach(function(id){
+    var e=eqRows().find(function(r){return r[E.id]===id;}); if(!e)return;
+    var nm=ev(e,E.name)||'(이름없음)'; _sg[nm]=(_sg[nm]||0)+npSel[id];
+  });
+  const selRows=Object.keys(_sg).sort().map(function(nm){
+    var qy=_sg[nm]; var av=npModelAvail(nm);
+    var j = qy<=av ? '<span class="j-ok">보유 충당 ✔</span>' : ('<span class="j-rent">'+(qy-av)+'개 부족 → 렌탈</span>');
+    return '<tr><td>'+Q(nm)+'</td><td class="n">'+qy+'</td><td class="n">'+av+'</td><td>'+j+'</td>'
+      +'<td class="n"><button class="mini" onclick="npModelClear(\''+QJ(nm)+'\')">×</button></td></tr>';
   }).join('');
   const rentRows=npRent.map((r,i)=>`<tr><td>${Q(r.name)} <span class="pill p-rent">렌탈</span></td><td class="n">${r.qty}</td><td class="n">-</td><td><span class="j-rent">외부 렌탈</span></td><td class="n"><button class="mini" onclick="npRmRent(${i})">×</button></td></tr>`).join('');
   const listPanel=(selRows||rentRows)?`<table><thead><tr><th>준비 품목</th><th class="n">수량</th><th class="n">가용</th><th>판정</th><th class="n">빼기</th></tr></thead><tbody>${selRows}${rentRows}</tbody></table>`
@@ -1155,7 +1194,7 @@ function vPrepNew(){
       <label style="font-size:13px">반납일 <input type="date" id="npDue"></label>
       ${npProj?`<span class="badge">현재 ${curLines}개 라인 있음</span>`:''}
     </div></div>
-    <div class="panel"><div style="font-weight:800;margin-bottom:8px">① 카테고리 → 보유 장비 고르기</div>
+    <div class="panel"><div style="font-weight:800;margin-bottom:8px">① 카테고리 → 보유 장비 고르기 <span style="font-weight:500;font-size:12px;color:var(--sub)">(품목별로 묶어서 수량만 정하면, 어느 개체가 나갈지는 출고 때 정해집니다)</span></div>
       <div class="filt">${catChips}</div>
       <div class="filt"><input type="text" value="${Q(q)}" oninput="q=this.value;renderKeep(this)" placeholder="🔍 장비 검색"></div>
       <div data-scrollbox style="max-height:44vh;overflow:auto;border:1px solid #eee;border-radius:8px;position:relative">
