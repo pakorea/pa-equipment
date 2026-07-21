@@ -292,6 +292,34 @@ function calPrev(){ calMonth=_mShift(calMonth,-1); render(); }
 function calNext(){ calMonth=_mShift(calMonth,1); render(); }
 function selectCal(name){ calSel=(calSel===name?null:name); render(); }
 function calGoProj(name){ curProj=name; stage='prep'; view='proj'; window.scrollTo(0,0); render(); }
+function crewPanelHTML(name){
+  var cs=name.replace(/'/g,'');
+  var list=crew[name]||[];
+  var kc={'대표':'#b06a2c','직원':'#2f6db0','프리랜서':'#1f7a52'};
+  var chips=list.map(function(c,i){
+    var who=(c.name||c.email||'');
+    var em=c.email?('<span style="font-size:10px;color:#999"> '+Q(c.email)+'</span>'):'';
+    var rr=c.role?(' · '+Q(c.role)):'';
+    return '<span style="display:inline-flex;align-items:center;gap:6px;background:#fff;border:1px solid '+(kc[c.kind]||'#ccc')+';border-radius:999px;padding:4px 11px;margin:3px;font-size:12.5px"><b style="color:'+(kc[c.kind]||'#333')+'">'+Q(c.kind||'')+'</b> '+Q(who)+rr+em+' <button onclick="delCrew(\''+QJ(cs)+'\','+i+')" style="border:none;background:none;color:#b23b25;cursor:pointer;font-size:12px">✕</button></span>';
+  }).join('');
+  var empty=list.length?'':'<span style="color:#bbb;font-size:13px">아직 배치된 인원이 없습니다.</span>';
+  var users=(window.__srvUsers||[]);
+  var opts='<option value="">— 명단에서 사람 선택 —</option>'+users.map(function(u){
+    return '<option value="'+Q(u.email)+'">'+Q(u.name||u.email)+' ('+Q(u.role||'프리랜서')+')</option>';
+  }).join('');
+  return '<div style="margin:1px 0 10px 24px;padding:12px 15px;background:#f6faff;border:1px solid #d7e3f1;border-radius:10px">'
+    +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px">'
+    +'<div style="font-weight:800;font-size:13px">👥 배치 인원 <span style="font-size:12px;color:var(--sub)">('+list.length+'명)</span></div>'
+    +'<button onclick="calGoProj(\''+QJ(cs)+'\')" style="border:1px solid #2f6db0;background:#eaf2fb;color:#2f6db0;border-radius:7px;padding:5px 13px;font-weight:700;cursor:pointer;font-size:12px">📁 이 프로젝트 상세 열기 →</button></div>'
+    +'<div style="margin-bottom:11px">'+chips+empty+'</div>'
+    +'<div style="display:flex;gap:7px;flex-wrap:wrap;align-items:center">'
+    +'<select id="cPick" style="padding:6px 9px;border:1px solid #cfc8b8;border-radius:7px;font-size:13px;min-width:240px">'+opts+'</select>'
+    +'<input id="cRole" placeholder="담당 (예: 조명·장비준비)" style="padding:6px 9px;border:1px solid #cfc8b8;border-radius:7px;font-size:13px;width:180px">'
+    +'<button onclick="addCrew()" style="border:none;background:#2f6db0;color:#fff;border-radius:7px;padding:6px 14px;font-weight:700;cursor:pointer;font-size:13px">＋ 배치 추가</button>'
+    +'<button onclick="loadUsers()" style="border:1px solid #ccc;background:#fff;border-radius:7px;padding:6px 12px;cursor:pointer;font-size:12px">🔄 명단</button>'
+    +'</div>'
+    +'<div style="font-size:11.5px;color:#999;margin-top:7px">＊명단에서 고른 <b>계정</b>으로 배정됩니다. 배정된 사람만 프리랜서 화면에서 이 프로젝트를 봅니다.</div></div>';
+}
 function addCrew(){
   if(!calSel)return;
   var sel=document.getElementById('cPick'); var em=sel?sel.value:'';
