@@ -564,7 +564,7 @@ function vCal(){
 }
 
 // ===== 📊 재고 (열 고르기 + 자동계산) =====
-const INVC=[['id','EQ_NO'],['cat','카테고리'],['brand','브랜드'],['name','품목명'],['own','보유'],['rs','실재고'],['use','사용 프로젝트'],['rent','대여'],['loc','위치'],['vendor','렌탈가능업체'],['check','점검날짜']];
+const INVC=[['id','EQ_NO'],['edited','수정정보'],['cat','카테고리'],['brand','브랜드'],['name','품목명'],['own','보유'],['rs','실재고'],['use','사용 프로젝트'],['rent','대여'],['loc','위치'],['vendor','렌탈가능업체'],['check','점검날짜']];
 let invOn=LS('pa_v3_invcols',{id:1,cat:1,brand:1,name:1,own:1,rs:1,use:1,rent:1,loc:1,vendor:1,check:0});
 if(invOn.use===undefined)invOn.use=1;
 function invToggle(k){ invOn[k]=invOn[k]?0:1; LSs('pa_v3_invcols',invOn); render(); }
@@ -622,6 +622,31 @@ function invUseModal(){
 function goProject(nm){ curProj=nm; stage='prep'; view='proj'; window.__useId=null; window.scrollTo(0,0); render(); }
  function openUse(id){ window.__useId=id; render(); }
 
+
+// ===== 누가 언제 고쳤는지 =====
+var srvMeta={eq:{},src:{},rep:{}};
+function _fmtWhen(t){ if(!t)return ''; var d=new Date(t); if(isNaN(d))return String(t).slice(0,16);
+  var p=function(n){return String(n).padStart(2,'0');};
+  return String(d.getFullYear()).slice(2)+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes()); }
+function _who(e){ if(!e)return ''; if(e==='최초등록'||e==='시스템')return e;
+  var u=(window.__srvUsers||[]).find(function(x){return (x.email||'').toLowerCase()===String(e).toLowerCase();});
+  return u&&u.name? u.name : String(e).split('@')[0]; }
+function metaOf(kind,key){ var m=srvMeta[kind]&&srvMeta[kind][key]; return m||null; }
+function metaText(kind,key){ var m=metaOf(kind,key); if(!m)return '';
+  return _fmtWhen(m.t)+(m.w?(' · '+_who(m.w)):''); }
+function metaCell(kind,key){ var t=metaText(kind,key);
+  return t? '<span style="font-size:11px;color:#999" title="마지막으로 고친 시각과 사람">'+Q(t)+'</span>' : '<span style="color:#ddd">-</span>'; }
+async function sbLoadMeta(){
+  if(!serverOn) return;
+  try{
+    var a=await sbT('equipment').select('Item_ID,수정시각,수정자');
+    if(!a.error){ srvMeta.eq={}; (a.data||[]).forEach(function(r){ srvMeta.eq[r['Item_ID']]={t:r['수정시각'],w:r['수정자']}; }); }
+    var b=await sbT('sourcing').select('라인ID,수정시각,수정자');
+    if(!b.error){ srvMeta.src={}; (b.data||[]).forEach(function(r){ srvMeta.src[r['라인ID']]={t:r['수정시각'],w:r['수정자']}; }); }
+    var c=await sbT('repair').select('수리ID,수정시각,수정자');
+    if(!c.error){ srvMeta.rep={}; (c.data||[]).forEach(function(r){ srvMeta.rep[r['수리ID']]={t:r['수정시각'],w:r['수정자']}; }); }
+  }catch(e){}
+}
 // ===== 재고현황: 품목(모델)별 묶음 =====
 function invGroupRows(){
   var g={};
@@ -716,7 +741,7 @@ function vInv(){
       if(all.length>1) h+=' <a style="cursor:pointer;color:#888;font-size:11px" onclick="openUse(\''+QJ(x.id)+'\')">＋'+(all.length-1)+'건</a>';
       return h; },
     rent:x=>x.rs>0?'<span class="pill p-ok">Y</span>':'<span class="pill p-zero">N</span>',
-    loc:x=>Q(ev(x.e,E.loc)),vendor:x=>Q(ev(x.e,E.vendor)),check:x=>Q(E.check>=0?ev(x.e,E.check):'')};
+    loc:x=>Q(ev(x.e,E.loc)),vendor:x=>Q(ev(x.e,E.vendor)),check:x=>Q(E.check>=0?ev(x.e,E.check):''),edited:x=>metaCell('eq',x.id)};
   const cols=INVC.filter(c=>invOn[c[0]]);
   const chips=INVC.map(c=>`<span class="chip ${invOn[c[0]]?'on':''}" onclick="invToggle('${c[0]}')">${invOn[c[0]]?'✓ ':''}${c[1]}</span>`).join('');
   const thead=cols.map(c=>`<th>${c[1]}</th>`).join('');
@@ -844,6 +869,7 @@ function vRep(){
       +'<td>'+ip(id,RC.own,'비용귀속','100px')+'</td>'
       +'<td class="n">'+ip(id,RC.done,'YY-MM-DD','100px')+'</td>'
       +'<td>'+ip(id,RC.note,'비고')+'</td>'
+      +'<td>'+metaCell('rep',id)+'</td>'
       +'<td class="n"><button onclick="repDel(\''+QJ(id)+'\')" style="border:none;background:none;color:#b23b25;cursor:pointer;font-size:14px">✕</button></td></tr>';
   }).join('');
   var pendRows=pend.map(function(x){
@@ -863,8 +889,8 @@ function vRep(){
     +'<div class="filt">'+chips+'</div>'
     +'<div class="panel"><table style="font-size:12.5px"><thead><tr>'
       +'<th>수리ID</th><th>프로젝트</th><th>품목명</th><th>EQ_NO</th><th>진행상태</th><th>증상 / 수리내용</th>'
-      +'<th>수리업체</th><th class="n">수리비용</th><th>결제방법</th><th>비용귀속</th><th class="n">완료일</th><th>비고</th><th class="n">삭제</th>'
-      +'</tr></thead><tbody>'+(body||'<tr><td colspan="13" style="color:#bbb;padding:12px">해당하는 이력이 없습니다.</td></tr>')+'</tbody></table></div>';
+      +'<th>수리업체</th><th class="n">수리비용</th><th>결제방법</th><th>비용귀속</th><th class="n">완료일</th><th>비고</th><th>마지막 수정</th><th class="n">삭제</th>'
+      +'</tr></thead><tbody>'+(body||'<tr><td colspan="14" style="color:#bbb;padding:12px">해당하는 이력이 없습니다.</td></tr>')+'</tbody></table></div>';
 }
 
 // ===== 🗂 장비 마스터 (편집) =====
@@ -904,6 +930,10 @@ function mstDelete(){
     save(); mstSel=null; render();
   }
 }
+function mstEditedLine(id){
+  var t=metaText('eq',id);
+  return t? '<div style="font-size:12px;color:#7a7263;background:#f7f5ef;border-radius:8px;padding:7px 11px;margin-bottom:9px">🕘 마지막 수정 <b>'+Q(t)+'</b></div>' : '';
+}
 function mstModal(){
   if(!mstSel)return '';
   const isNew=mstSel==='__new__';
@@ -919,14 +949,14 @@ function mstModal(){
   }).join('');
   return `<div class="modal-bg" onclick="if(event.target===this)mstClose()"><div class="modal">
     <h3>${isNew?'＋ 새 장비 추가':'✏️ '+Q(mstSel)+' 편집'}</h3>
-    ${isNew?'<div style="font-size:12.5px;color:#888;margin-bottom:6px">카테고리를 고르면 EQ_NO가 자동으로 붙습니다 (그 카테고리 맨 끝 번호+1)</div>':''}
+    ${isNew?'<div style="font-size:12.5px;color:#888;margin-bottom:6px">카테고리를 고르면 EQ_NO가 자동으로 붙습니다 (그 카테고리 맨 끝 번호+1)</div>':mstEditedLine(mstSel)}
     ${fld}
     <div class="mbtns"><button class="primary" onclick="mstSave()">💾 저장</button>
     ${isNew?'':'<button class="danger" onclick="mstDelete()">🗑 삭제</button>'}
     <button onclick="mstClose()">닫기</button></div>
   </div></div>`;
 }
-const MSTC=[['id','EQ_NO'],['cat','카테고리'],['sub','서브'],['brand','브랜드'],['name','품목명'],['own','보유'],['serial','시리얼'],['loc','위치'],['price','단가'],['check','점검날짜'],['special','특이사항']];
+const MSTC=[['id','EQ_NO'],['edited','수정정보'],['cat','카테고리'],['sub','서브'],['brand','브랜드'],['name','품목명'],['own','보유'],['serial','시리얼'],['loc','위치'],['price','단가'],['check','점검날짜'],['special','특이사항']];
 let mstOn=LS('pa_v3_mstcols',{id:1,cat:1,sub:1,brand:1,name:1,own:1,serial:1,loc:1,price:1,check:1,special:1});
 function mstColToggle(k){ mstOn[k]=mstOn[k]?0:1; LSs('pa_v3_mstcols',mstOn); render(); }
 
@@ -952,14 +982,14 @@ function unitsModal(){
                  : ('<span class="pill p-ok">보관</span> <span style="font-size:11px;color:#888">'+Q(ev(e,E.loc)||'위치 미기재')+'</span>');
     return '<tr'+(isReadOnly()?'':' class="rowck" onclick="unitOf=null;mstEdit(\''+QJ(id)+'\')"')+'>'
       +'<td>'+Q(id)+'</td><td>'+Q(ev(e,E.serial)||'-')+'</td><td class="n">'+Q(ev(e,E.own))+'</td>'
-      +'<td class="n">'+rs+'</td><td>'+where+'</td><td>'+Q(ev(e,E.special)||'')+'</td></tr>';
+      +'<td class="n">'+rs+'</td><td>'+where+'</td><td>'+Q(ev(e,E.special)||'')+'</td><td>'+metaCell('eq',id)+'</td></tr>';
   }).join('');
   var tot=us.reduce(function(a,e){return a+num(ev(e,E.own));},0);
   var outN=us.filter(function(e){return unitOut(e[E.id]);}).length;
   return '<div class="modal-bg" onclick="if(event.target===this)closeUnits()"><div class="modal" style="max-width:760px">'
    +'<h3>'+Q(unitOf)+'</h3>'
    +'<div style="font-size:13px;color:#666;margin-bottom:8px">개체 '+us.length+'대 · 총 보유 '+tot+' · 출고중 '+outN+' '+(isReadOnly()?'<span style="color:#999">(재고 현황은 보기 전용입니다)</span>':'<span style="color:#999">(줄을 클릭하면 그 개체를 수정합니다)</span>')+'</div>'
-   +'<div style="max-height:56vh;overflow:auto"><table><thead><tr><th>EQ_NO</th><th>시리얼</th><th class="n">보유</th><th class="n">실재고</th><th>현재 위치/상태</th><th>특이사항</th></tr></thead><tbody>'+rows+'</tbody></table></div>'
+   +'<div style="max-height:56vh;overflow:auto"><table><thead><tr><th>EQ_NO</th><th>시리얼</th><th class="n">보유</th><th class="n">실재고</th><th>현재 위치/상태</th><th>특이사항</th><th>마지막 수정</th></tr></thead><tbody>'+rows+'</tbody></table></div>'
    +'<div class="mbtns"><button class="primary" onclick="closeUnits()">닫기</button></div></div></div>';
 }
 function vMst(){
@@ -1002,7 +1032,7 @@ function vMst(){
       +unitsModal()+mstModal()+matModal();
   }
   const rows=eqRows().filter(e=>{ if(!q)return true; const h=(ev(e,E.name)+' '+ev(e,E.cat)+' '+ev(e,E.brand)+' '+e[E.id]).toLowerCase(); return h.includes(q.toLowerCase()); });
-  const cell={id:e=>Q(e[E.id]),cat:e=>Q(ev(e,E.cat)),sub:e=>Q(ev(e,E.sub)),brand:e=>Q(ev(e,E.brand)),name:e=>Q(ev(e,E.name)),own:e=>Q(ev(e,E.own)),serial:e=>Q(ev(e,E.serial)),loc:e=>Q(ev(e,E.loc)),price:e=>Q(ev(e,E.price)),check:e=>Q(E.check>=0?ev(e,E.check):''),special:e=>Q(ev(e,E.special))};
+  const cell={id:e=>Q(e[E.id]),cat:e=>Q(ev(e,E.cat)),sub:e=>Q(ev(e,E.sub)),brand:e=>Q(ev(e,E.brand)),name:e=>Q(ev(e,E.name)),own:e=>Q(ev(e,E.own)),serial:e=>Q(ev(e,E.serial)),loc:e=>Q(ev(e,E.loc)),price:e=>Q(ev(e,E.price)),check:e=>Q(E.check>=0?ev(e,E.check):''),special:e=>Q(ev(e,E.special)),edited:e=>metaCell('eq',e[E.id])};
   const cols=MSTC.filter(c=>mstOn[c[0]]);
   const chips=MSTC.map(c=>`<span class="chip ${mstOn[c[0]]?'on':''}" onclick="mstColToggle('${c[0]}')">${mstOn[c[0]]?'✓ ':''}${c[1]}</span>`).join('');
   const body=rows.map(e=>{
@@ -1218,8 +1248,8 @@ function vSrc(){
   var all=allSrc();
   var rows=all.filter(function(r){ if(!q)return true; return (r[S.proj]+' '+r[S.item]+' '+r[S.itemId]+' '+r[S.reqItem]).toLowerCase().includes(q.toLowerCase()); });
   var LIM=300; var shown=rows.slice(0,LIM);
-  var H=SRC.headers.map(function(h){return '<th>'+Q(dispName(h))+'</th>';}).join('');
-  var body=shown.map(function(r){return '<tr>'+SRC.headers.map(function(h,i){return '<td>'+Q(val(r,i))+'</td>';}).join('')+'</tr>';}).join('');
+  var H=SRC.headers.map(function(h){return '<th>'+Q(dispName(h))+'</th>';}).join('')+'<th>마지막 수정</th>';
+  var body=shown.map(function(r){return '<tr>'+SRC.headers.map(function(h,i){return '<td>'+Q(val(r,i))+'</td>';}).join('')+'<td>'+metaCell('src',r[S.line])+'</td></tr>';}).join('');
   var more=rows.length>LIM?('<div class="note-box">전체 '+rows.length+'줄 중 처음 '+LIM+'줄만 표시합니다. 위 검색으로 좁혀 보세요.</div>'):'';
   return '<h2>📋 소싱시트 (원본 전체) <span style="font-size:12px;color:var(--sub)">(53열 · 총 '+all.length+'라인)</span></h2>'+
     '<div class="lead">시스템의 심장. 1줄 = 프로젝트 × 장비 1건. (참고용)</div>'+
@@ -1699,6 +1729,7 @@ async function sbLoadAll(){
     var rp=await sbFetchAll('repair',DB.repair.headers);
     DB.equip.rows=eq; DB.sourcing.rows=sr; DB.projects.rows=pj; DB.repair.rows=rp;
     await sbLoadExtras();
+    await sbLoadMeta();
     eqOv={};eqDel=[];eqAdd=[];projOv={};_matEqCache=null;
     try{localStorage.removeItem('pa_v3_eq');localStorage.removeItem('pa_v3_eqdel');localStorage.removeItem('pa_v3_eqadd');localStorage.removeItem('pa_v3_projst');localStorage.removeItem('pa_v3_crew');}catch(e){}
     _dmg=null;_pdmax=null; serverOn=true;
