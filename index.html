@@ -99,7 +99,7 @@ const S={line:0,proj:1,reqQ:2,reqItem:3,reqNote:4,asgQ:5,item:6,related:7,cat:8,
 const E={id:0,cat:1,sub:2,brand:3,name:4,own:5,realStock:6,rentable:7,alt:8,related:9,altname:10,comp:11,serial:12,loc:13,vendor:14,price:15,studio:16,special:17,purpose:18,buy:19,link:20,check:EQ.headers.indexOf('점검날짜')};
 let srcAdd=LS('pa_v3_srcadd',[]);
 function allSrc(){ return DB.sourcing.rows.concat(srcAdd); }
-let view='proj', edits={}, projFilter=LS('pa_v3_projfilter','전체'), q='', curProj=null, stage='prep';
+let view='src', edits={}, projFilter=LS('pa_v3_projfilter','전체'), q='', curProj=null, stage='prep';
 let _dmg=null, _dmgOrphan=0, _pdmax=null;
 const TODAYKEY=(function(){var d=new Date();return d.getFullYear()*10000+(d.getMonth()+1)*100+d.getDate();})();
 let eqOv={}, eqDel=[], eqAdd=[], mstSel=null, buyView='new', holdKey='', people={};
@@ -1397,7 +1397,7 @@ function vPrepAll(){
   return `<h2>📦 준비 (전체 프로젝트)</h2><div class="lead">모든 프로젝트의 준비를 한 화면에서. 품목의 <b>🔗 연관장비</b>를 누르면 챙길 목록이 뜹니다.</div>${stageFilter()}${body||'<div class="panel">라인 없음</div>'}${relModal()}`;
 }
 
-const ALLTABS=[['prepNew','📦 프로젝트 준비'],['src','📋 소싱시트'],['proj','📁 프로젝트'],['cal','📅 캘린더'],['inv','📊 재고 현황'],['rep','🔧 파손·이력'],['mst','🗂 장비 마스터'],['bg','🎨 LEE FILTER · SAVAGE'],['buy','🧾 매입내역'],['mem','👥 명단']];
+const ALLTABS=[['src','📋 소싱시트'],['prepNew','📦 프로젝트 준비'],['proj','📁 프로젝트'],['cal','📅 캘린더'],['inv','📊 재고 현황'],['rep','🔧 파손·이력'],['mst','🗂 장비 마스터'],['bg','🎨 LEE FILTER · SAVAGE'],['buy','🧾 매입내역'],['mem','👥 명단']];
 const FREE_TABS=['proj','cal'];
 const MEMBERS_DEFAULT=[
  {email:'parklife992@gmail.com',name:'박성준',pw:'2023',role:'관리자'},
