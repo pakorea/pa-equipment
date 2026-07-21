@@ -824,10 +824,11 @@ render();
 (function(){
   var c=sbClient(); if(!c) return;
   c.auth.getSession().then(function(r){
-    var sess=r&&r.data&&r.data.session; if(!sess) return;
+    var sess=r&&r.data&&r.data.session; if(!sess||window.__paBooting) return; window.__paBooting=true;
     sbUser=sess.user; var em=(sbUser.email||'').toLowerCase();
     sbMsg='권한 확인 중…'; render();
     loadRole(em).then(function(info){
+      window.__paBooting=false;
       if(!info){ session=null; ME=''; sbMsg=''; var m2=document.getElementById('main'); if(m2)m2.innerHTML=noAccessHTML(em); 
                  var w=document.getElementById('who'); if(w)w.textContent='👤 '+em+' · 미등록';
                  var lgb=document.getElementById('lgoutbtn'); if(lgb)lgb.style.display='';
@@ -836,6 +837,21 @@ render();
       sbLoadAll();
     });
   });
-  c.auth.onAuthStateChange(function(ev,sess){ if(ev==='SIGNED_IN'&&sess){ location.reload(); } });
+  c.auth.onAuthStateChange(function(ev,sess){
+    if(ev!=='SIGNED_IN'||!sess||window.__paBooting) return;
+    window.__paBooting=true;
+    var em=(sess.user.email||'').toLowerCase(); sbUser=sess.user;
+    sbMsg='권한 확인 중…'; render();
+    loadRole(em).then(function(info){
+      window.__paBooting=false;
+      if(!info){ session=null; ME=''; sbMsg='';
+        var m2=document.getElementById('main'); if(m2)m2.innerHTML=noAccessHTML(em);
+        var w=document.getElementById('who'); if(w)w.textContent='👤 '+em+' · 미등록';
+        var lgb=document.getElementById('lgoutbtn'); if(lgb)lgb.style.display='';
+        var nv=document.getElementById('nav'); if(nv)nv.innerHTML=''; return; }
+      session={email:em,name:info.name,role:info.role}; LSs('pa_v3_session',session); ME=em;
+      sbLoadAll();
+    });
+  });
 })();
 </script></body></html>
