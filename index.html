@@ -466,7 +466,7 @@ function vCal(){
 }
 
 // ===== 📊 재고 (열 고르기 + 자동계산) =====
-const INVC=[['id','Item_ID'],['cat','카테고리'],['brand','브랜드'],['name','품목명'],['own','보유'],['rs','실재고'],['use','사용현황'],['rent','대여'],['loc','위치'],['vendor','렌탈가능업체'],['check','점검날짜']];
+const INVC=[['id','Item_ID'],['cat','카테고리'],['brand','브랜드'],['name','품목명'],['own','보유'],['rs','실재고'],['use','사용 프로젝트'],['rent','대여'],['loc','위치'],['vendor','렌탈가능업체'],['check','점검날짜']];
 let invOn=LS('pa_v3_invcols',{id:1,cat:1,brand:1,name:1,own:1,rs:1,use:1,rent:1,loc:1,vendor:1,check:0});
 if(invOn.use===undefined)invOn.use=1;
 function invToggle(k){ invOn[k]=invOn[k]?0:1; LSs('pa_v3_invcols',invOn); render(); }
@@ -512,15 +512,17 @@ function invUseModal(){
   var rows=list.map(function(u){
     var st=u.returned?'<span class="pill p-ok">반납</span>':(u.out&&u.out<=TODAYKEY&&(!u.due||u.due>=TODAYKEY)?'<span class="pill p-warn">대여중</span>':'<span class="pill p-zero">예정/종료</span>');
     function f(n){ return n? (String(n).slice(0,4)+'-'+String(n).slice(4,6)+'-'+String(n).slice(6,8)) : '-'; }
-    return '<tr><td>'+Q(u.line)+'<div style="font-size:10.5px;color:#999">'+Q(u.proj)+'</div></td><td class="n">'+u.qty+'</td><td>'+f(u.out)+'</td><td>'+f(u.due)+'</td><td>'+st+'</td></tr>';
+    return '<tr class="rowck" onclick="goProject(\''+QJ(u.proj)+'\')"><td>'+Q(u.line)+'<div style="font-size:10.5px;color:#999">'+Q(u.proj)+'</div></td><td class="n">'+u.qty+'</td><td>'+f(u.out)+'</td><td>'+f(u.due)+'</td><td>'+st+'</td></tr>';
   }).join('');
   return '<div class="modal-bg" onclick="if(event.target===this){window.__useId=null;render();}"><div class="modal" style="max-width:640px">'
    +'<h3>📋 '+Q(e?ev(e,E.name):id)+' <span style="font-size:12px;color:#888">'+Q(id)+'</span></h3>'
-   +'<div style="font-size:13px;color:#666;margin-bottom:8px">이 장비가 들어간 소싱 라인 '+list.length+'건 (완료 프로젝트 포함)</div>'
+   +'<div style="font-size:13px;color:#666;margin-bottom:8px">이 장비가 들어간 소싱 라인 '+list.length+'건 · <b>줄을 클릭하면 그 프로젝트로 이동</b></div>'
    +'<div style="max-height:50vh;overflow:auto"><table><thead><tr><th>라인ID</th><th class="n">수량</th><th>출고</th><th>반납</th><th>상태</th></tr></thead><tbody>'+rows+'</tbody></table></div>'
    +'<div class="mbtns"><button class="primary" onclick="window.__useId=null;render()">닫기</button></div></div></div>';
 }
-function openUse(id){ window.__useId=id; render(); }
+
+function goProject(nm){ curProj=nm; stage='prep'; view='proj'; window.__useId=null; window.scrollTo(0,0); render(); }
+ function openUse(id){ window.__useId=id; render(); }
 function vInv(){
   const rows=eqRows().map(e=>{ const id=e[E.id]; const rs=realStock(id);
     const cls=rs<=0?'p-zero':(rs<=1?'p-warn':'p-ok');
@@ -529,11 +531,15 @@ function vInv(){
    .filter(x=>{ if(invMode==='out') return invOut(x.id).length>0; if(invMode==='clash') return !!invClash(x.id); return true; });
   const cell={id:x=>Q(x.id),cat:x=>Q(ev(x.e,E.cat)),brand:x=>Q(ev(x.e,E.brand)),name:x=>Q(ev(x.e,E.name)),
     own:x=>`<span class="n">${num(ev(x.e,E.own))}</span>`,rs:x=>`<span class="pill ${x.cls}">${x.rs}</span>`,
-    use:x=>{ var o=invOut(x.id), c=invClash(x.id), n=(invUse()[x.id]||[]).length; var h='';
-      if(o.length) h+='<span class="pill p-warn">대여중 '+o.length+'</span> ';
-      if(c) h+='<span class="pill" style="background:#fbe9e4;color:#a83c28">겹침 '+c.sum+'/'+c.own+'</span> ';
-      if(!h) h='<span style="color:#ccc">-</span> ';
-      return h+(n?'<a style="cursor:pointer;color:var(--accent);font-size:11px" onclick="openUse(\''+QJ(x.id)+'\')">이력'+n+'</a>':''); },
+    use:x=>{ var o=invOut(x.id), c=invClash(x.id);
+      var all=(invUse()[x.id]||[]);
+      var h='';
+      if(o.length){ h+=o.slice(0,2).map(function(u){ return '<a style="cursor:pointer;color:#b1442f;font-weight:700" onclick="goProject(\''+QJ(u.proj)+'\')">🔴 '+Q(u.proj)+'</a>'; }).join(' '); if(o.length>2) h+=' <span style="font-size:11px;color:#888">외 '+(o.length-2)+'</span>'; }
+      if(c) h+=' <span class="pill" style="background:#fbe9e4;color:#a83c28">겹침 '+c.sum+'/'+c.own+'</span>';
+      if(!h){ var recent=all.slice().sort(function(a,b){return (b.out||0)-(a.out||0);})[0];
+        h = recent? '<a style="cursor:pointer;color:var(--accent)" onclick="goProject(\''+QJ(recent.proj)+'\')">'+Q(recent.proj)+'</a>' : '<span style="color:#ccc">-</span>'; }
+      if(all.length>1) h+=' <a style="cursor:pointer;color:#888;font-size:11px" onclick="openUse(\''+QJ(x.id)+'\')">＋'+(all.length-1)+'건</a>';
+      return h; },
     rent:x=>x.rs>0?'<span class="pill p-ok">Y</span>':'<span class="pill p-zero">N</span>',
     loc:x=>Q(ev(x.e,E.loc)),vendor:x=>Q(ev(x.e,E.vendor)),check:x=>Q(E.check>=0?ev(x.e,E.check):'')};
   const cols=INVC.filter(c=>invOn[c[0]]);
