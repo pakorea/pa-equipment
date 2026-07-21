@@ -97,7 +97,7 @@ const S={line:0,proj:1,reqQ:2,reqItem:3,reqNote:4,asgQ:5,item:6,related:7,cat:8,
 const E={id:0,cat:1,sub:2,brand:3,name:4,own:5,realStock:6,rentable:7,alt:8,related:9,altname:10,comp:11,serial:12,loc:13,vendor:14,price:15,studio:16,special:17,purpose:18,buy:19,link:20,check:EQ.headers.indexOf('점검날짜')};
 let srcAdd=LS('pa_v3_srcadd',[]);
 function allSrc(){ return DB.sourcing.rows.concat(srcAdd); }
-let view='proj', edits={}, projFilter='활성', q='', curProj=null, stage='prep';
+let view='proj', edits={}, projFilter=LS('pa_v3_projfilter','전체'), q='', curProj=null, stage='prep';
 let _dmg=null, _dmgOrphan=0, _pdmax=null;
 const TODAYKEY=(function(){var d=new Date();return d.getFullYear()*10000+(d.getMonth()+1)*100+d.getDate();})();
 let eqOv={}, eqDel=[], eqAdd=[], mstSel=null, buyView='new', holdKey='', people={};
@@ -146,6 +146,7 @@ function activeLines(){
   return allSrc().filter(r=>{
     if((val(r,S.status)||'').toString().toLowerCase()==='remove')return false;
     if(projFilter==='활성' && projStatus(r[S.proj])==='완료')return false;
+    if(projFilter==='완료' && projStatus(r[S.proj])!=='완료')return false;
     if(q){ const hay=(r[S.proj]+' '+r[S.item]+' '+r[S.itemId]+' '+r[S.reqItem]).toLowerCase(); if(!hay.includes(q.toLowerCase()))return false; }
     return true;
   });
@@ -165,11 +166,19 @@ function pDate(x){ if(!x)return null; var s=(''+x).trim().replace(/[.\/]/g,'-');
   if(m){var y=+m[1]; if(y<100)y+=2000; return Math.floor(new Date(y,+m[2]-1,+m[3]).getTime()/86400000);}
   m=s.match(/^(\d{2})(\d{2})(\d{2})$/); if(m){return Math.floor(new Date(2000+ +m[1],+m[2]-1,+m[3]).getTime()/86400000);}
   return null; }
+function setProjFilter(v){ projFilter=v; try{localStorage.setItem('pa_v3_projfilter',JSON.stringify(v));}catch(e){} render(); }
+function _projCount(f){
+  var ps=[...new Set(allSrc().filter(function(r){return (val(r,S.status)||'').toString().toLowerCase()!=='remove';}).map(function(r){return r[S.proj];}))];
+  if(f==='활성') return ps.filter(function(p){return projStatus(p)!=='완료';}).length;
+  if(f==='완료') return ps.filter(function(p){return projStatus(p)==='완료';}).length;
+  return ps.length;
+}
 function stageFilter(){
   return `<div class="filt">
     <input type="text" value="${Q(q)}" oninput="q=this.value;renderKeep(this)" placeholder="🔍 프로젝트·품목·Item_ID 검색">
-    <span class="chip ${projFilter==='활성'?'on':''}" onclick="projFilter='활성';render()">활성 프로젝트만</span>
-    <span class="chip ${projFilter==='전체'?'on':''}" onclick="projFilter='전체';render()">완료 포함</span>
+    <span class="chip ${projFilter==='전체'?'on':''}" onclick="setProjFilter('전체')">전체 (${_projCount('전체')})</span>
+    <span class="chip ${projFilter==='활성'?'on':''}" onclick="setProjFilter('활성')">진행중만 (${_projCount('활성')})</span>
+    <span class="chip ${projFilter==='완료'?'on':''}" onclick="setProjFilter('완료')">완료만 (${_projCount('완료')})</span>
   </div>`;
 }
 function renderKeep(el){ const p=el.selectionStart; render(); const n=document.querySelector('input[type=text]'); if(n){n.focus();try{n.setSelectionRange(p,p);}catch(e){}} }
@@ -220,7 +229,7 @@ async function delLine(line){
 }
 function addEqModal(){
   if(!addEqOpen||!curProj) return '';
-  var cats=[...new Set(eqRows().map(function(r){return ev(r,E.cat);}).filter(Boolean))];
+  var cats=catSort([...new Set(eqRows().map(function(r){return ev(r,E.cat);}).filter(Boolean))]);
   var chips='<span class="chip '+(addEqCat===''?'on':'')+'" onclick="addEqCat=\'\';render()">전체</span>'
     +cats.map(function(c){ return '<span class="chip '+(addEqCat===c?'on':'')+'" onclick="addEqCat=\''+QJ(c)+'\';render()">'+Q(c)+'</span>'; }).join('');
   var list=eqRows().filter(function(e){
@@ -229,8 +238,8 @@ function addEqModal(){
     return true; }).slice(0,300);
   var rows=list.map(function(e){
     var rs=realStock(e[E.id]);
-    return '<tr><td>'+Q(ev(e,E.name))+' <span style="font-size:11px;color:#999">'+Q(ev(e,E.cat))+'</span></td>'
-      +'<td class="n">'+Q(e[E.id])+'</td>'
+    return '<tr><td class="n" style="font-family:ui-monospace,monospace;font-size:11px">'+Q(e[E.id])+'</td>'
+      +'<td>'+Q(ev(e,E.name))+' <span style="font-size:11px;color:#999">'+Q(ev(e,E.cat))+'</span></td>'
       +'<td class="n"><span class="pill '+(rs<=0?'p-zero':(rs<=1?'p-warn':'p-ok'))+'">'+rs+'</span></td>'
       +'<td class="n"><button onclick="addEqToProj(\''+QJ(e[E.id])+'\')" style="background:var(--accent);color:#fff;border:none;border-radius:6px;padding:4px 12px;font-weight:700;cursor:pointer;font-size:12px">＋ 추가</button></td></tr>';
   }).join('');
@@ -238,7 +247,7 @@ function addEqModal(){
    +'<h3>＋ 장비 추가 — '+Q(curProj)+'</h3>'
    +'<div class="filt"><input value="'+Q(addEqQ)+'" oninput="addEqQ=this.value;render()" placeholder="🔍 장비 검색" style="min-width:220px"></div>'
    +'<div class="filt" style="max-height:70px;overflow:auto">'+chips+'</div>'
-   +'<div style="max-height:46vh;overflow:auto"><table><thead><tr><th>장비</th><th class="n">Item_ID</th><th class="n">가용</th><th class="n">추가</th></tr></thead><tbody>'+rows+'</tbody></table></div>'
+   +'<div style="max-height:46vh;overflow:auto"><table><thead><tr><th class="n">Item_ID</th><th>장비</th><th class="n">가용</th><th class="n">추가</th></tr></thead><tbody>'+rows+'</tbody></table></div>'
    +'<div class="mbtns"><button class="primary" onclick="closeAddEq()">닫기</button></div></div></div>';
 }
 function prepTable(rows){
@@ -405,7 +414,9 @@ function setStage(sg){stage=sg;render();}
 function vProj(){
   if(curProj)return vProjDetail();
   const lines=activeLines(); const g=groupByProj(lines);
-  const cards=Object.keys(g).map(pj=>{
+  const _key=function(p){ var rs=allSrc().filter(function(r){return r[S.proj]===p;});
+    var ds=rs.map(function(r){return val(r,S.out)||'';}).filter(Boolean).sort(); return ds.length?ds[ds.length-1]:''; };
+  const cards=Object.keys(g).sort(function(a,b){ var ka=_key(a),kb=_key(b); if(ka===kb) return a<b?1:-1; return ka<kb?1:-1; }).map(pj=>{
     const rs=g[pj];
     const pd=rs.filter(r=>val(r,S.prepSt)==='준비완료').length;
     const wd=rs.filter(r=>val(r,S.wrapSt)==='랩업완료').length;
@@ -454,6 +465,7 @@ function _projList(){
   const lines=allSrc().filter(r=>(val(r,S.status)||'').toString().toLowerCase()!=='remove');
   let projs=[...new Set(lines.map(r=>r[S.proj]))];
   if(projFilter==='활성') projs=projs.filter(p=>projStatus(p)!=='완료');
+  if(projFilter==='완료') projs=projs.filter(p=>projStatus(p)==='완료');
   const key=d=>d.y*10000+d.mo*100+d.d;
   return projs.map(pj=>{
     const rs=lines.filter(r=>r[S.proj]===pj);
@@ -509,7 +521,7 @@ function addCrew(){
 }
 function vCal(){
   const projs=_projList();
-  if(!projs.length) return `<h2>📅 프로젝트 캘린더</h2><div class="lead">날짜 있는 프로젝트가 없습니다.</div>`;
+  if(!projs.length) return `<h2>📅 프로젝트 캘린더</h2><div class="lead">지금 필터(<b>${Q(projFilter)}</b>)에 <b>출고일이 들어간 프로젝트가 없습니다.</b> 위 프로젝트 탭에서 필터를 <b>전체</b>로 바꾸거나, 프로젝트 수정에서 기간을 넣어주세요.</div>${stageFilter()}`;
   if(!calMonth){ let mx=''; projs.forEach(x=>{const ks=x.o.y+'-'+String(x.o.mo).padStart(2,'0'); if(ks>mx)mx=ks;}); calMonth=mx; }
   const parts=calMonth.split('-').map(Number), cy=parts[0], cm=parts[1];
   const dim=new Date(cy,cm,0).getDate();
@@ -1136,7 +1148,11 @@ let npProj='', npSel={}, npRent=[], npCat='';
 function npProjects(){ const a=[...new Set(allSrc().map(r=>r[S.proj]).filter(Boolean))]; PROJ.rows.forEach(p=>{ if(a.indexOf(p[0])<0)a.push(p[0]); }); return a; }
 function setNpProj(v){ npProj=v; render(); }
 function newProject(){ const nm=prompt('새 프로젝트 이름 (예: 260720_클라이언트명_포토그래퍼)'); if(nm&&nm.trim()){ npProj=nm.trim(); render(); } }
-function npCats(){ return [...new Set(eqRows().map(r=>ev(r,E.cat)).filter(Boolean))]; }
+function catSort(list){
+  var key=function(c){ var m=String(c||'').match(/^(\d+)(?:-(\d+))?/); return m? (parseInt(m[1],10)*100+(m[2]?parseInt(m[2],10):0)) : 99999; };
+  return list.slice().sort(function(a,b){ var ka=key(a),kb=key(b); return ka!==kb? ka-kb : (a<b?-1:1); });
+}
+function npCats(){ return catSort([...new Set(eqRows().map(r=>ev(r,E.cat)).filter(Boolean))]); }
 function npAdd(id,d){ const v=Math.max(0,(npSel[id]||0)+d); if(v)npSel[id]=v; else delete npSel[id]; render(); }
 function npSet(id,v){ const n=Math.max(0,parseInt(v)||0); if(n)npSel[id]=n; else delete npSel[id]; render(); }
 function npAddRent(){ const nm=document.getElementById('npRentName').value.trim(); const q=Math.max(1,parseInt(document.getElementById('npRentQty').value)||1); if(!nm){alert('렌탈 품목 이름을 넣어주세요');return;} npRent.push({name:nm,qty:q}); render(); }
@@ -1253,12 +1269,13 @@ function npMatRows(){
       if(q && lab.toLowerCase().indexOf(q.toLowerCase())<0) return;
       var av=num(matQty(k,ri)); var key=npMatKey(k,ri); var sel=npMat[key]||0;
       var cls=av<=0?'p-zero':(av<=1?'p-warn':'p-ok');
-      out+='<tr style="background:#fbfaf5"><td>'+Q(nm)+' <span style="color:#aaa;font-size:11px">· '+MAT[k].label+'</span>'
-        +(matNeed(k,ri)?' <span class="pill p-warn">구매필요</span>':'')+'</td>'
+      out+='<tr style="background:#fbfaf5">'
         +'<td class="n" style="font-family:ui-monospace,monospace;font-size:11px">'+Q(matCode(k,ri))+(matNo(k,ri)?'<br><span style="color:#aaa;font-size:10px">구매넘버 '+Q(matNo(k,ri))+'</span>':'')+'</td>'
+        +'<td>'+Q(nm)+' <span style="color:#aaa;font-size:11px">· '+MAT[k].label+'</span>'
+        +(matNeed(k,ri)?' <span class="pill p-warn">구매필요</span>':'')+'</td>'
         +'<td class="n"><span class="pill '+cls+'">'+av+'</span></td>'
         +'<td class="n" style="white-space:nowrap"><button class="mini" onclick="npMatAdd(\''+k+'\','+ri+',-1)">−</button>'
-        +'<input type="number" min="0" value="'+sel+'" style="width:52px;text-align:center" onchange="npMatSet(\''+k+'\','+ri+',this.value)">'
+        +'<input id="npm_'+k+'_'+ri+'" type="number" min="0" value="'+sel+'" style="width:52px;text-align:center" onchange="npMatSet(\''+k+'\','+ri+',this.value)">'
         +'<button class="mini" onclick="npMatAdd(\''+k+'\','+ri+',1)">＋</button></td></tr>';
     });
   });
@@ -1269,8 +1286,8 @@ function vPrepNew(){
   const opts='<option value="">프로젝트 선택…</option>'+projs.map(p=>`<option ${p===npProj?'selected':''}>${Q(p)}</option>`).join('');
   const curLines=npProj?allSrc().filter(r=>r[S.proj]===npProj).length:0;
   const catChips=['<span class="chip '+(npCat===''?'on':'')+'" onclick="npCat=\'\';render()">전체</span>'].concat(
-    ['<span class="chip '+(npCat==='__MAT__'?'on':'')+'" onclick="npCat=\'__MAT__\';render()">LEE FILTER · SAVAGE</span>'],
-    npCats().map(c=>`<span class="chip ${npCat===c?'on':''}" onclick="npCat='${QJ(c)}';render()">${Q(c)}</span>`)).join('');
+    npCats().map(c=>`<span class="chip ${npCat===c?'on':''}" onclick="npCat='${QJ(c)}';render()">${Q(c)}</span>`),
+    ['<span class="chip '+(npCat==='__MAT__'?'on':'')+'" onclick="npCat=\'__MAT__\';render()">11. LEE FILTER · SAVAGE</span>']).join('');
   var _g={};
   eqRows().forEach(function(e){
     if(npCat==='__MAT__') return;
@@ -1286,9 +1303,9 @@ function vPrepNew(){
     var cls=av<=0?'p-zero':(av<=1?'p-warn':'p-ok');
     var codes=us.map(function(e){return e[E.id];});
     var codeTxt = codes.length>1 ? (Q(codes[0])+' <span style="color:#aaa;font-size:10.5px">외 '+(codes.length-1)+'</span>') : Q(codes[0]);
-    return '<tr><td>'+Q(nm)+(us.length>1?' <span class="pill" style="background:#eaf1f9;color:#2f6db0">'+us.length+'대</span>':'')
+    return '<tr><td class="n" style="font-family:ui-monospace,monospace;font-size:11px">'+codeTxt+'</td>'
+      +'<td>'+Q(nm)+(us.length>1?' <span class="pill" style="background:#eaf1f9;color:#2f6db0">'+us.length+'대</span>':'')
       +' <span style="color:#aaa;font-size:11px">· '+Q(ev(e0,E.cat))+'</span></td>'
-      +'<td class="n" style="font-family:ui-monospace,monospace;font-size:11px">'+codeTxt+'</td>'
       +'<td class="n"><span class="pill '+cls+'">'+av+'</span></td>'
       +'<td class="n" style="white-space:nowrap"><button class="mini" onclick="npModelAdd(\''+QJ(nm)+'\',-1)">−</button>'
       +'<input id="npq_'+QJ(nm)+'" type="number" min="0" value="'+sel+'" style="width:52px;text-align:center" onchange="npModelSet(\''+QJ(nm)+'\',this.value)">'
@@ -1328,7 +1345,7 @@ function vPrepNew(){
       <div class="filt">${catChips}</div>
       <div class="filt"><input type="text" value="${Q(q)}" oninput="q=this.value;renderKeep(this)" placeholder="🔍 장비 검색"></div>
       <div data-scrollbox style="max-height:44vh;overflow:auto;border:1px solid #eee;border-radius:8px;position:relative">
-      <table><thead><tr><th>장비</th><th class="n">Item_ID</th><th class="n">가용</th><th class="n">선택 수량</th></tr></thead><tbody>${matPick}${invRows}</tbody></table></div></div>
+      <table><thead><tr><th class="n">Item_ID</th><th>장비</th><th class="n">가용</th><th class="n">선택 수량</th></tr></thead><tbody>${matPick}${invRows}</tbody></table></div></div>
     <div class="panel"><div style="font-weight:800;margin-bottom:8px">② 준비 리스트 (고른 것 + 렌탈)</div>
       ${listPanel}
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px">
@@ -1560,14 +1577,24 @@ function sbBanner(){
 function go(v){view=v;q='';curProj=null;mstSel=null;relLine=null; if((v==='mem'||v==='cal')&&serverOn)loadUsers();window.scrollTo(0,0);render();}
 function render(){
   var __sc=null, __el=document.querySelector('.panel');
-  try{ __sc={w:window.scrollY||0, p:(__el?__el.scrollTop:0), f:(document.activeElement&&document.activeElement.id)||''}; }catch(e){}
+  try{
+    var __boxes=[].slice.call(document.querySelectorAll('[data-scrollbox]')).map(function(b){return b.scrollTop;});
+    var __mod=document.querySelector('.modal'); 
+    var __ae=document.activeElement;
+    __sc={w:window.scrollY||0, p:(__el?__el.scrollTop:0), boxes:__boxes, mod:(__mod?__mod.scrollTop:0),
+          f:(__ae&&__ae.id)||'', sel:(__ae&&__ae.selectionStart!=null)?__ae.selectionStart:null};
+  }catch(e){}
   try{ _render(); }catch(e){ showErr(e); return; }
   try{
     if(__sc){
       window.scrollTo(0,__sc.w);
       var el2=document.querySelector('.panel'); if(el2&&__sc.p) el2.scrollTop=__sc.p;
-      if(__sc.inner!=null){ var ib=document.querySelector('[data-scrollbox]'); if(ib) ib.scrollTop=__sc.inner; }
-      if(__sc.f){ var fe=document.getElementById(__sc.f); if(fe&&fe.focus){ fe.focus(); try{fe.select&&fe.select();}catch(e){} } }
+      if(__sc.boxes&&__sc.boxes.length){
+        var nb=document.querySelectorAll('[data-scrollbox]');
+        for(var bi=0;bi<nb.length&&bi<__sc.boxes.length;bi++){ if(__sc.boxes[bi]) nb[bi].scrollTop=__sc.boxes[bi]; }
+      }
+      var m2=document.querySelector('.modal'); if(m2&&__sc.mod) m2.scrollTop=__sc.mod;
+      if(__sc.f){ var fe=document.getElementById(__sc.f); if(fe&&fe.focus){ fe.focus(); try{ if(__sc.sel!=null&&fe.setSelectionRange) fe.setSelectionRange(__sc.sel,__sc.sel); else if(fe.select) fe.select(); }catch(e){} } }
     }
   }catch(e){}
 }
