@@ -697,30 +697,46 @@ function forceReset(){
   render();
   try{ var c=sbClient(); if(c&&c.auth) c.auth.signOut(); }catch(e){}
 }
-function memAdd(){
-  const nm=document.getElementById('mm_name').value.trim();
-  const em=document.getElementById('mm_email').value.trim().toLowerCase();
-  const role=document.getElementById('mm_role').value;
+async function memAdd(){
+  var nm=document.getElementById('mm_name').value.trim();
+  var em=document.getElementById('mm_email').value.trim().toLowerCase();
+  var role=document.getElementById('mm_role').value;
   if(!nm||!em){alert('이름과 구글 이메일을 넣어주세요');return;}
-  if(members.some(m=>m.email.toLowerCase()===em)){alert('이미 있는 이메일입니다');return;}
-  members.push({email:em,name:nm,role:role}); membersSave(); render();
+  try{ await sbClient().from('users').upsert({email:em,name:nm,role:role}); await loadUsers(); }catch(e){ alert('추가 실패'); }
 }
-function memDel(em){
+async function memDel(em){
   if(session&&session.email===em){alert('지금 로그인한 계정은 못 뺍니다');return;}
-  if(confirm(em+' 계정을 뺄까요?')){ members=members.filter(m=>m.email!==em); membersSave(); render(); }
+  if(!confirm(em+' 계정을 명단에서 뺄까요? (다시 로그인하면 프리랜서로 재등록됩니다)'))return;
+  try{ await sbClient().from('users').delete().eq('email',em); await loadUsers(); }catch(e){ alert('삭제 실패'); }
 }
 function vMem(){
-  const rows=members.map(m=>`<tr><td>${Q(m.name)}</td><td>${Q(m.email)}</td><td><span class="pill ${m.role==='관리자'?'p-warn':'p-ok'}">${m.role}</span></td><td class="n"><button onclick="memDel('${QJ(m.email)}')" style="border:none;background:none;color:#b23b25;cursor:pointer;font-size:14px">✕</button></td></tr>`).join('');
-  return `<h2>👥 명단 (계정 관리)</h2><div class="lead"><b>관리자</b>는 이 사이트로, <b>프리랜서</b>는 프리랜서 사이트로 들어갑니다. 프리랜서 계정은 여기서 만들어 주세요.</div>
-    <div class="panel"><table><thead><tr><th>이름</th><th>이메일</th><th>역할</th><th class="n">빼기</th></tr></thead><tbody>${rows}</tbody></table></div>
-    <div class="panel"><div style="font-weight:800;margin-bottom:8px">＋ 사람 추가</div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-      <input id="mm_name" placeholder="이름" style="width:110px">
-      <input id="mm_email" placeholder="구글 이메일 (name@gmail.com)" style="width:230px">
-      <select id="mm_role"><option>프리랜서</option><option>관리자</option></select>
-      <button onclick="memAdd()" style="background:var(--accent);color:#fff;border:none;border-radius:7px;padding:7px 15px;font-weight:700;cursor:pointer">추가</button>
-    </div>
-    <div style="font-size:12px;color:#999;margin-top:8px">＊담당자는 <b>로그인한 구글 계정</b>으로 자동 기록됩니다. 비밀번호는 쓰지 않습니다.<br>＊지금은 이 컴퓨터(브라우저)에만 저장 — 서버 연결 후 모두에게 적용.</div></div>`;
+  var rows=(window.__srvUsers||members).map(function(m){
+    var role=m.role||'프리랜서';
+    return '<tr><td>'+Q(m.name||'')+'</td><td>'+Q(m.email)+'</td>'
+      +'<td><select onchange="setRole(\''+QJ(m.email)+'\',this.value)">'
+        +'<option'+(role==='관리자'?' selected':'')+'>관리자</option>'
+        +'<option'+(role!=='관리자'?' selected':'')+'>프리랜서</option></select></td>'
+      +'<td class="n"><button onclick="memDel(\''+QJ(m.email)+'\')" style="border:none;background:none;color:#b23b25;cursor:pointer;font-size:14px">✕</button></td></tr>';
+  }).join('');
+  return '<h2>👥 명단 (계정 관리)</h2>'
+    +'<div class="lead">구글 로그인하면 <b>자동으로 프리랜서로 등록</b>됩니다. 관리자로 올리려면 아래에서 역할을 바꾸세요.<br>'
+    +'<b>관리자</b>=전체 화면 · <b>프리랜서</b>=프로젝트·재고만</div>'
+    +'<div class="filt"><button class="addbtn" onclick="loadUsers()">🔄 명단 새로고침</button></div>'
+    +'<div class="panel"><table><thead><tr><th>이름</th><th>이메일</th><th>역할</th><th class="n">빼기</th></tr></thead><tbody>'+rows+'</tbody></table></div>'
+    +'<div class="panel"><div style="font-weight:800;margin-bottom:8px">＋ 미리 등록 (선택)</div>'
+    +'<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">'
+    +'<input id="mm_name" placeholder="이름" style="width:110px">'
+    +'<input id="mm_email" placeholder="구글 이메일" style="width:230px">'
+    +'<select id="mm_role"><option>프리랜서</option><option>관리자</option></select>'
+    +'<button onclick="memAdd()" style="background:var(--accent);color:#fff;border:none;border-radius:7px;padding:7px 15px;font-weight:700;cursor:pointer">추가</button>'
+    +'</div><div style="font-size:12px;color:#999;margin-top:8px">＊미리 등록 안 해도, 그 사람이 구글 로그인하면 자동으로 명단에 들어옵니다.</div></div>';
+}
+async function loadUsers(){
+  try{ var r=await sbClient().from('users').select('*').order('name');
+       if(!r.error){ window.__srvUsers=r.data||[]; render(); } }catch(e){}
+}
+async function setRole(email,role){
+  try{ await sbClient().from('users').update({role:role}).eq('email',email); await loadUsers(); }catch(e){ alert('변경 실패'); }
 }
 
 // ================= 서버 연결 (Supabase) =================
@@ -782,11 +798,13 @@ async function googleLogin(){
 async function loadRole(email){
   try{
     var r=await sbClient().from('users').select('*').ilike('email',email).limit(1);
-    if(r.error) return null;
+    if(r.error) return {name:email.split('@')[0], role:'프리랜서'};
     var u=(r.data&&r.data[0])||null;
-    if(!u) return null;
-    return {name:(u.name||u['이름']||email.split('@')[0]), role:(u.role||u['역할']||'프리랜서')};
-  }catch(e){ return null; }
+    if(u) return {name:(u.name||email.split('@')[0]), role:(u.role||'프리랜서')};
+    // 명단에 없으면 프리랜서로 자동 등록 (관리자가 나중에 변경)
+    try{ await sbClient().from('users').insert({email:email,name:email.split('@')[0],role:'프리랜서'}); }catch(e){}
+    return {name:email.split('@')[0], role:'프리랜서'};
+  }catch(e){ return {name:email.split('@')[0], role:'프리랜서'}; }
 }
 function noAccessHTML(email){
   return '<div style="max-width:460px;margin:56px auto;background:#fff;border:1px solid var(--line);border-radius:16px;padding:32px 28px;text-align:center;box-shadow:0 6px 24px rgba(0,0,0,.07)">'
@@ -803,7 +821,7 @@ function sbBanner(){
   return '<div class="note-box" style="background:#fff3e0;border-color:#eddcb4;color:#7d551a;display:flex;align-items:center;gap:10px;flex-wrap:wrap">🟡 <b>오프라인(내 컴퓨터)</b> — 서버에 연결되지 않아 이 컴퓨터에만 저장됩니다.'+(sbMsg?' <span style="font-size:11.5px">'+Q(sbMsg)+'</span>':'')+'<button onclick="forceReset()" style="margin-left:auto;background:#2f6db0;color:#fff;border:none;border-radius:8px;padding:7px 15px;font-weight:800;font-size:13px;cursor:pointer">🔌 서버에 로그인</button></div>';
 }
 
-function go(v){view=v;q='';curProj=null;mstSel=null;relLine=null;window.scrollTo(0,0);render();}
+function go(v){view=v;q='';curProj=null;mstSel=null;relLine=null; if(v==='mem'&&serverOn)loadUsers();window.scrollTo(0,0);render();}
 function render(){ try{ _render(); }catch(e){ showErr(e); } }
 function showErr(e){
   var m=document.getElementById('main');
