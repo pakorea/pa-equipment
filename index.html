@@ -115,6 +115,7 @@ function val(row,idx){ const l=row[S.line]; if(edits[l]&&edits[l][idx]!==undefin
 function setVal(line,idx,v){ if(!edits[line])edits[line]={}; edits[line][idx]=v; save(); sbSaveCell(line,idx,v); render(); }
 function setValNoRender(line,idx,v){ if(!edits[line])edits[line]={}; edits[line][idx]=v; save(); sbSaveCell(line,idx,v); }
 // ==== 장비 오버레이 ====
+function _clearMatCache(){_matEqCache=null;}
 function eqRows(){ return EQ.rows.concat(eqAdd).filter(r=>eqDel.indexOf(r[E.id])<0); }
 function ev(r,idx){ const o=eqOv[r[E.id]]; return (o&&o[idx]!==undefined)?o[idx]:r[idx]; }
 function buildDmg(){
@@ -198,7 +199,7 @@ async function addEqToProj(id){
     var o={}; SRC.headers.forEach(function(h,i){ o[h]=row[i]==null?'':String(row[i]); });
     var r=await sbT('sourcing').insert(o); if(r&&r.error) throw r.error;
     DB.sourcing.rows.push(row);
-    _dmg=null;_pdmax=null;window.__invUse=null;
+    _dmg=null;_pdmax=null;_matEqCache=null;window.__invUse=null;
     sbMsg='추가됨: '+ev(e,E.name);
   }catch(err){ sbMsg='추가 실패: '+(err.message||err); alert('추가 실패: '+(err.message||err)); }
   sbBusy=false; render();
@@ -212,7 +213,7 @@ async function delLine(line){
     DB.sourcing.rows=DB.sourcing.rows.filter(function(x){return x[S.line]!==line;});
     srcAdd=srcAdd.filter(function(x){return x[S.line]!==line;}); LSs('pa_v3_srcadd',srcAdd);
     delete edits[line]; save();
-    _dmg=null;_pdmax=null;window.__invUse=null;
+    _dmg=null;_pdmax=null;_matEqCache=null;window.__invUse=null;
     sbMsg='삭제됨';
   }catch(err){ sbMsg='삭제 실패: '+(err.message||err); alert('삭제 실패: '+(err.message||err)); }
   sbBusy=false; render();
@@ -375,7 +376,7 @@ async function saveProjEdit(){
     projOv[renamed?nn:oldName]=nst;
     if(renamed && crew[oldName]){ crew[nn]=crew[oldName]; delete crew[oldName]; crewSave(); }
     LSs('pa_v3_projst',projOv);
-    _dmg=null;_pdmax=null;window.__invUse=null;
+    _dmg=null;_pdmax=null;_matEqCache=null;window.__invUse=null;
     if(curProj===oldName) curProj=(renamed?nn:oldName);
     sbMsg='수정 완료';
   }catch(e){ sbMsg='수정 실패: '+(e.message||e); }
@@ -393,7 +394,7 @@ async function deleteProject(){
     srcAdd=srcAdd.filter(function(r){return r[S.proj]!==nm;}); LSs('pa_v3_srcadd',srcAdd);
     DB.projects.rows=DB.projects.rows.filter(function(r){return r[0]!==nm;});
     delete crew[nm]; crewSave();
-    _dmg=null;_pdmax=null;window.__invUse=null; curProj=null;
+    _dmg=null;_pdmax=null;_matEqCache=null;window.__invUse=null; curProj=null;
     sbMsg='삭제 완료';
   }catch(e){ sbMsg='삭제 실패: '+(e.message||e); }
   sbBusy=false; projEdit=null; render();
@@ -606,6 +607,7 @@ function goProject(nm){ curProj=nm; stage='prep'; view='proj'; window.__useId=nu
 function invGroupRows(){
   var g={};
   eqRows().forEach(function(e){
+    if(isMatEq(e[E.id])) return;   // LEE FILTER·SAVAGE 줄로 흡수
     var nm=ev(e,E.name)||'(이름없음)';
     if(q){ var h=(nm+' '+ev(e,E.cat)+' '+ev(e,E.brand)+' '+e[E.id]).toLowerCase(); if(!h.includes(q.toLowerCase())) return; }
     (g[nm]=g[nm]||[]).push(e);
@@ -646,7 +648,7 @@ function invMatRows(){
     var need=d.records.filter(function(r,ri){return matNeed(k,ri);}).length;
     var qty=d.records.reduce(function(a,r,ri){ return a+num(matQty(k,ri)); },0);
     return '<tr class="rowck" style="background:#fbfaf5" onclick="openMat(\''+k+'\')">'
-      +'<td style="color:#aaa;font-size:11px">품목별관리</td><td>9.CONSUMABLE</td><td>'+(k==='cf'?'LEE':'SAVAGE')+'</td>'
+      +'<td style="font-family:ui-monospace,monospace;font-size:11.5px">'+matCodeTxt(k)+'</td><td>9.CONSUMABLE</td><td>'+(k==='cf'?'LEE':'SAVAGE')+'</td>'
       +'<td><b>'+MAT[k].label+'</b> <span class="pill" style="background:#eaf1f9;color:#2f6db0">'+d.records.length+'종</span>'
       +(need?' <span class="pill p-warn">구매필요 '+need+'</span>':'')+'</td>'
       +'<td class="n">'+qty+'</td><td class="n">-</td>'
@@ -750,7 +752,7 @@ function mstSave(){
     const row=new Array(EQ.headers.length).fill('');
     row[E.id]=id;
     MF.forEach(f=>{ if(E[f[0]]>=0) row[E[f[0]]]=gv(f[0]); });
-    eqAdd.push(row); srvEqInsert(row);
+    eqAdd.push(row); _matEqCache=null; srvEqInsert(row);
   } else {
     if(!eqOv[mstSel])eqOv[mstSel]={};
     MF.forEach(f=>{ if(E[f[0]]>=0) eqOv[mstSel][E[f[0]]]=gv(f[0]); });
@@ -829,6 +831,7 @@ function vMst(){
   if(mstGroup){
     var g={};
     eqRows().forEach(function(e){
+      if(isMatEq(e[E.id])) return;   // LEE FILTER·SAVAGE 줄로 흡수
       var nm=ev(e,E.name)||'(이름없음)';
       if(q){ var h=(nm+' '+ev(e,E.cat)+' '+ev(e,E.brand)+' '+e[E.id]).toLowerCase(); if(!h.includes(q.toLowerCase())) return; }
       (g[nm]=g[nm]||[]).push(e);
@@ -950,6 +953,27 @@ function matListHTML(k,editable){
    +'<div style="max-height:52vh;overflow:auto"><table><thead><tr><th class="n">no</th><th>품목</th><th class="n">수량</th><th>구매 여부</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
 }
 
+
+// ===== LEE FILTER · SAVAGE 가 장비마스터에서 쓰는 EQ 코드 =====
+var _matEqCache=null;
+function matEqIds(k){
+  if(!_matEqCache){
+    _matEqCache={cf:[],bg:[]};
+    eqRows().forEach(function(e){
+      var n=(ev(e,E.name)||'').toUpperCase();
+      if(n.indexOf('LEE FILTER')>=0) _matEqCache.cf.push(e[E.id]);
+      else if(n.indexOf('SAVAGE')>=0||n.indexOf('SEAMLESS')>=0||n.indexOf('배경지')>=0||n.indexOf('BACKDROP')>=0) _matEqCache.bg.push(e[E.id]);
+    });
+    _matEqCache.cf.sort(); _matEqCache.bg.sort();
+  }
+  return _matEqCache[k]||[];
+}
+function matEqAll(){ return matEqIds('cf').concat(matEqIds('bg')); }
+function isMatEq(id){ return matEqAll().indexOf(id)>=0; }
+function matCodeTxt(k){
+  var c=matEqIds(k); if(!c.length) return '<span style="color:#bbb">-</span>';
+  return c.length>1 ? (Q(c[0])+' <span style="color:#888;font-size:11px">외 '+(c.length-1)+'</span>') : Q(c[0]);
+}
 function matMasterRows(){
   return ['cf','bg'].map(function(k){
     var d=auxGet()[k]; if(!d) return '';
@@ -957,7 +981,7 @@ function matMasterRows(){
     var qty=d.records.reduce(function(a,r,ri){ return a+num(matQty(k,ri)); },0);
     var m=MAT[k];
     return '<tr class="rowck" style="background:#fbfaf5" onclick="openMat(\''+k+'\')">'
-      +'<td style="color:#aaa;font-size:11px">품목별관리</td>'
+      +'<td style="font-family:ui-monospace,monospace;font-size:11.5px">'+matCodeTxt(k)+'</td>'
       +'<td>9.CONSUMABLE</td>'
       +'<td>'+(k==='cf'?'LEE':'SAVAGE')+'</td>'
       +'<td><b>'+m.label+'</b> <span class="pill" style="background:#eaf1f9;color:#2f6db0">'+d.records.length+'종</span>'
@@ -970,6 +994,7 @@ function matModal(){
   var m=MAT[matOpen];
   return '<div class="modal-bg" onclick="if(event.target===this)closeMat()"><div class="modal" style="max-width:720px">'
    +'<h3>'+m.label+'</h3>'
+   +'<div style="font-size:12px;color:#666;margin-bottom:4px">장비마스터 품목코드: <span style="font-family:ui-monospace,monospace">'+matEqIds(matOpen).join(', ')+'</span></div>'
    +'<div style="font-size:12.5px;color:#888;margin-bottom:6px">랩업/반납 때 <b>50% 이하</b>면 체크하세요. 체크된 것만 구매 대상입니다.</div>'
    +matListHTML(matOpen,true)
    +'<div class="mbtns"><button class="primary" onclick="closeMat()">닫기</button></div></div></div>';
@@ -1071,7 +1096,7 @@ function _fromName(nm){ var m=String(nm||'').match(/^(\d{2})(\d{2})(\d{2})/); re
 async function npCheckout(){
   if(!npProj){ alert('프로젝트를 먼저 고르거나 ＋새 프로젝트로 만들어주세요'); return; }
   if(!serverOn){ alert('⚠️ 서버에 연결되지 않았습니다.\n\n지금 만들면 이 컴퓨터에만 저장되어 다른 사람에게 안 보입니다.\n페이지를 새로고침(Cmd+Shift+R)하고 다시 로그인해 주세요.'); return; }
-  if(!Object.keys(npSel).length && !npRent.length){ alert('고른 장비가 없습니다'); return; }
+  if(!Object.keys(npSel).length && !npRent.length && !Object.keys(npMat).length){ alert('고른 장비가 없습니다'); return; }
   var out=_toYY(document.getElementById('npOut').value||''); var due=_toYY(document.getElementById('npDue').value||'');
   if(!out) out=_fromName(npProj);          // 프로젝트명 앞 YYMMDD에서 자동
   if(!due) due=out;                        // 반납일 없으면 출고일과 동일
@@ -1088,6 +1113,17 @@ async function npCheckout(){
     row[S.comp]=ev(e,E.comp); row[S.itemId]=id; row[S.brand]=ev(e,E.brand);
     row[S.own]=ev(e,E.own); row[S.out]=out; row[S.due]=due;
     if(qy>av){ row[S.short]=qy-av; row[S.innote]='부족 '+(qy-av)+'개 → 렌탈 필요'; rentMsg.push(ev(e,E.name)+' '+(qy-av)+'개'); }
+    srcAdd.push(row);
+  });
+  Object.keys(npMat).forEach(function(key){
+    var p=key.split('|'), k=p[0], ri=parseInt(p[1],10);
+    var qy=npMat[key]; var av=num(matQty(k,ri));
+    n++; made++;
+    const row=new Array(SRC.headers.length).fill('');
+    row[S.line]=npProj+'-'+String(n).padStart(2,'0');
+    row[S.proj]=npProj; row[S.reqQ]=qy; row[S.reqItem]=npMatLabel(k,ri); row[S.asgQ]=qy;
+    row[S.item]=npMatLabel(k,ri); row[S.cat]='9.CONSUMABLE'; row[S.out]=out; row[S.due]=due;
+    if(qy>av){ row[S.short]=qy-av; row[S.innote]='잔량 부족 '+(qy-av)+' → 구매 필요'; rentMsg.push(npMatLabel(k,ri)+' '+(qy-av)); }
     srcAdd.push(row);
   });
   npRent.forEach(r=>{ n++; made++;
@@ -1115,9 +1151,9 @@ async function npCheckout(){
     }catch(e){ sbMsg='⚠️ 서버 저장 실패: '+(e.message||e); alert('⚠️ 서버 저장에 실패했습니다.\n\n'+(e.message||e)+'\n\n이 화면에만 남아 다른 사람에게 안 보입니다. 명진에게 알려주세요.'); }
     sbBusy=false;
   } else { sbMsg='⚠️ 오프라인 — 이 컴퓨터에만 저장됨'; }
-  _dmg=null;_pdmax=null;window.__invUse=null;
+  _dmg=null;_pdmax=null;_matEqCache=null;window.__invUse=null;
   const msg='['+npProj+'] 라인 '+made+'개 생성 완료.'+(serverOn?'\n서버에 저장되어 모두에게 보입니다.':'\n⚠️ 오프라인이라 이 컴퓨터에만 저장됐습니다.')+(rentMsg.length?'\n렌탈 필요: '+rentMsg.join(', '):'');
-  npSel={}; npRent=[];
+  npSel={}; npMat={}; npRent=[];
   alert(msg);
   curProj=npProj; stage='prep'; view='proj'; render();
 }
@@ -1144,14 +1180,49 @@ function npModelSet(nm,v){
   render();
 }
 function npModelClear(nm){ npUnits(nm).forEach(function(e){ delete npSel[e[E.id]]; }); render(); }
+
+// ===== 프로젝트 준비: LEE FILTER · SAVAGE 낱개 고르기 =====
+var npMat={};
+function matHdrIdx(k,name){ var d=auxGet()[k]; if(!d)return -1; for(var i=0;i<d.headers.length;i++){ if(String(d.headers[i]).indexOf(name)>=0) return i; } return -1; }
+function matName(k,ri){ var d=auxGet()[k]; if(!d||!d.records[ri])return ''; var i=matHdrIdx(k,'품목'); return i<0?'':(d.records[ri][i]||''); }
+function matNo(k,ri){ var d=auxGet()[k]; if(!d||!d.records[ri])return ''; var i=matHdrIdx(k,'no'); return i<0?'':(d.records[ri][i]||''); }
+function npMatKey(k,ri){ return k+'|'+ri; }
+function npMatAdd(k,ri,d){ var key=npMatKey(k,ri); var v=Math.max(0,(npMat[key]||0)+d); if(v)npMat[key]=v; else delete npMat[key]; render(); }
+function npMatSet(k,ri,v){ var key=npMatKey(k,ri); var n=Math.max(0,parseInt(v,10)||0); if(n)npMat[key]=n; else delete npMat[key]; render(); }
+function npMatClear(key){ delete npMat[key]; render(); }
+function npMatLabel(k,ri){ var no=matNo(k,ri); return MAT[k].label.replace(' (배경지)','')+(no?' '+no:'')+' '+matName(k,ri); }
+function npMatRows(){
+  var out='';
+  ['cf','bg'].forEach(function(k){
+    var d=auxGet()[k]; if(!d) return;
+    d.records.forEach(function(r,ri){
+      var nm=matName(k,ri); if(!nm) return;
+      var lab=npMatLabel(k,ri);
+      if(q && lab.toLowerCase().indexOf(q.toLowerCase())<0) return;
+      var av=num(matQty(k,ri)); var key=npMatKey(k,ri); var sel=npMat[key]||0;
+      var cls=av<=0?'p-zero':(av<=1?'p-warn':'p-ok');
+      out+='<tr style="background:#fbfaf5"><td>'+Q(nm)+' <span style="color:#aaa;font-size:11px">· '+MAT[k].label+'</span>'
+        +(matNeed(k,ri)?' <span class="pill p-warn">구매필요</span>':'')+'</td>'
+        +'<td class="n" style="font-family:ui-monospace,monospace;font-size:11px">'+Q(matNo(k,ri)||'-')+'</td>'
+        +'<td class="n"><span class="pill '+cls+'">'+av+'</span></td>'
+        +'<td class="n" style="white-space:nowrap"><button class="mini" onclick="npMatAdd(\''+k+'\','+ri+',-1)">−</button>'
+        +'<input type="number" min="0" value="'+sel+'" style="width:52px;text-align:center" onchange="npMatSet(\''+k+'\','+ri+',this.value)">'
+        +'<button class="mini" onclick="npMatAdd(\''+k+'\','+ri+',1)">＋</button></td></tr>';
+    });
+  });
+  return out;
+}
 function vPrepNew(){
   const projs=npProjects();
   const opts='<option value="">프로젝트 선택…</option>'+projs.map(p=>`<option ${p===npProj?'selected':''}>${Q(p)}</option>`).join('');
   const curLines=npProj?allSrc().filter(r=>r[S.proj]===npProj).length:0;
   const catChips=['<span class="chip '+(npCat===''?'on':'')+'" onclick="npCat=\'\';render()">전체</span>'].concat(
+    ['<span class="chip '+(npCat==='__MAT__'?'on':'')+'" onclick="npCat=\'__MAT__\';render()">LEE FILTER · SAVAGE</span>'],
     npCats().map(c=>`<span class="chip ${npCat===c?'on':''}" onclick="npCat='${QJ(c)}';render()">${Q(c)}</span>`)).join('');
   var _g={};
   eqRows().forEach(function(e){
+    if(npCat==='__MAT__') return;
+    if(isMatEq(e[E.id])) return;   // LEE FILTER·SAVAGE 낱개로 대체
     if(npCat && ev(e,E.cat)!==npCat) return;
     var nm=ev(e,E.name)||'(이름없음)';
     if(q && !((nm+' '+ev(e,E.brand)+' '+e[E.id]).toLowerCase().includes(q.toLowerCase()))) return;
@@ -1171,6 +1242,7 @@ function vPrepNew(){
       +'<input id="npq_'+QJ(nm)+'" type="number" min="0" value="'+sel+'" style="width:52px;text-align:center" onchange="npModelSet(\''+QJ(nm)+'\',this.value)">'
       +'<button class="mini" onclick="npModelAdd(\''+QJ(nm)+'\',1)">＋</button></td></tr>';
   }).join('');
+  const matPick = (!npCat || npCat==='__MAT__' || npCat==='9.CONSUMABLE') ? npMatRows() : '';
   var _sg={};
   Object.keys(npSel).forEach(function(id){
     var e=eqRows().find(function(r){return r[E.id]===id;}); if(!e)return;
@@ -1181,6 +1253,12 @@ function vPrepNew(){
     var j = qy<=av ? '<span class="j-ok">보유 충당 ✔</span>' : ('<span class="j-rent">'+(qy-av)+'개 부족 → 렌탈</span>');
     return '<tr><td>'+Q(nm)+'</td><td class="n">'+qy+'</td><td class="n">'+av+'</td><td>'+j+'</td>'
       +'<td class="n"><button class="mini" onclick="npModelClear(\''+QJ(nm)+'\')">×</button></td></tr>';
+  }).join('') + Object.keys(npMat).map(function(key){
+    var p=key.split('|'), k=p[0], ri=parseInt(p[1],10);
+    var qy=npMat[key], av=num(matQty(k,ri));
+    var j = qy<=av ? '<span class="j-ok">보유 충당 ✔</span>' : ('<span class="j-rent">'+(qy-av)+'개 부족 → 구매</span>');
+    return '<tr style="background:#fbfaf5"><td>'+Q(npMatLabel(k,ri))+'</td><td class="n">'+qy+'</td><td class="n">'+av+'</td><td>'+j+'</td>'
+      +'<td class="n"><button class="mini" onclick="npMatClear(\''+QJ(key)+'\')">×</button></td></tr>';
   }).join('');
   const rentRows=npRent.map((r,i)=>`<tr><td>${Q(r.name)} <span class="pill p-rent">렌탈</span></td><td class="n">${r.qty}</td><td class="n">-</td><td><span class="j-rent">외부 렌탈</span></td><td class="n"><button class="mini" onclick="npRmRent(${i})">×</button></td></tr>`).join('');
   const listPanel=(selRows||rentRows)?`<table><thead><tr><th>준비 품목</th><th class="n">수량</th><th class="n">가용</th><th>판정</th><th class="n">빼기</th></tr></thead><tbody>${selRows}${rentRows}</tbody></table>`
@@ -1198,7 +1276,7 @@ function vPrepNew(){
       <div class="filt">${catChips}</div>
       <div class="filt"><input type="text" value="${Q(q)}" oninput="q=this.value;renderKeep(this)" placeholder="🔍 장비 검색"></div>
       <div data-scrollbox style="max-height:44vh;overflow:auto;border:1px solid #eee;border-radius:8px;position:relative">
-      <table><thead><tr><th>장비</th><th class="n">Item_ID</th><th class="n">가용</th><th class="n">선택 수량</th></tr></thead><tbody>${invRows}</tbody></table></div></div>
+      <table><thead><tr><th>장비</th><th class="n">Item_ID</th><th class="n">가용</th><th class="n">선택 수량</th></tr></thead><tbody>${matPick}${invRows}</tbody></table></div></div>
     <div class="panel"><div style="font-weight:800;margin-bottom:8px">② 준비 리스트 (고른 것 + 렌탈)</div>
       ${listPanel}
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px">
@@ -1325,7 +1403,7 @@ async function sbLoadAll(){
     var rp=await sbFetchAll('repair',DB.repair.headers);
     DB.equip.rows=eq; DB.sourcing.rows=sr; DB.projects.rows=pj; DB.repair.rows=rp;
     await sbLoadExtras();
-    eqOv={};eqDel=[];eqAdd=[];projOv={};
+    eqOv={};eqDel=[];eqAdd=[];projOv={};_matEqCache=null;
     try{localStorage.removeItem('pa_v3_eq');localStorage.removeItem('pa_v3_eqdel');localStorage.removeItem('pa_v3_eqadd');localStorage.removeItem('pa_v3_projst');localStorage.removeItem('pa_v3_crew');}catch(e){}
     _dmg=null;_pdmax=null; serverOn=true;
     sbMsg='서버 연결됨 · 장비 '+eq.length+' · 소싱 '+sr.length+' · 프로젝트 '+pj.length;
