@@ -601,7 +601,82 @@ function invUseModal(){
 
 function goProject(nm){ curProj=nm; stage='prep'; view='proj'; window.__useId=null; window.scrollTo(0,0); render(); }
  function openUse(id){ window.__useId=id; render(); }
+
+// ===== 재고현황: 품목(모델)별 묶음 =====
+function invGroupRows(){
+  var g={};
+  eqRows().forEach(function(e){
+    var nm=ev(e,E.name)||'(이름없음)';
+    if(q){ var h=(nm+' '+ev(e,E.cat)+' '+ev(e,E.brand)+' '+e[E.id]).toLowerCase(); if(!h.includes(q.toLowerCase())) return; }
+    (g[nm]=g[nm]||[]).push(e);
+  });
+  return Object.keys(g).sort().map(function(nm){
+    var us=g[nm];
+    if(invMode==='out'  && !us.some(function(e){return invOut(e[E.id]).length>0;})) return '';
+    if(invMode==='clash'&& !us.some(function(e){return !!invClash(e[E.id]);})) return '';
+    var e0=us[0];
+    var codes=us.map(function(e){return e[E.id];});
+    var codeTxt = codes.length>1 ? (Q(codes[0])+' <span style="color:#888;font-size:11px">외 '+(codes.length-1)+'</span>') : Q(codes[0]);
+    var own=us.reduce(function(a,e){return a+num(ev(e,E.own));},0);
+    var rs =us.reduce(function(a,e){var v=realStock(e[E.id]); return a+(v==null?0:v);},0);
+    var cls=rs<=0?'p-zero':(rs<=1?'p-warn':'p-ok');
+    // 사용현황: 이 품목의 모든 개체가 나가있는 프로젝트를 합쳐서
+    var projs=[], seen={};
+    us.forEach(function(e){ invOut(e[E.id]).forEach(function(u){ if(!seen[u.proj]){seen[u.proj]=1;projs.push(u.proj);} }); });
+    var clashN=us.filter(function(e){return !!invClash(e[E.id]);}).length;
+    var use='';
+    if(projs.length){ use=projs.slice(0,2).map(function(p){ return '<a style="cursor:pointer;color:#b1442f;font-weight:700" onclick="event.stopPropagation();goProject(\''+QJ(p)+'\')">'+Q(p)+'</a>'; }).join(' ');
+      if(projs.length>2) use+=' <span style="font-size:11px;color:#888">외 '+(projs.length-2)+'</span>'; }
+    if(clashN) use+=' <span class="pill" style="background:#fbe9e4;color:#a83c28">겹침 '+clashN+'</span>';
+    if(!use) use='<span style="color:#ccc">-</span>';
+    var badge = us.length>1 ? ' <span class="pill" style="background:#eaf1f9;color:#2f6db0">개체 '+us.length+'대</span>' : '';
+    return '<tr class="rowck" onclick="openUnits(\''+QJ(nm)+'\')">'
+      +'<td style="font-family:ui-monospace,monospace;font-size:11.5px">'+codeTxt+'</td>'
+      +'<td>'+Q(ev(e0,E.cat))+'</td><td>'+Q(ev(e0,E.brand))+'</td>'
+      +'<td><b>'+Q(nm)+'</b>'+badge+'</td>'
+      +'<td class="n">'+own+'</td><td class="n"><span class="pill '+cls+'">'+rs+'</span></td>'
+      +'<td>'+use+'</td><td>'+Q(ev(e0,E.loc))+'</td></tr>';
+  }).join('');
+}
+function invMatRows(){
+  return ['cf','bg'].map(function(k){
+    var d=auxGet()[k]; if(!d) return '';
+    if(q && (MAT[k].label.toLowerCase().indexOf(q.toLowerCase())<0)) return '';
+    if(invMode!=='all') return '';
+    var need=d.records.filter(function(r,ri){return matNeed(k,ri);}).length;
+    var qty=d.records.reduce(function(a,r,ri){ return a+num(matQty(k,ri)); },0);
+    return '<tr class="rowck" style="background:#fbfaf5" onclick="openMat(\''+k+'\')">'
+      +'<td style="color:#aaa;font-size:11px">품목별관리</td><td>9.CONSUMABLE</td><td>'+(k==='cf'?'LEE':'SAVAGE')+'</td>'
+      +'<td><b>'+MAT[k].label+'</b> <span class="pill" style="background:#eaf1f9;color:#2f6db0">'+d.records.length+'종</span>'
+      +(need?' <span class="pill p-warn">구매필요 '+need+'</span>':'')+'</td>'
+      +'<td class="n">'+qty+'</td><td class="n">-</td>'
+      +'<td>'+(need?'<span style="color:#a8632a;font-size:12px">잔량 50% 이하 '+need+'종</span>':'<span style="color:#ccc">-</span>')+'</td>'
+      +'<td>소모자재</td></tr>';
+  }).join('');
+}
+
+function vInvGrouped(){
+  var body=invMatRows()+invGroupRows();
+  var all=eqRows(); var zero=all.filter(function(e){var v=realStock(e[E.id]);return v!=null&&v<=0;}).length;
+  var kinds={}; all.forEach(function(e){ kinds[ev(e,E.name)||'?']=1; });
+  var toggle='<span class="chip on" onclick="toggleInvGroup()">✓ 품목(모델)별 묶어보기 (총수량)</span>';
+  return '<h2>재고 현황</h2>'
+   +'<div class="lead"><b>실재고 = 보유 − 분실 − 파손 + 수리완료</b> (자동 계산) · <b>품목명으로 묶어서</b> 총수량을 봅니다. <b>줄을 클릭하면 개체별 시리얼·현재 위치</b>가 열립니다.</div>'
+   +'<div class="filt"><input type="text" value="'+Q(q)+'" oninput="q=this.value;renderKeep(this)" placeholder="🔍 품목·브랜드·코드 검색"></div>'
+   +'<div class="filt">'
+     +'<span class="chip '+(invMode==='all'?'on':'')+'" onclick="setInvMode(\'all\')">전체</span>'
+     +'<span class="chip '+(invMode==='out'?'on':'')+'" onclick="setInvMode(\'out\')">지금 나간 장비</span>'
+     +'<span class="chip '+(invMode==='clash'?'on':'')+'" onclick="setInvMode(\'clash\')">일정 겹침(부족)</span>'
+   +'</div>'
+   +'<div class="filt">'+toggle+'</div>'
+   +'<div class="kpis"><div class="kpi"><div class="v">'+Object.keys(kinds).length+'</div><div class="l">품목(모델) 수</div></div>'
+     +'<div class="kpi"><div class="v">'+all.length+'</div><div class="l">개체 수</div></div>'
+     +'<div class="kpi"><div class="v" style="color:var(--warn)">'+zero+'</div><div class="l">재고 0(대여불가)</div></div></div>'
+   +'<div class="panel"><table><thead><tr><th>품목코드</th><th>카테고리</th><th>브랜드</th><th>품목명</th><th class="n">총보유</th><th class="n">실재고</th><th>사용현황(프로젝트)</th><th>위치</th></tr></thead><tbody>'+body+'</tbody></table></div>'
+   +unitsModal()+mstModal()+matModal()+invUseModal();
+}
 function vInv(){
+  if(invGroup) return vInvGrouped();
   const rows=eqRows().map(e=>{ const id=e[E.id]; const rs=realStock(id);
     const cls=rs<=0?'p-zero':(rs<=1?'p-warn':'p-ok');
     return {e,id,rs,cls};
@@ -719,6 +794,8 @@ function mstColToggle(k){ mstOn[k]=mstOn[k]?0:1; LSs('pa_v3_mstcols',mstOn); ren
 
 // ===== 장비 마스터: 모델(품목명)로 묶어보기 + 개체 상세 =====
 let mstGroup = LS('pa_v3_mstgroup2',1);
+let invGroup = LS('pa_v3_invgroup',1);
+function toggleInvGroup(){ invGroup=invGroup?0:1; try{localStorage.setItem('pa_v3_invgroup',invGroup);}catch(e){} render(); }
 function toggleMstGroup(){ mstGroup=mstGroup?0:1; LSs('pa_v3_mstgroup2',mstGroup); render(); }
 let unitOf=null;
 function openUnits(nm){ unitOf=nm; render(); }
