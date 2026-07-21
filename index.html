@@ -718,8 +718,8 @@ let mstOn=LS('pa_v3_mstcols',{id:1,cat:1,sub:1,brand:1,name:1,own:1,serial:1,loc
 function mstColToggle(k){ mstOn[k]=mstOn[k]?0:1; LSs('pa_v3_mstcols',mstOn); render(); }
 
 // ===== 장비 마스터: 모델(품목명)로 묶어보기 + 개체 상세 =====
-let mstGroup = LS('pa_v3_mstgroup',1);
-function toggleMstGroup(){ mstGroup=mstGroup?0:1; LSs('pa_v3_mstgroup',mstGroup); render(); }
+let mstGroup = LS('pa_v3_mstgroup2',1);
+function toggleMstGroup(){ mstGroup=mstGroup?0:1; LSs('pa_v3_mstgroup2',mstGroup); render(); }
 let unitOf=null;
 function openUnits(nm){ unitOf=nm; render(); }
 function closeUnits(){ unitOf=null; render(); }
@@ -742,13 +742,13 @@ function unitsModal(){
   var tot=us.reduce(function(a,e){return a+num(ev(e,E.own));},0);
   var outN=us.filter(function(e){return unitOut(e[E.id]);}).length;
   return '<div class="modal-bg" onclick="if(event.target===this)closeUnits()"><div class="modal" style="max-width:760px">'
-   +'<h3>📦 '+Q(unitOf)+'</h3>'
+   +'<h3>'+Q(unitOf)+'</h3>'
    +'<div style="font-size:13px;color:#666;margin-bottom:8px">개체 '+us.length+'대 · 총 보유 '+tot+' · 출고중 '+outN+' <span style="color:#999">(줄을 클릭하면 그 개체를 수정합니다)</span></div>'
    +'<div style="max-height:56vh;overflow:auto"><table><thead><tr><th>Item_ID</th><th>시리얼</th><th class="n">보유</th><th class="n">실재고</th><th>현재 위치/상태</th><th>특이사항</th></tr></thead><tbody>'+rows+'</tbody></table></div>'
    +'<div class="mbtns"><button class="primary" onclick="closeUnits()">닫기</button></div></div></div>';
 }
 function vMst(){
-  var toggle='<span class="chip '+(mstGroup?'on':'')+'" onclick="toggleMstGroup()">'+(mstGroup?'✓ ':'')+'📦 품목(모델)별 묶어보기</span>';
+  var toggle='<span class="chip '+(mstGroup?'on':'')+'" onclick="toggleMstGroup()">'+(mstGroup?'✓ ':'')+'품목(모델)별 묶어보기 (총수량)</span>';
   if(mstGroup){
     var g={};
     eqRows().forEach(function(e){
@@ -768,7 +768,10 @@ function vMst(){
         ? '<span class="pill" style="background:#eaf1f9;color:#2f6db0">개체 '+us.length+'대</span>'
         : '<span style="color:#ccc;font-size:11px">단일</span>';
       var outB = outN? ' <span class="pill p-warn">출고중 '+outN+'</span>':'';
+      var codes=us.map(function(e){return e[E.id];});
+      var codeTxt = codes.length>1 ? (Q(codes[0])+' <span style="color:#888;font-size:11px">외 '+(codes.length-1)+'</span>') : Q(codes[0]);
       return '<tr class="rowck" onclick="openUnits(\''+QJ(nm)+'\')">'
+        +'<td style="font-family:ui-monospace,monospace;font-size:11.5px">'+codeTxt+'</td>'
         +'<td>'+Q(ev(e0,E.cat))+'</td><td>'+Q(ev(e0,E.brand))+'</td>'
         +'<td><b>'+Q(nm)+'</b> '+badge+outB+'</td>'
         +'<td class="n"><b>'+tot+'</b></td><td class="n"><span class="pill '+(rs<=0?'p-zero':(rs<=1?'p-warn':'p-ok'))+'">'+rs+'</span></td>'
@@ -779,7 +782,7 @@ function vMst(){
       +'<div class="lead"><b>품목(모델)로 묶어서</b> 총수량을 봅니다. <b>줄을 클릭하면 개체별 시리얼·현재 위치</b>가 열립니다.</div>'
       +'<div class="filt"><input type="text" value="'+Q(q)+'" oninput="q=this.value;renderKeep(this)" placeholder="🔍 품목·브랜드 검색"><button class="addbtn" onclick="mstEdit(\'__new__\')">＋ 새 장비 추가</button></div>'
       +'<div class="filt">'+toggle+'</div>'
-      +'<div class="panel"><table><thead><tr><th>카테고리</th><th>브랜드</th><th>품목명</th><th class="n">총보유</th><th class="n">실재고</th><th class="n">시리얼</th><th>위치</th></tr></thead><tbody>'+matMasterRows()+gbody+'</tbody></table></div>'
+      +'<div class="panel"><table><thead><tr><th>품목코드</th><th>카테고리</th><th>브랜드</th><th>품목명</th><th class="n">총보유</th><th class="n">실재고</th><th class="n">시리얼</th><th>위치</th></tr></thead><tbody>'+matMasterRows()+gbody+'</tbody></table></div>'
       +unitsModal()+mstModal()+matModal();
   }
   const rows=eqRows().filter(e=>{ if(!q)return true; const h=(ev(e,E.name)+' '+ev(e,E.cat)+' '+ev(e,E.brand)+' '+e[E.id]).toLowerCase(); return h.includes(q.toLowerCase()); });
@@ -877,7 +880,7 @@ function matMasterRows(){
     var m=MAT[k];
     return '<tr class="rowck" style="background:#fbfaf5" onclick="openMat(\''+k+'\')">'
       +'<td>9.CONSUMABLE</td><td>'+(k==='cf'?'LEE':'SAVAGE')+'</td>'
-      +'<td><b>'+m.label+'</b> <span class="pill" style="background:#eaf1f9;color:#2f6db0">'+d.records.length+'종</span>'
+      +'<td style="color:#bbb;font-size:11px">-</td><td><b>'+m.label+'</b> <span class="pill" style="background:#eaf1f9;color:#2f6db0">'+d.records.length+'종</span>'
       +(need?' <span class="pill p-warn">구매필요 '+need+'</span>':'')+'</td>'
       +'<td class="n">'+d.records.length+'</td><td class="n">-</td><td class="n">-</td><td>소모자재</td></tr>';
   }).join('');
