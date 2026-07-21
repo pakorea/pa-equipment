@@ -17,7 +17,11 @@ h2{font-size:19px;margin:0 0 4px}.lead{color:var(--sub);font-size:13.5px;margin-
 .panel{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin:0 0 14px;overflow:auto;max-height:72vh}
 table{width:100%;border-collapse:collapse;font-size:13px}
 th,td{border-bottom:1px dotted #c9bfa8;border-right:1px dotted #ddd6c8;padding:7px 9px;text-align:left;vertical-align:middle;white-space:nowrap}
-thead th{background:#eef0f3;font-size:12px;position:sticky;top:0;z-index:8;box-shadow:0 1px 0 #d8d2c4}
+thead th{background:#eef0f3;background-clip:padding-box;font-size:12px;position:sticky;top:0;z-index:20;box-shadow:inset 0 -1px 0 #c9bfa8, 0 2px 4px rgba(0,0,0,.06)}
+thead{position:relative;z-index:20}
+tbody td{background:var(--card)}
+table{border-collapse:separate;border-spacing:0}
+th,td{border-bottom:1px dotted #c9bfa8;border-right:1px dotted #ddd6c8}
 table{position:relative}
 .panel>div>table thead th{position:sticky;top:0;z-index:8}
 td.n,th.n{text-align:center}
@@ -147,10 +151,13 @@ function activeLines(){
 }
 function groupByProj(lines){ const g={}; lines.forEach(r=>{(g[r[S.proj]]=g[r[S.proj]]||[]).push(r);}); return g; }
 function projDates(name){
+  // 날짜 없으면 안내 문구
   const rs=allSrc().filter(r=>r[S.proj]===name);
   const outs=rs.map(r=>val(r,S.out)).filter(Boolean).sort();
   const dues=rs.map(r=>val(r,S.due)).filter(Boolean).sort();
-  return (outs[0]||'')+' ~ '+(dues[dues.length-1]||'');
+  var a=outs[0]||'', b=dues[dues.length-1]||'';
+  if(!a&&!b) return '⚠️ 기간 미설정 (수정에서 입력)';
+  return a+' ~ '+b;
 }
 function pDate(x){ if(!x)return null; var s=(''+x).trim().replace(/[.\/]/g,'-');
   var m=s.match(/(\d{2,4})-(\d{1,2})-(\d{1,2})/);
@@ -258,7 +265,7 @@ function projEditModal(){
    +'<div style="font-size:11.5px;color:#999;margin-top:10px">＊날짜를 비우면 그 값은 그대로 둡니다. 삭제는 라인 전체가 사라집니다(되돌리기 불가).</div>'
    +'</div></div>';
 }
-function _ymd(v){ if(!v)return ''; var p=String(v).split('-'); if(p.length!==3)return ''; return String(p[0]).slice(2)+'-'+p[1]+'-'+p[2]; }
+function _ymd(v){ return _toYY(v); }
 async function saveProjEdit(){
   var oldName=projEdit;
   var nn=(document.getElementById('pe_name').value||'').trim();
@@ -745,11 +752,17 @@ function npAdd(id,d){ const v=Math.max(0,(npSel[id]||0)+d); if(v)npSel[id]=v; el
 function npSet(id,v){ const n=Math.max(0,parseInt(v)||0); if(n)npSel[id]=n; else delete npSel[id]; render(); }
 function npAddRent(){ const nm=document.getElementById('npRentName').value.trim(); const q=Math.max(1,parseInt(document.getElementById('npRentQty').value)||1); if(!nm){alert('렌탈 품목 이름을 넣어주세요');return;} npRent.push({name:nm,qty:q}); render(); }
 function npRmRent(i){ npRent.splice(i,1); render(); }
+
+function _toYY(v){ if(!v)return ''; var p=String(v).split('-'); if(p.length!==3)return String(v); return String(p[0]).slice(-2)+'-'+p[1]+'-'+p[2]; }
+function _fromName(nm){ var m=String(nm||'').match(/^(\d{2})(\d{2})(\d{2})/); return m? (m[1]+'-'+m[2]+'-'+m[3]) : ''; }
 async function npCheckout(){
   if(!npProj){ alert('프로젝트를 먼저 고르거나 ＋새 프로젝트로 만들어주세요'); return; }
   if(!serverOn){ alert('⚠️ 서버에 연결되지 않았습니다.\n\n지금 만들면 이 컴퓨터에만 저장되어 다른 사람에게 안 보입니다.\n페이지를 새로고침(Cmd+Shift+R)하고 다시 로그인해 주세요.'); return; }
   if(!Object.keys(npSel).length && !npRent.length){ alert('고른 장비가 없습니다'); return; }
-  const out=document.getElementById('npOut').value||''; const due=document.getElementById('npDue').value||'';
+  var out=_toYY(document.getElementById('npOut').value||''); var due=_toYY(document.getElementById('npDue').value||'');
+  if(!out) out=_fromName(npProj);          // 프로젝트명 앞 YYMMDD에서 자동
+  if(!due) due=out;                        // 반납일 없으면 출고일과 동일
+  if(!out){ alert('출고일을 넣어주세요.\n\n날짜가 없으면 캘린더·재고 사용현황에 나타나지 않습니다.\n(프로젝트명을 260722_이름 처럼 만들면 자동으로 채워집니다)'); return; }
   let n=allSrc().filter(r=>r[S.proj]===npProj).length; let made=0; const rentMsg=[];
   Object.keys(npSel).forEach(id=>{
     const e=eqRows().find(r=>r[E.id]===id); if(!e)return;
