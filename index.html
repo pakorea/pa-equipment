@@ -1368,7 +1368,7 @@ function vPrepAll(){
   return `<h2>📦 준비 (전체 프로젝트)</h2><div class="lead">모든 프로젝트의 준비를 한 화면에서. 품목의 <b>🔗 연관장비</b>를 누르면 챙길 목록이 뜹니다.</div>${stageFilter()}${body||'<div class="panel">라인 없음</div>'}${relModal()}`;
 }
 
-const ALLTABS=[['prepNew','📦 프로젝트 준비'],['src','📋 소싱시트'],['proj','📁 프로젝트'],['cal','📅 캘린더'],['inv','📊 재고 현황'],['rep','🔧 파손·이력'],['mst','🗂 장비 마스터'],['bg','🎨 LEE FILTER · SAVAGE'],['buy','🧾 매입내역'],['hold','⏸ 보류'],['mem','👥 명단']];
+const ALLTABS=[['prepNew','📦 프로젝트 준비'],['src','📋 소싱시트'],['proj','📁 프로젝트'],['cal','📅 캘린더'],['inv','📊 재고 현황'],['rep','🔧 파손·이력'],['mst','🗂 장비 마스터'],['bg','🎨 LEE FILTER · SAVAGE'],['buy','🧾 매입내역'],['mem','👥 명단']];
 const FREE_TABS=['proj','cal'];
 const MEMBERS_DEFAULT=[
  {email:'parklife992@gmail.com',name:'박성준',pw:'2023',role:'관리자'},
@@ -1612,7 +1612,8 @@ function _render(){
   const tabs=myTabs();
   if(!tabs.some(t=>t[0]===view)) view=tabs[0][0];
   nav.innerHTML=tabs.map(t=>`<button class="${view===t[0]?'on':''}" onclick="go('${t[0]}')">${t[1]}</button>`).join('');
-  main.innerHTML=sbBanner()+({prepNew:vPrepNew,proj:vProj,cal:vCal,inv:vInv,rep:vRep,mst:vMst,bg:vBg,buy:vBuy,src:vSrc,hold:vHold,mem:vMem})[view]();
+  if(view==='hold') view='prepNew';
+  main.innerHTML=sbBanner()+({prepNew:vPrepNew,proj:vProj,cal:vCal,inv:vInv,rep:vRep,mst:vMst,bg:vBg,buy:vBuy,src:vSrc,mem:vMem})[view]();
 }
 render();
 (function(){
