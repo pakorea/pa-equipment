@@ -741,14 +741,130 @@ function vInv(){
 }
 
 // ===== 🔧 파손·이력 =====
+
+// ===== 🔧 파손·수리 이력 (편집 가능) =====
+const RC={id:0,line:1,proj:2,item:3,itemId:4,unit:5,st:6,sym:7,vendor:8,cost:9,pay:10,own:11,done:12,eqnote:13,note:14};
+const REP_ST=['접수','수리중','수리완료','폐기'];
+let repFilter=LS('pa_v3_repfilter','전체');
+let repOv=LS('pa_v3_repov',null)||{};      // 수리ID → {열번호:값}
+let repAdd=LS('pa_v3_repadd',null)||[];    // 새로 접수한 줄
+function repRows(){ return REP.rows.concat(repAdd); }
+function repVal(r,i){ var id=r[RC.id]; var ov=repOv[id]; if(ov&&ov[i]!=null) return ov[i]; return r[i]==null?'':r[i]; }
+function repSave(){ LSs('pa_v3_repov',repOv); LSs('pa_v3_repadd',repAdd); }
+function setRepFilter(v){ repFilter=v; try{localStorage.setItem('pa_v3_repfilter',JSON.stringify(v));}catch(e){} render(); }
+async function srvRepUpdate(id,obj){ if(!serverOn)return; await srvRun('수리이력 수정', sbT('repair').update(obj).eq('수리ID',id)); }
+async function srvRepInsert(row){ if(!serverOn){ alert('서버에 연결되지 않아 접수할 수 없습니다.'); return false; }
+  var ob={}; DB.repair.headers.forEach(function(h,i){ ob[h]=row[i]==null?'':String(row[i]); });
+  return await srvRun('수리 접수', sbT('repair').insert(ob)); }
+function repSet(id,i,v){
+  if(!repOv[id])repOv[id]={}; repOv[id][i]=v; repSave();
+  var h=DB.repair.headers[i]; var ob={}; ob[h]=String(v==null?'':v);
+  srvRepUpdate(id,ob);
+  if(i===RC.st) repApplyStock(id,v);
+  _dmg=null; render();
+}
+// 수리완료 → 실재고 복귀 / 폐기 → 파손 그대로 유지
+function repApplyStock(id,st){
+  var r=repRows().find(function(x){return x[RC.id]===id;}); if(!r)return;
+  var line=repVal(r,RC.line); if(!line)return;
+  var sr=allSrc().find(function(x){return x[S.line]===line;}); if(!sr)return;
+  var cur=num(val(sr,S.fixed));
+  var others=repRows().filter(function(x){ return repVal(x,RC.line)===line && x[RC.id]!==id && repVal(x,RC.st)==='수리완료'; }).length;
+  var want=others+(st==='수리완료'?1:0);
+  var bro=num(val(sr,S.broken)); if(want>bro) want=bro;
+  if(want!==cur){ setValNoRender(line,S.fixed,String(want)); }
+  if(st==='수리완료' && !repVal(r,RC.done)){
+    var d=new Date(); var t=String(d.getFullYear()).slice(2)+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+    if(!repOv[id])repOv[id]={}; repOv[id][RC.done]=t; repSave();
+    var ob={}; ob[DB.repair.headers[RC.done]]=t; srvRepUpdate(id,ob);
+  }
+}
+// 반납에서 파손 입력됐지만 아직 수리 접수 안 된 건
+function repPending(){
+  var have={}; repRows().forEach(function(r){ have[repVal(r,RC.line)]=(have[repVal(r,RC.line)]||0)+1; });
+  var out=[];
+  allSrc().forEach(function(r){
+    var b=num(val(r,S.broken)); if(b<=0) return;
+    var made=have[r[S.line]]||0;
+    for(var i=made;i<b;i++) out.push({line:r[S.line],proj:r[S.proj],item:val(r,S.item)||val(r,S.reqItem),itemId:r[S.itemId],n:i+1});
+  });
+  return out;
+}
+async function repIntake(line,proj,item,itemId,n){
+  var id=line+'-R'+n;
+  if(repRows().some(function(x){return x[RC.id]===id;})){ alert('이미 접수된 건입니다'); return; }
+  var row=new Array(DB.repair.headers.length).fill('');
+  row[RC.id]=id; row[RC.line]=line; row[RC.proj]=proj; row[RC.item]=item;
+  row[RC.itemId]=itemId; row[RC.unit]=itemId; row[RC.st]='접수'; row[RC.own]='프로젝트';
+  var ok=await srvRepInsert(row);
+  if(ok===false) return;
+  repAdd.push(row); repSave(); sbMsg=id+' 수리 접수됨'; _dmg=null; render();
+}
+function repDel(id){
+  if(!confirm(id+' 이력을 지울까요? 되돌릴 수 없습니다.')) return;
+  repAdd=repAdd.filter(function(r){return r[RC.id]!==id;});
+  DB.repair.rows=DB.repair.rows.filter(function(r){return r[RC.id]!==id;});
+  delete repOv[id]; repSave();
+  if(serverOn) srvRun('수리이력 삭제', sbT('repair').delete().eq('수리ID',id));
+  _dmg=null; render();
+}
+function repPill(st){
+  var c={'접수':'p-warn','수리중':'p-rent','수리완료':'p-ok','폐기':'p-zero'}[st]||'p-warn';
+  return '<span class="pill '+c+'">'+Q(st||'접수')+'</span>';
+}
 function vRep(){
-  const gen=[]; allSrc().forEach(r=>{ const b=num(val(r,S.broken)); if(b>0){ for(let i=0;i<b;i++) gen.push({line:r[S.line],proj:r[S.proj],item:val(r,S.item),itemId:r[S.itemId]});}});
-  const th='<tr><th>수리ID</th><th>프로젝트</th><th>품목명</th><th>EQ_NO</th><th>진행상태</th><th>수리업체</th><th>수리비용</th><th>비용귀속</th><th>출처</th></tr>';
-  const R=REP.rows.map(r=>`<tr><td>${Q(r[0])}</td><td>${Q(r[2])}</td><td>${Q(r[3])}</td><td>${Q(r[4])}</td><td><span class="pill p-warn">${Q(r[6])||'접수'}</span></td><td>${Q(r[8])}</td><td>${Q(r[9])}</td><td>${Q(r[11])}</td><td><span class="badge">시트원본</span></td></tr>`).join('');
-  const G=gen.map((x,i)=>`<tr><td>${Q(x.line)}-R${i+1}</td><td>${Q(x.proj)}</td><td>${Q(x.item)}</td><td>${Q(x.itemId)}</td><td><span class="pill p-warn">접수</span></td><td>-</td><td>-</td><td>프로젝트</td><td><span class="badge" style="background:#fbeae5;color:#b1442f">반납입력 자동</span></td></tr>`).join('');
-  return `<h2>🔧 파손 · 수리 이력</h2><div class="lead"><b>물건 1개 = 1줄.</b> 반납에서 파손 개수를 넣으면 자동으로 줄이 생깁니다.</div>
-    <div class="panel"><div style="font-weight:800;margin-bottom:6px">수리 대기·이력 <span style="font-size:12px;color:var(--sub)">(시트 ${REP.rows.length}건 + 반납입력 ${gen.length}건)</span></div>
-    <table><thead>${th}</thead><tbody>${R}${G||''}</tbody></table></div>`;
+  var pend=repPending();
+  var all=repRows().filter(function(r){
+    var st=repVal(r,RC.st)||'접수';
+    if(repFilter!=='전체' && st!==repFilter) return false;
+    if(q){ var h=(repVal(r,RC.proj)+' '+repVal(r,RC.item)+' '+repVal(r,RC.itemId)+' '+repVal(r,RC.id)+' '+repVal(r,RC.vendor)).toLowerCase();
+           if(h.indexOf(q.toLowerCase())<0) return false; }
+    return true;
+  });
+  var cnt=function(st){ return repRows().filter(function(r){return (repVal(r,RC.st)||'접수')===st;}).length; };
+  var chips=['전체'].concat(REP_ST).map(function(v){
+    var n = v==='전체'? repRows().length : cnt(v);
+    return '<span class="chip '+(repFilter===v?'on':'')+'" onclick="setRepFilter(\''+v+'\')">'+v+' ('+n+')</span>';
+  }).join('');
+  var ip=function(id,i,ph,w){ return '<input class="cell" style="width:'+(w||'100%')+'" value="'+Q(repVal(repRows().find(function(x){return x[RC.id]===id;}),i))+'" placeholder="'+ph+'" onchange="repSet(\''+QJ(id)+'\','+i+',this.value)">'; };
+  var body=all.map(function(r){
+    var id=r[RC.id]; var st=repVal(r,RC.st)||'접수';
+    var stSel='<select onchange="repSet(\''+QJ(id)+'\','+RC.st+',this.value)" style="font-weight:700">'
+      +REP_ST.map(function(o){return '<option'+(st===o?' selected':'')+'>'+o+'</option>';}).join('')+'</select>';
+    var bg = st==='수리완료'?' style="background:#f4faf5"' : (st==='폐기'?' style="background:#faf3f2"':'');
+    return '<tr'+bg+'><td style="font-family:ui-monospace,monospace;font-size:11px">'+Q(id)+'</td>'
+      +'<td>'+(repVal(r,RC.proj)?'<a style="cursor:pointer;color:var(--accent)" onclick="goProject(\''+QJ(repVal(r,RC.proj))+'\')">'+Q(repVal(r,RC.proj))+'</a>':'-')+'</td>'
+      +'<td>'+Q(repVal(r,RC.item))+'</td>'
+      +'<td style="font-family:ui-monospace,monospace;font-size:11px">'+Q(repVal(r,RC.itemId))+'</td>'
+      +'<td style="white-space:nowrap">'+stSel+' '+repPill(st)+'</td>'
+      +'<td>'+ip(id,RC.sym,'증상·수리내용')+'</td>'
+      +'<td>'+ip(id,RC.vendor,'수리업체','120px')+'</td>'
+      +'<td class="n">'+ip(id,RC.cost,'0','90px')+'</td>'
+      +'<td>'+ip(id,RC.pay,'결제방법','100px')+'</td>'
+      +'<td>'+ip(id,RC.own,'비용귀속','100px')+'</td>'
+      +'<td class="n">'+ip(id,RC.done,'YY-MM-DD','100px')+'</td>'
+      +'<td>'+ip(id,RC.note,'비고')+'</td>'
+      +'<td class="n"><button onclick="repDel(\''+QJ(id)+'\')" style="border:none;background:none;color:#b23b25;cursor:pointer;font-size:14px">✕</button></td></tr>';
+  }).join('');
+  var pendRows=pend.map(function(x){
+    return '<tr style="background:#fff6f3"><td>'+Q(x.proj)+'</td><td>'+Q(x.item)+'</td>'
+      +'<td style="font-family:ui-monospace,monospace;font-size:11px">'+Q(x.itemId||'-')+'</td>'
+      +'<td class="n"><button onclick="repIntake(\''+QJ(x.line)+'\',\''+QJ(x.proj)+'\',\''+QJ(x.item)+'\',\''+QJ(x.itemId||'')+'\','+x.n+')" style="background:var(--accent);color:#fff;border:none;border-radius:7px;padding:5px 13px;font-weight:700;cursor:pointer;font-size:12px">＋ 수리 접수</button></td></tr>';
+  }).join('');
+  var pendPanel = pend.length
+    ? '<div class="panel" style="border:2px solid #e0b0a0;background:#fffaf8"><div style="font-weight:800;margin-bottom:8px;color:#a8432a">🔴 접수 대기 '+pend.length+'건 <span style="font-weight:500;font-size:12px;color:var(--sub)">— 반납에서 파손으로 입력됐지만 아직 이력이 없습니다</span></div>'
+      +'<table><thead><tr><th>프로젝트</th><th>품목명</th><th>EQ_NO</th><th class="n">접수</th></tr></thead><tbody>'+pendRows+'</tbody></table></div>'
+    : '';
+  return '<h2>🔧 파손 · 수리 이력</h2>'
+    +'<div class="lead"><b>물건 1개 = 1줄.</b> 반납에서 파손을 입력하면 접수 대기로 뜨고, <b>수리 접수</b>를 누르면 이력이 시작됩니다.<br>'
+    +'진행상태를 <b>수리완료</b>로 바꾸면 <b>실재고로 되돌아오고</b>, <b>폐기</b>로 두면 재고에서 빠진 채로 남습니다.</div>'
+    +pendPanel
+    +'<div class="filt"><input type="text" value="'+Q(q)+'" oninput="q=this.value;renderKeep(this)" placeholder="🔍 프로젝트·품목·EQ_NO·업체 검색"></div>'
+    +'<div class="filt">'+chips+'</div>'
+    +'<div class="panel"><table style="font-size:12.5px"><thead><tr>'
+      +'<th>수리ID</th><th>프로젝트</th><th>품목명</th><th>EQ_NO</th><th>진행상태</th><th>증상 / 수리내용</th>'
+      +'<th>수리업체</th><th class="n">수리비용</th><th>결제방법</th><th>비용귀속</th><th class="n">완료일</th><th>비고</th><th class="n">삭제</th>'
+      +'</tr></thead><tbody>'+(body||'<tr><td colspan="13" style="color:#bbb;padding:12px">해당하는 이력이 없습니다.</td></tr>')+'</tbody></table></div>';
 }
 
 // ===== 🗂 장비 마스터 (편집) =====
