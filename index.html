@@ -7,7 +7,7 @@
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--ink);line-height:1.55;font-size:15px;
  font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic",sans-serif}
-.top{background:#2f4a66;color:#fff;padding:11px 18px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.top{position:sticky;top:0;z-index:60;background:#2f4a66;color:#fff;padding:11px 18px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
 .top .logo{font-weight:800;font-size:16px}.top .tag{font-size:12px;background:#43617f;padding:3px 9px;border-radius:999px}.top .sp{flex:1}
 nav{display:flex;gap:2px;background:#eef0f3;padding:7px 12px 0;border-bottom:1px solid var(--line);flex-wrap:wrap;position:sticky;top:0;z-index:50;box-shadow:0 2px 6px rgba(0,0,0,.06)}
 nav button{background:transparent;border:none;border-bottom:3px solid transparent;padding:9px 14px;font-size:14px;cursor:pointer;color:#556;border-radius:8px 8px 0 0;font-weight:600}
@@ -73,7 +73,7 @@ input.cell{width:64px;font-size:12px;padding:2px 5px;text-align:center}
 </head>
 <body>
 <div class="top"><span class="logo">📦 PA 장비관리</span><span class="tag">🔐 구글 로그인 · 전체 서버저장 v6</span><span class="sp"></span>
-<span id="who" style="font-size:12.5px;color:#dbe4ee;font-weight:700"></span><button onclick="resetAll()" style="background:#e7edf3;color:#2f4a66;border:none;border-radius:7px;padding:6px 11px;font-weight:700;font-size:12px;cursor:pointer">입력 초기화</button><button onclick="logout()" id="lgoutbtn" style="display:none;background:#b1442f;color:#fff;border:none;border-radius:7px;padding:6px 11px;font-weight:700;font-size:12px;cursor:pointer">로그아웃</button></div>
+<span id="who" style="font-size:12.5px;color:#dbe4ee;font-weight:700"></span><a href="https://docs.google.com/spreadsheets/d/13irEw9WTK3gDpoPEG5pdNdvgI-WFRjctzYAbSlLDw4c/edit" target="_blank" id="sheetbtn" style="background:#0f9d58;color:#fff;border-radius:7px;padding:6px 12px;font-weight:800;font-size:12px;text-decoration:none;white-space:nowrap;margin-right:6px">📗 백업 0번시트 ↗</a><button onclick="resetAll()" style="background:#e7edf3;color:#2f4a66;border:none;border-radius:7px;padding:6px 11px;font-weight:700;font-size:12px;cursor:pointer">입력 초기화</button><button onclick="logout()" id="lgoutbtn" style="display:none;background:#b1442f;color:#fff;border:none;border-radius:7px;padding:6px 11px;font-weight:700;font-size:12px;cursor:pointer">로그아웃</button></div>
 <nav id="nav"></nav>
 <main id="main"></main>
 <script>
@@ -864,8 +864,7 @@ async function sbLoadExtras(){
 function sbBanner(){
   if(!session) return '';
   if(sbBusy) return '<div class="note-box" style="background:#eaf1f9;border-color:#cfe0f2;color:#2f6db0">⏳ '+Q(sbMsg||'처리 중…')+'</div>';
-  if(serverOn) return '<div class="note-box" style="background:#e9f5ee;border-color:#a9d9be;color:#1f7a52;display:flex;align-items:center;gap:10px;flex-wrap:wrap">🟢 <b>서버 연결됨</b> — 이 데이터는 서버에서 왔고, 수정하면 모두에게 반영됩니다. <span style="font-size:11.5px">'+Q(sbMsg)+'</span>'
-   +'<a href="'+SHEET_URL+'" target="_blank" style="margin-left:auto;background:#0f9d58;color:#fff;border-radius:8px;padding:7px 15px;font-weight:800;font-size:13px;text-decoration:none;white-space:nowrap">📗 백업 0번시트 ↗</a></div>';
+  if(serverOn) return '<div class="note-box" style="background:#e9f5ee;border-color:#a9d9be;color:#1f7a52">🟢 <b>서버 연결됨</b> — 이 데이터는 서버에서 왔고, 수정하면 모두에게 반영됩니다. <span style="font-size:11.5px">'+Q(sbMsg)+'</span></div>';
   return '<div class="note-box" style="background:#fff3e0;border-color:#eddcb4;color:#7d551a;display:flex;align-items:center;gap:10px;flex-wrap:wrap">🟡 <b>오프라인(내 컴퓨터)</b> — 서버에 연결되지 않아 이 컴퓨터에만 저장됩니다.'+(sbMsg?' <span style="font-size:11.5px">'+Q(sbMsg)+'</span>':'')+'<button onclick="forceReset()" style="margin-left:auto;background:#2f6db0;color:#fff;border:none;border-radius:8px;padding:7px 15px;font-weight:800;font-size:13px;cursor:pointer">🔌 서버에 로그인</button></div>';
 }
 
@@ -879,8 +878,8 @@ window.addEventListener('error',function(ev){ try{ showErr(ev.error||{message:ev
 function _render(){
   const nav=document.getElementById('nav'), main=document.getElementById('main');
   const who=document.getElementById('who'), lg=document.getElementById('lgoutbtn');
-  if(!session){ nav.innerHTML=''; main.innerHTML=loginHTML(); if(who)who.textContent=''; if(lg)lg.style.display='none'; var rb=document.querySelector('.top button'); if(rb)rb.style.display='none'; return; }
-  if(who)who.textContent='👤 '+session.name+' · '+session.role; if(lg)lg.style.display=''; var rb2=document.querySelector('.top button'); if(rb2)rb2.style.display='';
+  if(!session){ nav.innerHTML=''; main.innerHTML=loginHTML(); if(who)who.textContent=''; if(lg)lg.style.display='none'; var rb=document.querySelector('.top button'); if(rb)rb.style.display='none'; var sb1=document.getElementById('sheetbtn'); if(sb1)sb1.style.display='none'; return; }
+  if(who)who.textContent='👤 '+session.name+' · '+session.role; if(lg)lg.style.display=''; var rb2=document.querySelector('.top button'); if(rb2)rb2.style.display=''; var sb2=document.getElementById('sheetbtn'); if(sb2)sb2.style.display='';
   const tabs=myTabs();
   if(!tabs.some(t=>t[0]===view)) view=tabs[0][0];
   nav.innerHTML=tabs.map(t=>`<button class="${view===t[0]?'on':''}" onclick="go('${t[0]}')">${t[1]}</button>`).join('');
