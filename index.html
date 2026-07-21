@@ -72,7 +72,7 @@ input.cell{width:64px;font-size:12px;padding:2px 5px;text-align:center}
 </style><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
-<div class="top"><span class="logo">📦 PA 장비관리</span><span class="tag">👑 관리자 · 웹버전</span><span class="sp"></span>
+<div class="top"><span class="logo">📦 PA 장비관리</span><span class="tag">🔐 구글 로그인 · 웹버전</span><span class="sp"></span>
 <span id="who" style="font-size:12.5px;color:#dbe4ee;font-weight:700"></span><button onclick="resetAll()" style="background:#e7edf3;color:#2f4a66;border:none;border-radius:7px;padding:6px 11px;font-weight:700;font-size:12px;cursor:pointer">입력 초기화</button><button onclick="logout()" id="lgoutbtn" style="display:none;background:#b1442f;color:#fff;border:none;border-radius:7px;padding:6px 11px;font-weight:700;font-size:12px;cursor:pointer">로그아웃</button></div>
 <nav id="nav"></nav>
 <main id="main"></main>
@@ -671,16 +671,16 @@ function membersSave(){ LSs('pa_v3_members',members); }
 let session=LS('pa_v3_session',null);
 let ME=session?session.email:'';
 function isAdmin(){ return session&&session.role==='관리자'; }
-function myTabs(){ return ALLTABS; }
+function myTabs(){ return (session&&session.role==='관리자')?ALLTABS:ALLTABS.filter(function(t){return ['proj','inv'].indexOf(t[0])>=0;}); }
 function loginHTML(){
-  return '<div style="max-width:410px;margin:56px auto;background:#fff;border:1px solid var(--line);border-radius:16px;padding:32px 28px;box-shadow:0 6px 24px rgba(0,0,0,.07);text-align:center">'
-   +'<div style="font-size:23px;font-weight:800;margin-bottom:4px">📦 PA 장비관리</div>'
-   +'<div style="font-size:13.5px;color:var(--sub);margin-bottom:18px">👑 관리자용 · <b>서버 연결</b></div>'
-   +'<div style="margin:9px 0"><input id="lg_email" placeholder="이메일" style="width:100%;padding:11px 13px;font-size:14.5px;text-align:center"></div>'
-   +'<div style="margin:9px 0"><input id="lg_pw" type="password" placeholder="비밀번호" style="width:100%;padding:11px 13px;font-size:14.5px;text-align:center"></div>'
-   +'<div id="lg_msg" style="color:#b1442f;font-size:12.5px;min-height:17px">'+Q(sbMsg||'')+'</div>'
-   +'<button onclick="doLogin()" style="width:100%;background:var(--accent);color:#fff;border:none;border-radius:9px;padding:12px;font-size:15px;font-weight:800;cursor:pointer;margin-top:4px">서버에 로그인</button>'
-   +'<div style="font-size:11.5px;color:#aaa;margin-top:14px;line-height:1.6">＊서버(Supabase)에 등록된 계정으로 들어갑니다.<br>＊구글 로그인은 추후 연결 예정입니다.</div>'
+  return '<div style="max-width:420px;margin:56px auto;background:#fff;border:1px solid var(--line);border-radius:16px;padding:36px 28px;box-shadow:0 6px 24px rgba(0,0,0,.07);text-align:center">'
+   +'<div style="font-size:24px;font-weight:800;margin-bottom:6px">📦 PA 장비관리</div>'
+   +'<div style="font-size:13.5px;color:var(--sub);margin-bottom:24px">회사 구글 계정으로 로그인하세요</div>'
+   +'<button onclick="googleLogin()" style="width:100%;background:#fff;color:#3c4043;border:1px solid #dadce0;border-radius:10px;padding:13px;font-size:15px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px">'
+   +'<svg width="19" height="19" viewBox="0 0 48 48"><path fill="#4285F4" d="M45.1 24.5c0-1.6-.1-3.2-.4-4.7H24v9h11.9c-.5 2.8-2.1 5.1-4.4 6.7v5.6h7.1c4.2-3.8 6.5-9.5 6.5-16.6z"/><path fill="#34A853" d="M24 46c5.9 0 10.9-2 14.6-5.3l-7.1-5.6c-2 1.3-4.5 2.1-7.5 2.1-5.8 0-10.6-3.9-12.4-9.1H4.3v5.7C8 41.2 15.4 46 24 46z"/><path fill="#FBBC05" d="M11.6 28.1c-.5-1.4-.7-2.8-.7-4.1s.3-2.8.7-4.1v-5.7H4.3C2.8 17.1 2 20.4 2 24s.8 6.9 2.3 9.8l7.3-5.7z"/><path fill="#EA4335" d="M24 10.8c3.2 0 6.1 1.1 8.4 3.3l6.3-6.3C34.9 4.2 29.9 2 24 2 15.4 2 8 6.8 4.3 14.2l7.3 5.7c1.8-5.2 6.6-9.1 12.4-9.1z"/></svg>'
+   +'Google 계정으로 로그인</button>'
+   +'<div id="lg_msg" style="color:#b1442f;font-size:12.5px;min-height:18px;margin-top:12px">'+Q(sbMsg||'')+'</div>'
+   +'<div style="font-size:11.5px;color:#aaa;margin-top:8px;line-height:1.7">＊명단에 등록된 계정만 이용할 수 있습니다.<br>＊관리자·프리랜서 화면은 자동으로 구분됩니다.</div>'
    +'</div>';
 }
 function doLogin(){
@@ -770,6 +770,32 @@ function sbSaveCell(line,idx,v){
   var o={}; o[h]=String(v==null?'':v);
   try{ var c=sbClient(); if(c) c.from('sourcing').update(o).eq('라인ID',line).then(function(r){ if(r&&r.error) console.warn('서버저장 실패',r.error); }); }catch(e){ console.warn('서버저장 오류',e); }
 }
+
+// ===== 구글 로그인 =====
+async function googleLogin(){
+  var c=sbClient(); if(!c){ sbMsg='서버 라이브러리 로드 실패(인터넷 확인)'; render(); return; }
+  sbMsg='구글 로그인 창으로 이동합니다…'; render();
+  var r=await c.auth.signInWithOAuth({provider:'google',options:{redirectTo:window.location.href.split('#')[0].split('?')[0]}});
+  if(r.error){ sbMsg='구글 로그인 실패: '+r.error.message; render(); }
+}
+// 서버 users 표에서 역할 조회 (명단 기반)
+async function loadRole(email){
+  try{
+    var r=await sbClient().from('users').select('*').ilike('email',email).limit(1);
+    if(r.error) return null;
+    var u=(r.data&&r.data[0])||null;
+    if(!u) return null;
+    return {name:(u.name||u['이름']||email.split('@')[0]), role:(u.role||u['역할']||'프리랜서')};
+  }catch(e){ return null; }
+}
+function noAccessHTML(email){
+  return '<div style="max-width:460px;margin:56px auto;background:#fff;border:1px solid var(--line);border-radius:16px;padding:32px 28px;text-align:center;box-shadow:0 6px 24px rgba(0,0,0,.07)">'
+   +'<div style="font-size:40px">🔒</div>'
+   +'<div style="font-size:20px;font-weight:800;margin:8px 0 6px">아직 등록되지 않은 계정입니다</div>'
+   +'<div style="font-size:14.5px;color:var(--sub);line-height:1.7">로그인하신 계정: <b>'+Q(email)+'</b><br>관리자(명진)에게 <b>등록을 요청</b>해 주세요.<br>등록되면 바로 이용하실 수 있습니다.</div>'
+   +'<button onclick="forceReset()" style="margin-top:18px;background:#eef1f5;color:#333;border:1px solid #ccc;border-radius:9px;padding:10px 20px;font-weight:700;cursor:pointer">다른 계정으로 로그인</button>'
+   +'</div>';
+}
 function sbBanner(){
   if(sbBusy) return '<div class="note-box" style="background:#eaf1f9;border-color:#cfe0f2;color:#2f6db0">⏳ '+Q(sbMsg||'처리 중…')+'</div>';
   if(serverOn) return '<div class="note-box" style="background:#e9f5ee;border-color:#a9d9be;color:#1f7a52">🟢 <b>서버 연결됨</b> — 이 데이터는 서버에서 왔고, 수정하면 모두에게 반영됩니다. <span style="font-size:11.5px">'+Q(sbMsg)+'</span></div>';
@@ -794,5 +820,21 @@ function _render(){
   main.innerHTML=sbBanner()+({prepNew:vPrepNew,proj:vProj,cal:vCal,inv:vInv,rep:vRep,mst:vMst,bg:vBg,buy:vBuy,src:vSrc,hold:vHold,mem:vMem})[view]();
 }
 render();
-(function(){ var c=sbClient(); if(c){ c.auth.getSession().then(function(r){ if(r.data&&r.data.session){ sbUser=r.data.session.user; if(!session){session={email:sbUser.email,name:sbUser.email.split('@')[0],role:'관리자'};LSs('pa_v3_session',session);ME=sbUser.email;} sbLoadAll(); } }); } })();
+(function(){
+  var c=sbClient(); if(!c) return;
+  c.auth.getSession().then(function(r){
+    var sess=r&&r.data&&r.data.session; if(!sess) return;
+    sbUser=sess.user; var em=(sbUser.email||'').toLowerCase();
+    sbMsg='권한 확인 중…'; render();
+    loadRole(em).then(function(info){
+      if(!info){ session=null; ME=''; sbMsg=''; var m2=document.getElementById('main'); if(m2)m2.innerHTML=noAccessHTML(em); 
+                 var w=document.getElementById('who'); if(w)w.textContent='👤 '+em+' · 미등록';
+                 var lgb=document.getElementById('lgoutbtn'); if(lgb)lgb.style.display='';
+                 var nv=document.getElementById('nav'); if(nv)nv.innerHTML=''; return; }
+      session={email:em,name:info.name,role:info.role}; LSs('pa_v3_session',session); ME=em;
+      sbLoadAll();
+    });
+  });
+  c.auth.onAuthStateChange(function(ev,sess){ if(ev==='SIGNED_IN'&&sess){ location.reload(); } });
+})();
 </script></body></html>
