@@ -873,22 +873,35 @@ async function googleLogin(){
   if(r.error){ sbMsg='구글 로그인 실패: '+r.error.message; render(); }
 }
 // 서버 users 표에서 역할 조회 (명단 기반)
-async function loadRole(email){
+async function loadRole(email,gname){
   try{
     var r=await sbClient().from('users').select('*').ilike('email',email).limit(1);
-    if(r.error) return {name:email.split('@')[0], role:'프리랜서'};
+    if(r.error) return null;
     var u=(r.data&&r.data[0])||null;
-    if(u) return {name:(u.name||email.split('@')[0]), role:(u.role||'프리랜서')};
-    // 명단에 없으면 프리랜서로 자동 등록 (관리자가 나중에 변경)
-    try{ await sbClient().from('users').insert({email:email,name:email.split('@')[0],role:'프리랜서'}); }catch(e){}
-    return {name:email.split('@')[0], role:'프리랜서'};
-  }catch(e){ return {name:email.split('@')[0], role:'프리랜서'}; }
+    if(u){
+      if(u.role==='관리자'||u.role==='프리랜서'){
+        // 이름이 이메일 앞부분이면 구글 실명으로 보정
+        if(gname && (!u.name || u.name===email.split('@')[0])){
+          try{ await sbClient().from('users').update({name:gname}).eq('email',u.email); }catch(e){}
+          return {name:gname, role:u.role};
+        }
+        return {name:(u.name||gname||email.split('@')[0]), role:u.role};
+      }
+      return {name:(u.name||gname||email.split('@')[0]), role:'대기'};   // 승인 대기
+    }
+    try{ await sbClient().from('users').insert({email:email,name:(gname||email.split('@')[0]),role:'대기'}); }catch(e){}
+    return {name:(gname||email.split('@')[0]), role:'대기'};
+  }catch(e){ return null; }
 }
-function noAccessHTML(email){
-  return '<div style="max-width:460px;margin:56px auto;background:#fff;border:1px solid var(--line);border-radius:16px;padding:32px 28px;text-align:center;box-shadow:0 6px 24px rgba(0,0,0,.07)">'
-   +'<div style="font-size:40px">🔒</div>'
-   +'<div style="font-size:20px;font-weight:800;margin:8px 0 6px">아직 등록되지 않은 계정입니다</div>'
-   +'<div style="font-size:14.5px;color:var(--sub);line-height:1.7">로그인하신 계정: <b>'+Q(email)+'</b><br>관리자(명진)에게 <b>등록을 요청</b>해 주세요.<br>등록되면 바로 이용하실 수 있습니다.</div>'
+function noAccessHTML(email,nm){
+  return '<div style="max-width:520px;margin:56px auto;background:#fff;border:1px solid var(--line);border-radius:16px;padding:34px 30px;text-align:center;box-shadow:0 6px 24px rgba(0,0,0,.07)">'
+   +'<div style="font-size:42px">⏳</div>'
+   +'<div style="font-size:21px;font-weight:800;margin:10px 0 8px">승인 대기 중입니다</div>'
+   +'<div style="font-size:14.5px;color:var(--sub);line-height:1.75">'
+     +'로그인 계정: <b>'+Q(email)+'</b>'+(nm?' ('+Q(nm)+')':'')+'<br>'
+     +'접속 요청이 <b>관리자 명단에 등록</b>되었습니다.<br>관리자가 승인하면 바로 이용하실 수 있습니다.</div>'
+   +'<div style="margin-top:16px;font-size:12.5px;color:#999;background:#f7f5ef;border-radius:9px;padding:11px 14px;line-height:1.6">'
+     +'승인 전에는 어떤 자료도 열람할 수 없습니다.<br>급하시면 담당자에게 위 이메일을 알려주세요.</div>'
    +'<button onclick="forceReset()" style="margin-top:18px;background:#eef1f5;color:#333;border:1px solid #ccc;border-radius:9px;padding:10px 20px;font-weight:700;cursor:pointer">다른 계정으로 로그인</button>'
    +'</div>';
 }
@@ -974,8 +987,8 @@ render();
     sbMsg='권한 확인 중…'; render();
     loadRole(em).then(function(info){
       window.__paBooting=false;
-      if(!info){ session=null; ME=''; sbMsg=''; var m2=document.getElementById('main'); if(m2)m2.innerHTML=noAccessHTML(em); 
-                 var w=document.getElementById('who'); if(w)w.textContent='👤 '+em+' · 미등록';
+      if(!info || info.role==='대기'){ session=null; ME=''; sbMsg=''; var m2=document.getElementById('main'); if(m2)m2.innerHTML=noAccessHTML(em,(info&&info.name)||''); 
+                 var w=document.getElementById('who'); if(w)w.textContent='👤 '+em+' · 승인 대기';
                  var lgb=document.getElementById('lgoutbtn'); if(lgb)lgb.style.display='';
                  var nv=document.getElementById('nav'); if(nv)nv.innerHTML=''; return; }
       session={email:em,name:info.name,role:info.role}; LSs('pa_v3_session',session); ME=em;
@@ -986,8 +999,10 @@ render();
     if(ev!=='SIGNED_IN'||!sess||window.__paBooting) return;
     window.__paBooting=true;
     var em=(sess.user.email||'').toLowerCase(); sbUser=sess.user;
+    var _md=(sess.user.user_metadata||{});
+    var _gn=(_md.full_name||_md.name||'').trim();
     sbMsg='권한 확인 중…'; render();
-    loadRole(em).then(function(info){
+    loadRole(em,_gn).then(function(info){
       window.__paBooting=false;
       if(!info){ session=null; ME=''; sbMsg='';
         var m2=document.getElementById('main'); if(m2)m2.innerHTML=noAccessHTML(em);
