@@ -663,7 +663,7 @@ function invMatRows(){
   return ['cf','bg'].map(function(k){
     var d=auxGet()[k]; if(!d) return '';
     if(q && (MAT[k].label.toLowerCase().indexOf(q.toLowerCase())<0)) return '';
-    if(invMode==='out') return '';
+    if(invMode!=='all') return '';   // 소모자재는 '지금 나간 장비'·'일정 겹침' 대상이 아님
     var need=d.records.filter(function(r,ri){return matNeed(k,ri);}).length;
     var qty=d.records.reduce(function(a,r,ri){ return a+num(matQty(k,ri)); },0);
     return '<tr class="rowck" style="background:#fbfaf5" onclick="openMat(\''+k+'\')">'
