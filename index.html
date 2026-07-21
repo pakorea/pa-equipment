@@ -174,6 +174,72 @@ function stageFilter(){
 function renderKeep(el){ const p=el.selectionStart; render(); const n=document.querySelector('input[type=text]'); if(n){n.focus();try{n.setSelectionRange(p,p);}catch(e){}} }
 
 // ===== 스테이지 표 =====
+
+// ===== 프로젝트 진행 중 장비 추가/삭제/수량변경 =====
+let addEqOpen=false, addEqQ='', addEqCat='';
+function openAddEq(){ addEqOpen=true; addEqQ=''; render(); }
+function closeAddEq(){ addEqOpen=false; render(); }
+async function addEqToProj(id){
+  if(!curProj) return;
+  if(!serverOn){ alert('서버에 연결되지 않아 추가할 수 없습니다. 새로고침 후 다시 로그인해 주세요.'); return; }
+  var e=eqRows().find(function(r){return r[E.id]===id;}); if(!e) return;
+  var rows=allSrc().filter(function(r){return r[S.proj]===curProj;});
+  var seq=rows.length+1;
+  var out='', due='';
+  rows.forEach(function(r){ if(!out&&val(r,S.out))out=val(r,S.out); if(!due&&val(r,S.due))due=val(r,S.due); });
+  var row=new Array(SRC.headers.length).fill('');
+  row[S.line]=curProj+'-'+String(seq).padStart(2,'0');
+  row[S.proj]=curProj; row[S.reqQ]='1'; row[S.reqItem]=ev(e,E.name); row[S.asgQ]='1';
+  row[S.item]=ev(e,E.name); row[S.related]=ev(e,E.related); row[S.cat]=ev(e,E.cat);
+  row[S.comp]=ev(e,E.comp); row[S.itemId]=id; row[S.brand]=ev(e,E.brand);
+  row[S.own]=ev(e,E.own); row[S.out]=out; row[S.due]=due;
+  sbBusy=true; sbMsg='장비 추가 중…'; render();
+  try{
+    var o={}; SRC.headers.forEach(function(h,i){ o[h]=row[i]==null?'':String(row[i]); });
+    var r=await sbT('sourcing').insert(o); if(r&&r.error) throw r.error;
+    DB.sourcing.rows.push(row);
+    _dmg=null;_pdmax=null;window.__invUse=null;
+    sbMsg='추가됨: '+ev(e,E.name);
+  }catch(err){ sbMsg='추가 실패: '+(err.message||err); alert('추가 실패: '+(err.message||err)); }
+  sbBusy=false; render();
+}
+async function delLine(line){
+  if(!confirm('이 장비를 프로젝트에서 뺄까요?\n(라인 '+line+' 삭제 — 되돌릴 수 없습니다)')) return;
+  if(!serverOn){ alert('서버 연결이 필요합니다.'); return; }
+  sbBusy=true; sbMsg='삭제 중…'; render();
+  try{
+    var r=await sbT('sourcing').delete().eq('라인ID',line); if(r&&r.error) throw r.error;
+    DB.sourcing.rows=DB.sourcing.rows.filter(function(x){return x[S.line]!==line;});
+    srcAdd=srcAdd.filter(function(x){return x[S.line]!==line;}); LSs('pa_v3_srcadd',srcAdd);
+    delete edits[line]; save();
+    _dmg=null;_pdmax=null;window.__invUse=null;
+    sbMsg='삭제됨';
+  }catch(err){ sbMsg='삭제 실패: '+(err.message||err); alert('삭제 실패: '+(err.message||err)); }
+  sbBusy=false; render();
+}
+function addEqModal(){
+  if(!addEqOpen||!curProj) return '';
+  var cats=[...new Set(eqRows().map(function(r){return ev(r,E.cat);}).filter(Boolean))];
+  var chips='<span class="chip '+(addEqCat===''?'on':'')+'" onclick="addEqCat=\'\';render()">전체</span>'
+    +cats.map(function(c){ return '<span class="chip '+(addEqCat===c?'on':'')+'" onclick="addEqCat=\''+QJ(c)+'\';render()">'+Q(c)+'</span>'; }).join('');
+  var list=eqRows().filter(function(e){
+    if(addEqCat && ev(e,E.cat)!==addEqCat) return false;
+    if(addEqQ){ var h=(ev(e,E.name)+' '+ev(e,E.brand)+' '+e[E.id]).toLowerCase(); if(!h.includes(addEqQ.toLowerCase())) return false; }
+    return true; }).slice(0,300);
+  var rows=list.map(function(e){
+    var rs=realStock(e[E.id]);
+    return '<tr><td>'+Q(ev(e,E.name))+' <span style="font-size:11px;color:#999">'+Q(ev(e,E.cat))+'</span></td>'
+      +'<td class="n">'+Q(e[E.id])+'</td>'
+      +'<td class="n"><span class="pill '+(rs<=0?'p-zero':(rs<=1?'p-warn':'p-ok'))+'">'+rs+'</span></td>'
+      +'<td class="n"><button onclick="addEqToProj(\''+QJ(e[E.id])+'\')" style="background:var(--accent);color:#fff;border:none;border-radius:6px;padding:4px 12px;font-weight:700;cursor:pointer;font-size:12px">＋ 추가</button></td></tr>';
+  }).join('');
+  return '<div class="modal-bg" onclick="if(event.target===this)closeAddEq()"><div class="modal" style="max-width:720px">'
+   +'<h3>＋ 장비 추가 — '+Q(curProj)+'</h3>'
+   +'<div class="filt"><input value="'+Q(addEqQ)+'" oninput="addEqQ=this.value;render()" placeholder="🔍 장비 검색" style="min-width:220px"></div>'
+   +'<div class="filt" style="max-height:70px;overflow:auto">'+chips+'</div>'
+   +'<div style="max-height:46vh;overflow:auto"><table><thead><tr><th>장비</th><th class="n">Item_ID</th><th class="n">가용</th><th class="n">추가</th></tr></thead><tbody>'+rows+'</tbody></table></div>'
+   +'<div class="mbtns"><button class="primary" onclick="closeAddEq()">닫기</button></div></div></div>';
+}
 function prepTable(rows){
   const stOpts=(cur)=>['미완료','준비완료','확인필요'].map(o=>`<option ${cur===o?'selected':''}>${o}</option>`).join('');
   const body=rows.map(r=>{
@@ -183,9 +249,10 @@ function prepTable(rows){
       <td><select onchange="onPrepSt('${QJ(l)}',this.value)">${stOpts(st)}</select></td>
       <td>${done?('<span class="pill p-ok">✔ '+Q(nameOf(val(r,S.prepBy)))+'</span>'):'<span class="pill p-zero">-</span>'}</td>
       <td><input class="note" value="${Q(val(r,S.prepNote))}" onchange="setValNoRender('${QJ(l)}',${S.prepNote},this.value)" placeholder="준비노트"></td>
-      <td><input class="note" value="${Q(val(r,S.innote))}" onchange="setValNoRender('${QJ(l)}',${S.innote},this.value)" placeholder="내부노트"></td></tr>`;
+      <td><input class="note" value="${Q(val(r,S.innote))}" onchange="setValNoRender('${QJ(l)}',${S.innote},this.value)" placeholder="내부노트"></td>
+      <td class="n"><button onclick="delLine('${QJ(l)}')" title="이 장비를 프로젝트에서 빼기" style="border:none;background:none;color:#b23b25;cursor:pointer;font-size:15px">🗑</button></td></tr>`;
   }).join('');
-  return `<div class="panel"><table><thead><tr><th>품목</th><th class="n">배정</th><th>카테고리</th><th>연관장비</th><th>EQ노트</th><th>준비상태</th><th>담당</th><th>준비노트</th><th>내부노트</th></tr></thead><tbody>${body}</tbody></table></div>`;
+  return `<div class="panel"><table><thead><tr><th>품목</th><th class="n">배정</th><th>카테고리</th><th>연관장비</th><th>EQ노트</th><th>준비상태</th><th>담당</th><th>준비노트</th><th>내부노트</th><th class="n">빼기</th></tr></thead><tbody>${body}</tbody></table></div>`;
 }
 function onPrepSt(line,v){ setValNoRender(line,S.prepSt,v); if(v==='준비완료')setValNoRender(line,S.prepBy,ME); else if(v==='미완료')setValNoRender(line,S.prepBy,''); render(); }
 function wrapTable(rows){
@@ -219,10 +286,18 @@ function retTable(rows){
       <td>${lowCell}</td>
       <td><input class="note" value="${Q(val(r,S.retNote))}" onchange="setValNoRender('${QJ(l)}',${S.retNote},this.value)" placeholder="반납노트"></td></tr>`;
   }).join('');
-  return `<div class="panel"><table><thead><tr><th>품목</th><th class="n">배정</th><th class="n">반납☑</th><th class="n">파손</th><th class="n">분실</th><th class="n">정상</th><th>반납상태(자동)</th><th>📷 사진</th><th>소모품 잔량</th><th>반납노트</th></tr></thead><tbody>${body}</tbody></table></div>`;
+  return `<div class="panel"><table><thead><tr><th>품목</th><th class="n">배정</th><th class="n">반납☑</th><th class="n">파손</th><th class="n">분실</th><th class="n">정상</th><th>반납상태(자동)</th><th>📷 사진</th><th>잔량(배경지·필터)</th><th>반납노트</th></tr></thead><tbody>${body}</tbody></table></div>`;
 }
 function onRetBy(line,checked){ setVal(line,S.retBy, checked?ME:''); }
-function isConsumable(r){ var c=(val(r,S.cat)||'').toUpperCase(); return c.indexOf('CONSUMABLE')>=0||c.indexOf('소모')>=0; }
+function isConsumable(r){
+  // 잔량(50%)으로 관리하는 것 = 배경지·필터·페이퍼·젤·테이프 류만
+  var n=((val(r,S.item)||val(r,S.reqItem)||'')+' '+(val(r,S.cat)||'')).toUpperCase();
+  var YES=['FILTER','LEE FILTER','GEL','CTO','CTB','CTS','DIFFUSION','BACKDROP','SEAMLESS','배경지','TRACING','PAPER','SHOWCARD','CINE FOIL','TAPE','PLASTIC COVER','ROLL'];
+  var NO=['CABLE','TETHER','HDMI','USB','BATTERY','FILM BAG','SOFTWEAR','SOFTWARE','CLEANING KIT','CANNED AIR','120 FILM','135 FILM'];
+  for(var i=0;i<NO.length;i++){ if(n.indexOf(NO[i])>=0) return false; }
+  for(var j=0;j<YES.length;j++){ if(n.indexOf(YES[j])>=0) return true; }
+  return false;
+}
 function onLow(line,checked){ if(!edits[line])edits[line]={}; edits[line].low=checked; save(); srvSrcExtra(line,{low:checked}); }
 function addPhoto(line,input){ var f=input.files&&input.files[0]; if(!f)return;
   var rd=new FileReader(); rd.onload=function(e){ var img=new Image();
@@ -355,12 +430,13 @@ function vProjDetail(){
   return `<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:4px">
       <button class="backbtn" onclick="backProj()">← 프로젝트 목록</button>
       <button class="backbtn" onclick="openProjEdit('${QJ(curProj)}')">✏️ 정보 수정</button>
+      <button class="backbtn" style="color:var(--accent);border-color:#a9c4e0;font-weight:800" onclick="openAddEq()">＋ 장비 추가</button>
       <h2 style="margin:0">📁 ${Q(curProj)}</h2>
       <span style="color:var(--sub);font-size:13px">${Q(projDates(curProj))}</span>
       ${projStatus(curProj)==='완료'
         ?`<span class="pill p-ok">✔ 완료됨</span><button class="backbtn" onclick="setProjDone('${QJ(curProj)}',false)">↩ 완료 취소</button>`
         :`<button class="backbtn" style="color:var(--ok);border-color:#9fd4b4;font-weight:800" onclick="if(confirm('[${Q(curProj)}] 프로젝트를 완료 처리할까요? (활성 목록에서 숨겨지고, 완료 포함을 누르면 보입니다)'))setProjDone('${QJ(curProj)}',true)">✔ 프로젝트 완료 처리</button>`}</div>
-    <div class="stgbar">${tabs}</div><div class="lead">${lead}</div>${body}${relModal()}${projEditModal()}`;
+    <div class="stgbar">${tabs}</div><div class="lead">${lead}</div>${body}${relModal()}${projEditModal()}${addEqModal()}`;
 }
 
 // ===== 📅 캘린더 (1번 방식: 월 이동 + 일정바 + 인원배치) =====
@@ -549,7 +625,7 @@ function vInv(){
   dmgMap(); const zero=rows.filter(x=>x.rs<=0).length;
   window.__invUse=null;
   const _low=lowSetOf(); const _lowItems=eqRows().filter(e=>(ev(e,E.cat)||'').toUpperCase().indexOf('CONSUMABLE')>=0 && _low[e[E.id]]);
-  const lowWarn=_lowItems.length?`<div class="note-box" style="background:#fff3e0;border-color:#eddcb4;color:#7d551a">🔴 <b>소모품 보충 필요 ${_lowItems.length}건</b> — ${_lowItems.map(e=>Q(ev(e,E.name))).slice(0,8).join(', ')}${_lowItems.length>8?' 외':''} <span style="font-size:11px">(반납에서 50%↓ 체크됨)</span></div>`:'';
+  const lowWarn=_lowItems.length?`<div class="note-box" style="background:#fff3e0;border-color:#eddcb4;color:#7d551a">🔴 <b>소모품 보충 필요 ${_lowItems.length}건</b> — ${_lowItems.map(e=>Q(ev(e,E.name))).slice(0,8).join(', ')}${_lowItems.length>8?' 외':''} <span style="font-size:11px">(반납에서 잔량 50%↓ 체크됨)</span></div>`:'';
   const orphanWarn=_dmgOrphan>0?`<div class="note-box" style="background:#fbeae5;border-color:#e6c3ba;color:#8a3221">⚠️ 장비에 연결 안 된 파손·분실 <b>${_dmgOrphan}건</b>이 있어 재고에 반영되지 않았습니다. (Item_ID 미매칭 라인 — 소싱시트에서 확인 필요)</div>`:'';
   return `<h2>📊 재고 현황</h2><div class="lead"><b>실재고 = 보유 − 분실 − 파손 + 수리완료</b> (자동 계산) · 아래 칩으로 <b>보고 싶은 열만</b> 켜고 끕니다.</div>
     <div class="filt"><input type="text" value="${Q(q)}" oninput="q=this.value;renderKeep(this)" placeholder="🔍 검색"></div>
