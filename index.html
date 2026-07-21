@@ -1408,15 +1408,8 @@ function vPrepNew(){
     +`<td class="n"><button class="mini" onclick="npRmRent(${i})">×</button></td></tr>`).join('');
   const listPanel=(selRows||rentRows)?`<table><thead><tr><th>준비 품목</th><th class="n">수량</th><th class="n">가용</th><th>판정</th><th>조달처<br><span style="font-weight:400;font-size:10px;color:#999">부족분 렌탈·구매</span></th><th>EQ NOTE<br><span style="font-weight:400;font-size:10px;color:#8a7a5c">포토 공유</span></th><th>내부 노트<br><span style="font-weight:400;font-size:10px;color:#5c7a9a">팀·프리랜서 공유</span></th><th class="n">빼기</th></tr></thead><tbody>${selRows}${rentRows}</tbody></table>`
     :'<div style="color:#bbb;padding:10px">아직 고른 장비가 없습니다. 위에서 고르세요.</div>';
-  return `<h2>📦 프로젝트 준비 <span style="font-size:12px;color:var(--sub)">⭐ 프로젝트 생성 + 장비 구성</span></h2>
-    <div class="lead">프로젝트를 만들고, 카테고리별로 장비를 골라 <b>수량과 재고를 판정</b>한 뒤, <b>소싱 라인으로 만듭니다.</b></div>
-    <div class="panel"><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-      <b>프로젝트</b><select onchange="setNpProj(this.value)" style="min-width:220px">${opts}</select>
-      <button class="addbtn" onclick="newProject()">＋ 새 프로젝트</button>
-      <label style="font-size:13px">출고일 <input type="date" id="npOut"></label>
-      <label style="font-size:13px">반납일 <input type="date" id="npDue"></label>
-      ${npProj?`<span class="badge">현재 ${curLines}개 라인 있음</span>`:''}
-    </div></div>
+  return `<h2>📦 프로젝트 준비 <span style="font-size:12px;color:var(--sub)">⭐ 장비 구성 + 프로젝트 생성</span></h2>
+    <div class="lead">① 장비를 고르고 → ② 준비 리스트를 확인한 뒤 → ③ 어느 프로젝트인지 정해 <b>소싱 라인으로 만듭니다.</b></div>
     <div class="panel"><div style="font-weight:800;margin-bottom:8px">① 카테고리 → 보유 장비 고르기 <span style="font-weight:500;font-size:12px;color:var(--sub)">(품목별로 묶어서 수량만 정하면, 어느 개체가 나갈지는 출고 때 정해집니다)</span></div>
       <div class="filt">${catChips}</div>
       <div class="filt"><input type="text" value="${Q(q)}" oninput="q=this.value;renderKeep(this)" placeholder="🔍 장비 검색"></div>
@@ -1428,6 +1421,18 @@ function vPrepNew(){
         <input id="npRentName" placeholder="렌탈 품목 (예: PROFOTO PRO 11)" style="width:220px">
         <input id="npRentQty" type="number" value="1" style="width:60px">
         <button class="mini" onclick="npAddRent()">＋ 렌탈 추가</button>
+      </div></div>
+    <div class="panel" style="border:2px solid #d9cdb4;background:#fdfbf5">
+      <div style="font-weight:800;margin-bottom:8px">③ 어느 프로젝트인가 <span style="font-weight:500;font-size:12px;color:var(--sub)">(프로젝트와 기간을 정하고 라인을 만듭니다)</span></div>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <b>프로젝트</b><select onchange="setNpProj(this.value)" style="min-width:220px">${opts}</select>
+        <button class="addbtn" onclick="newProject()">＋ 새 프로젝트</button>
+        <label style="font-size:13px">출고일 <input type="date" id="npOut"></label>
+        <label style="font-size:13px">반납일 <input type="date" id="npDue"></label>
+        ${npProj?`<span class="badge">현재 ${curLines}개 라인 있음</span>`:''}
+      </div>
+      <div style="display:flex;align-items:center;flex-wrap:wrap;margin-top:12px">
+        <span style="font-size:12px;color:var(--sub)">${npProj?('선택된 프로젝트: <b>'+Q(npProj)+'</b>'):'⚠️ 프로젝트를 먼저 고르거나 만들어주세요'}</span>
         <button onclick="npCheckout()" style="margin-left:auto;background:var(--ok);color:#fff;border:none;border-radius:9px;padding:10px 20px;font-weight:800;font-size:14.5px;cursor:pointer">✅ 이 구성으로 라인 만들기</button>
       </div></div>`;
 }
