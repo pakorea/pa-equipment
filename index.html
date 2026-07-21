@@ -1172,7 +1172,7 @@ async function npCheckout(){
   let n=allSrc().filter(r=>r[S.proj]===npProj).length; let made=0; const rentMsg=[];
   Object.keys(npSel).forEach(id=>{
     const e=eqRows().find(r=>r[E.id]===id); if(!e)return;
-    const qy=npSel[id]; const av=realStock(id);
+    const qy=npSel[id]; const av=Math.max(0,realStock(id)||0);
     n++; made++;
     const row=new Array(SRC.headers.length).fill('');
     row[S.line]=npProj+'-'+String(n).padStart(2,'0');
@@ -1185,7 +1185,7 @@ async function npCheckout(){
   });
   Object.keys(npMat).forEach(function(key){
     var p=key.split('|'), k=p[0], ri=parseInt(p[1],10);
-    var qy=npMat[key]; var av=num(matQty(k,ri));
+    var qy=npMat[key]; var av=Math.max(0,num(matQty(k,ri)));
     n++; made++;
     const row=new Array(SRC.headers.length).fill('');
     row[S.line]=npProj+'-'+String(n).padStart(2,'0');
@@ -1229,9 +1229,10 @@ async function npCheckout(){
 // ===== 프로젝트 준비: 품목(모델)별 묶어서 고르기 =====
 function npUnits(nm){ return eqRows().filter(function(e){ return (ev(e,E.name)||'(이름없음)')===nm; }); }
 function npModelQty(nm){ return npUnits(nm).reduce(function(a,e){ return a+(npSel[e[E.id]]||0); },0); }
-function npModelAvail(nm){ return npUnits(nm).reduce(function(a,e){ var v=realStock(e[E.id]); return a+(v==null?0:v); },0); }
+function npModelAvail(nm){ return npUnits(nm).reduce(function(a,e){ var v=realStock(e[E.id]); return a+Math.max(0,(v==null?0:v)); },0); }
+function npAvailRaw(nm){ return npUnits(nm).reduce(function(a,e){ var v=realStock(e[E.id]); return a+(v==null?0:v); },0); }
 function npPlusOne(us){
-  for(var i=0;i<us.length;i++){ var id=us[i][E.id]; var av=realStock(id); av=(av==null?0:av);
+  for(var i=0;i<us.length;i++){ var id=us[i][E.id]; var av=Math.max(0,realStock(id)||0);
     if((npSel[id]||0) < av){ npSel[id]=(npSel[id]||0)+1; return; } }
   var id0=us[0][E.id]; npSel[id0]=(npSel[id0]||0)+1; // 재고 초과분 → 렌탈 판정으로
 }
@@ -1268,7 +1269,7 @@ function npMatRows(){
       var nm=matName(k,ri); if(!nm) return;
       var lab=npMatLabel(k,ri);
       if(q && lab.toLowerCase().indexOf(q.toLowerCase())<0) return;
-      var av=num(matQty(k,ri)); var key=npMatKey(k,ri); var sel=npMat[key]||0;
+      var av=Math.max(0,num(matQty(k,ri))); var key=npMatKey(k,ri); var sel=npMat[key]||0;
       var cls=av<=0?'p-zero':(av<=1?'p-warn':'p-ok');
       out+='<tr style="background:#fbfaf5">'
         +'<td class="n" style="font-family:ui-monospace,monospace;font-size:11px">'+Q(matCode(k,ri))+(matNo(k,ri)?'<br><span style="color:#aaa;font-size:10px">구매넘버 '+Q(matNo(k,ri))+'</span>':'')+'</td>'
@@ -1301,13 +1302,15 @@ function vPrepNew(){
   const invRows=Object.keys(_g).sort().map(function(nm){
     var us=_g[nm]; var e0=us[0];
     var av=npModelAvail(nm); var sel=npModelQty(nm);
+    var raw=npAvailRaw(nm);
     var cls=av<=0?'p-zero':(av<=1?'p-warn':'p-ok');
+    var minus=(raw<0)?' <span style="color:#b1442f;font-size:10px" title="파손·분실이 보유수량보다 많습니다">(장부 '+raw+')</span>':'';
     var codes=us.map(function(e){return e[E.id];});
     var codeTxt = codes.length>1 ? (Q(codes[0])+' <span style="color:#aaa;font-size:10.5px">외 '+(codes.length-1)+'</span>') : Q(codes[0]);
     return '<tr><td class="n" style="font-family:ui-monospace,monospace;font-size:11px">'+codeTxt+'</td>'
       +'<td>'+Q(nm)+(us.length>1?' <span class="pill" style="background:#eaf1f9;color:#2f6db0">'+us.length+'대</span>':'')
       +' <span style="color:#aaa;font-size:11px">· '+Q(ev(e0,E.cat))+'</span></td>'
-      +'<td class="n"><span class="pill '+cls+'">'+av+'</span></td>'
+      +'<td class="n"><span class="pill '+cls+'">'+av+'</span>'+minus+'</td>'
       +'<td class="n" style="white-space:nowrap"><button class="mini" onclick="npModelAdd(\''+QJ(nm)+'\',-1)">−</button>'
       +'<input id="npq_'+QJ(nm)+'" type="number" min="0" value="'+sel+'" style="width:52px;text-align:center" onchange="npModelSet(\''+QJ(nm)+'\',this.value)">'
       +'<button class="mini" onclick="npModelAdd(\''+QJ(nm)+'\',1)">＋</button></td></tr>';
@@ -1325,7 +1328,7 @@ function vPrepNew(){
       +'<td class="n"><button class="mini" onclick="npModelClear(\''+QJ(nm)+'\')">×</button></td></tr>';
   }).join('') + Object.keys(npMat).map(function(key){
     var p=key.split('|'), k=p[0], ri=parseInt(p[1],10);
-    var qy=npMat[key], av=num(matQty(k,ri));
+    var qy=npMat[key], av=Math.max(0,num(matQty(k,ri)));
     var j = qy<=av ? '<span class="j-ok">보유 충당 ✔</span>' : ('<span class="j-rent">'+(qy-av)+'개 부족 → 구매</span>');
     return '<tr style="background:#fbfaf5"><td>'+Q(npMatLabel(k,ri))+'</td><td class="n">'+qy+'</td><td class="n">'+av+'</td><td>'+j+'</td>'
       +'<td class="n"><button class="mini" onclick="npMatClear(\''+QJ(key)+'\')">×</button></td></tr>';
