@@ -292,26 +292,17 @@ function calPrev(){ calMonth=_mShift(calMonth,-1); render(); }
 function calNext(){ calMonth=_mShift(calMonth,1); render(); }
 function selectCal(name){ calSel=(calSel===name?null:name); render(); }
 function calGoProj(name){ curProj=name; stage='prep'; view='proj'; window.scrollTo(0,0); render(); }
-function addCrew(){ if(!calSel)return; const n=document.getElementById('cName').value.trim(); if(!n){alert('이름을 입력하세요');return;} const role=document.getElementById('cRole').value.trim(); const kind=document.getElementById('cKind').value; if(!crew[calSel])crew[calSel]=[]; crew[calSel].push({name:n,role:role,kind:kind}); crewSave(); srvCrewSet(calSel,crew[calSel]); render(); }
-function delCrew(proj,i){ if(crew[proj]){ crew[proj].splice(i,1); crewSave(); srvCrewSet(proj,crew[proj]); render(); } }
-function crewPanelHTML(name){
-  const cs=name.replace(/'/g,'');
-  const list=crew[name]||[];
-  const kc={'대표':'#b06a2c','직원':'#2f6db0','프리랜서':'#1f7a52'};
-  const chips=list.map((c,i)=>`<span style="display:inline-flex;align-items:center;gap:6px;background:#fff;border:1px solid ${kc[c.kind]||'#ccc'};border-radius:999px;padding:4px 11px;margin:3px;font-size:12.5px"><b style="color:${kc[c.kind]||'#333'}">${c.kind}</b> ${Q(c.name)}${c.role?' · '+Q(c.role):''} <button onclick="delCrew('${cs}',${i})" style="border:none;background:none;color:#b23b25;cursor:pointer;font-size:12px">✕</button></span>`).join('');
-  const empty=list.length?'':'<span style="color:#bbb;font-size:13px">아직 배치된 인원이 없습니다.</span>';
-  return `<div style="margin:1px 0 10px 24px;padding:12px 15px;background:#f6faff;border:1px solid #d7e3f1;border-radius:10px">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px">
-      <div style="font-weight:800;font-size:13px">👥 배치 인원 <span style="font-size:12px;color:var(--sub)">(${list.length}명)</span></div>
-      <button onclick="calGoProj('${cs}')" style="border:1px solid #2f6db0;background:#eaf2fb;color:#2f6db0;border-radius:7px;padding:5px 13px;font-weight:700;cursor:pointer;font-size:12px">📁 이 프로젝트 상세 열기 →</button>
-    </div>
-    <div style="margin-bottom:11px">${chips}${empty}</div>
-    <div style="display:flex;gap:7px;flex-wrap:wrap;align-items:center">
-      <input id="cName" placeholder="이름" style="padding:6px 9px;border:1px solid #cfc8b8;border-radius:7px;font-size:13px;width:100px">
-      <input id="cRole" placeholder="담당 (예: 조명·장비준비)" style="padding:6px 9px;border:1px solid #cfc8b8;border-radius:7px;font-size:13px;width:180px">
-      <select id="cKind" style="padding:6px 9px;border:1px solid #cfc8b8;border-radius:7px;font-size:13px"><option>프리랜서</option><option>직원</option><option>대표</option></select>
-      <button onclick="addCrew()" style="border:none;background:#2f6db0;color:#fff;border-radius:7px;padding:6px 14px;font-weight:700;cursor:pointer;font-size:13px">＋ 배치 추가</button>
-    </div></div>`;
+function addCrew(){
+  if(!calSel)return;
+  var sel=document.getElementById('cPick'); var em=sel?sel.value:'';
+  if(!em){ alert('명단에서 사람을 고르세요. (목록이 비었으면 🔄명단 을 누르세요)'); return; }
+  var u=(window.__srvUsers||[]).find(function(x){return x.email===em;});
+  var role=(document.getElementById('cRole').value||'').trim();
+  var kind=(u&&u.role==='관리자')?'직원':'프리랜서';
+  if(!crew[calSel])crew[calSel]=[];
+  if(crew[calSel].some(function(c){return (c.email||'')===em;})){ alert('이미 배치된 사람입니다'); return; }
+  crew[calSel].push({name:(u?(u.name||em):em), email:em, role:role, kind:kind});
+  crewSave(); srvCrewSet(calSel,crew[calSel]); render();
 }
 function vCal(){
   const projs=_projList();
@@ -896,7 +887,7 @@ async function srvProjStatus(name,st){ if(!serverOn)return; try{ await sbT('proj
 // --- 캘린더 인원배치 ---
 async function srvCrewSet(proj,list){ if(!serverOn)return;
   try{ await sbT('crew').delete().eq('project',proj);
-       if(list&&list.length){ await sbT('crew').insert(list.map(function(c){return {project:proj,name:c.name,kind:c.kind,email:c.role||''};})); }
+       if(list&&list.length){ await sbT('crew').insert(list.map(function(c){return {project:proj,name:c.name,kind:c.kind,email:c.email||''};})); }
   }catch(e){ console.warn('인원배치 실패',e); } }
 // --- 배경지·필터·매입 ---
 async function srvAuxSave(kind,records,headers){ if(!serverOn)return;
@@ -910,7 +901,7 @@ async function srvSrcExtra(line,obj){ if(!serverOn)return; try{ await sbT('sourc
 async function sbLoadExtras(){
   try{
     var cr=await sbT('crew').select('*');
-    if(!cr.error){ crew={}; (cr.data||[]).forEach(function(r){ (crew[r.project]=crew[r.project]||[]).push({name:r.name,role:r.email||'',kind:r.kind||'프리랜서'}); }); }
+    if(!cr.error){ crew={}; (cr.data||[]).forEach(function(r){ (crew[r.project]=crew[r.project]||[]).push({name:r.name,email:r.email||'',kind:r.kind||'프리랜서'}); }); }
     var ax=await sbT('aux_rows').select('*').order('kind').order('ord');
     if(!ax.error && ax.data && ax.data.length){
       var m={bg:[],cf:[],buynew:[],buyold:[]};
@@ -931,7 +922,7 @@ function sbBanner(){
   return '<div class="note-box" style="background:#fff3e0;border-color:#eddcb4;color:#7d551a;display:flex;align-items:center;gap:10px;flex-wrap:wrap">🟡 <b>오프라인(내 컴퓨터)</b> — 서버에 연결되지 않아 이 컴퓨터에만 저장됩니다.'+(sbMsg?' <span style="font-size:11.5px">'+Q(sbMsg)+'</span>':'')+'<button onclick="forceReset()" style="margin-left:auto;background:#2f6db0;color:#fff;border:none;border-radius:8px;padding:7px 15px;font-weight:800;font-size:13px;cursor:pointer">🔌 서버에 로그인</button></div>';
 }
 
-function go(v){view=v;q='';curProj=null;mstSel=null;relLine=null; if(v==='mem'&&serverOn)loadUsers();window.scrollTo(0,0);render();}
+function go(v){view=v;q='';curProj=null;mstSel=null;relLine=null; if((v==='mem'||v==='cal')&&serverOn)loadUsers();window.scrollTo(0,0);render();}
 function render(){ try{ _render(); }catch(e){ showErr(e); } }
 function showErr(e){
   var m=document.getElementById('main');

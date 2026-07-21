@@ -72,8 +72,8 @@ input.cell{width:64px;font-size:12px;padding:2px 5px;text-align:center}
 </style><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
-<div class="top"><span class="logo">🎬 PA 장비 · 현장용</span><span class="tag">🎬 프리랜서용 · 현장</span><span class="sp"></span>
-<span id="who" style="font-size:12.5px;color:#dbe4ee;font-weight:700"></span><a href="https://docs.google.com/spreadsheets/d/13irEw9WTK3gDpoPEG5pdNdvgI-WFRjctzYAbSlLDw4c/edit" target="_blank" id="sheetbtn" style="background:#0f9d58;color:#fff;border-radius:7px;padding:6px 12px;font-weight:800;font-size:12px;text-decoration:none;white-space:nowrap;margin-right:6px">📗 백업 0번시트 ↗</a><button onclick="resetAll()" style="background:#e7edf3;color:#2f4a66;border:none;border-radius:7px;padding:6px 11px;font-weight:700;font-size:12px;cursor:pointer">입력 초기화</button><button onclick="logout()" id="lgoutbtn" style="display:none;background:#b1442f;color:#fff;border:none;border-radius:7px;padding:6px 11px;font-weight:700;font-size:12px;cursor:pointer">로그아웃</button></div>
+<div class="top"><span class="logo">🎬 PA 장비 · 현장용</span><span class="tag">🎬 프리랜서용 · 내 프로젝트</span><span class="sp"></span>
+<span id="who" style="font-size:12.5px;color:#dbe4ee;font-weight:700"></span><button onclick="logout()" id="lgoutbtn" style="display:none;background:#b1442f;color:#fff;border:none;border-radius:7px;padding:6px 11px;font-weight:700;font-size:12px;cursor:pointer">로그아웃</button></div>
 <nav id="nav"></nav>
 <main id="main"></main>
 <script>
@@ -231,10 +231,9 @@ function backProj(){curProj=null;render();}
 function setStage(sg){stage=sg;render();}
 
 function myAssigned2(){
-  var me=session?((session.name||'').trim().toLowerCase()):''; var em=session?((session.email||'').toLowerCase()):''; var set={};
+  var em=session?((session.email||'').toLowerCase()):''; var set={};
   Object.keys(crew).forEach(function(pj){ (crew[pj]||[]).forEach(function(c){
-    var n=(c.name||'').trim().toLowerCase(), e=(c.role||'').toLowerCase();
-    if((me&&n===me)||(em&&e===em)) set[pj]=true; }); });
+    if(em && (c.email||'').toLowerCase()===em) set[pj]=true; }); });
   return set;
 }
 function vProj(){
@@ -252,10 +251,11 @@ function vProj(){
       <div class="pd">${Q(projDates(pj))} · ${rs.length}개 라인 · ${Q(st)}</div>
       <div class="pb"><span class="badge">📦 준비 ${pd}/${rs.length}</span><span class="badge">🎬 랩업 ${wd}/${rs.length}</span><span class="badge">↩️ 반납 ${rd}/${rs.length}</span></div></div>`;
   }).join('');
-  return `<h2>📁 프로젝트</h2><div class="lead">프로젝트를 클릭하면 <b>준비 → 랩업 → 반납</b> 페이지가 열립니다.</div>
-    ${stageFilter()}<div class="plist">${cards||'<div class="panel">아직 <b>배정된 프로젝트가 없습니다.</b><br><span style="font-size:13px;color:#888">관리자가 캘린더에서 배치하면 여기 나타납니다.</span></div>'}</div>`;
+  return `<h2>📁 내 프로젝트 <span style="font-size:12px;color:var(--sub)">(나에게 배정된 것만)</span></h2><div class="lead">관리자가 <b>나를 배정한 프로젝트</b>만 보입니다. 클릭하면 준비 → 랩업 → 반납 페이지가 열립니다.</div>
+    ${stageFilter()}<div class="plist">${cards||'<div class="panel">아직 <b>배정된 프로젝트가 없습니다.</b><br><span style="font-size:13px;color:#888">관리자가 캘린더에서 배정하면 여기 나타납니다.</span></div>'}</div>`;
 }
 function vProjDetail(){
+  if(curProj && !myAssigned2()[curProj]){ curProj=null; return vProj(); }
   const rows=allSrc().filter(r=>r[S.proj]===curProj && (val(r,S.status)||'').toString().toLowerCase()!=='remove');
   const pd=rows.filter(r=>val(r,S.prepSt)==='준비완료').length;
   const wd=rows.filter(r=>val(r,S.wrapSt)==='랩업완료').length;
@@ -301,26 +301,17 @@ function calPrev(){ calMonth=_mShift(calMonth,-1); render(); }
 function calNext(){ calMonth=_mShift(calMonth,1); render(); }
 function selectCal(name){ calSel=(calSel===name?null:name); render(); }
 function calGoProj(name){ curProj=name; stage='prep'; view='proj'; window.scrollTo(0,0); render(); }
-function addCrew(){ if(!calSel)return; const n=document.getElementById('cName').value.trim(); if(!n){alert('이름을 입력하세요');return;} const role=document.getElementById('cRole').value.trim(); const kind=document.getElementById('cKind').value; if(!crew[calSel])crew[calSel]=[]; crew[calSel].push({name:n,role:role,kind:kind}); crewSave(); srvCrewSet(calSel,crew[calSel]); render(); }
-function delCrew(proj,i){ if(crew[proj]){ crew[proj].splice(i,1); crewSave(); srvCrewSet(proj,crew[proj]); render(); } }
-function crewPanelHTML(name){
-  const cs=name.replace(/'/g,'');
-  const list=crew[name]||[];
-  const kc={'대표':'#b06a2c','직원':'#2f6db0','프리랜서':'#1f7a52'};
-  const chips=list.map((c,i)=>`<span style="display:inline-flex;align-items:center;gap:6px;background:#fff;border:1px solid ${kc[c.kind]||'#ccc'};border-radius:999px;padding:4px 11px;margin:3px;font-size:12.5px"><b style="color:${kc[c.kind]||'#333'}">${c.kind}</b> ${Q(c.name)}${c.role?' · '+Q(c.role):''} <button onclick="delCrew('${cs}',${i})" style="border:none;background:none;color:#b23b25;cursor:pointer;font-size:12px">✕</button></span>`).join('');
-  const empty=list.length?'':'<span style="color:#bbb;font-size:13px">아직 배치된 인원이 없습니다.</span>';
-  return `<div style="margin:1px 0 10px 24px;padding:12px 15px;background:#f6faff;border:1px solid #d7e3f1;border-radius:10px">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px">
-      <div style="font-weight:800;font-size:13px">👥 배치 인원 <span style="font-size:12px;color:var(--sub)">(${list.length}명)</span></div>
-      <button onclick="calGoProj('${cs}')" style="border:1px solid #2f6db0;background:#eaf2fb;color:#2f6db0;border-radius:7px;padding:5px 13px;font-weight:700;cursor:pointer;font-size:12px">📁 이 프로젝트 상세 열기 →</button>
-    </div>
-    <div style="margin-bottom:11px">${chips}${empty}</div>
-    <div style="display:flex;gap:7px;flex-wrap:wrap;align-items:center">
-      <input id="cName" placeholder="이름" style="padding:6px 9px;border:1px solid #cfc8b8;border-radius:7px;font-size:13px;width:100px">
-      <input id="cRole" placeholder="담당 (예: 조명·장비준비)" style="padding:6px 9px;border:1px solid #cfc8b8;border-radius:7px;font-size:13px;width:180px">
-      <select id="cKind" style="padding:6px 9px;border:1px solid #cfc8b8;border-radius:7px;font-size:13px"><option>프리랜서</option><option>직원</option><option>대표</option></select>
-      <button onclick="addCrew()" style="border:none;background:#2f6db0;color:#fff;border-radius:7px;padding:6px 14px;font-weight:700;cursor:pointer;font-size:13px">＋ 배치 추가</button>
-    </div></div>`;
+function addCrew(){
+  if(!calSel)return;
+  var sel=document.getElementById('cPick'); var em=sel?sel.value:'';
+  if(!em){ alert('명단에서 사람을 고르세요. (목록이 비었으면 🔄명단 을 누르세요)'); return; }
+  var u=(window.__srvUsers||[]).find(function(x){return x.email===em;});
+  var role=(document.getElementById('cRole').value||'').trim();
+  var kind=(u&&u.role==='관리자')?'직원':'프리랜서';
+  if(!crew[calSel])crew[calSel]=[];
+  if(crew[calSel].some(function(c){return (c.email||'')===em;})){ alert('이미 배치된 사람입니다'); return; }
+  crew[calSel].push({name:(u?(u.name||em):em), email:em, role:role, kind:kind});
+  crewSave(); srvCrewSet(calSel,crew[calSel]); render();
 }
 function vCal(){
   const projs=_projList();
@@ -816,7 +807,6 @@ async function setRole(email,role){
 
 // ================= 서버 연결 (Supabase) =================
 const SB_URL='https://vpfscmojmbmmhzpjptca.supabase.co';
-const SHEET_URL='https://docs.google.com/spreadsheets/d/13irEw9WTK3gDpoPEG5pdNdvgI-WFRjctzYAbSlLDw4c/edit';
 const SB_KEY='sb_publishable_MKBLfZU_6xBfYJXqt_NP2w_wZTPn7kn';
 let sb=null, sbUser=null, serverOn=false, sbBusy=false, sbMsg='';
 function sbClient(){ if(!sb && window.supabase) sb=window.supabase.createClient(SB_URL,SB_KEY,{auth:{persistSession:true}}); if(!sb&&!window.supabase&&!sbMsg) sbMsg='서버 라이브러리를 못 불러왔습니다(인터넷 확인).'; return sb; }
@@ -905,7 +895,7 @@ async function srvProjStatus(name,st){ if(!serverOn)return; try{ await sbT('proj
 // --- 캘린더 인원배치 ---
 async function srvCrewSet(proj,list){ if(!serverOn)return;
   try{ await sbT('crew').delete().eq('project',proj);
-       if(list&&list.length){ await sbT('crew').insert(list.map(function(c){return {project:proj,name:c.name,kind:c.kind,email:c.role||''};})); }
+       if(list&&list.length){ await sbT('crew').insert(list.map(function(c){return {project:proj,name:c.name,kind:c.kind,email:c.email||''};})); }
   }catch(e){ console.warn('인원배치 실패',e); } }
 // --- 배경지·필터·매입 ---
 async function srvAuxSave(kind,records,headers){ if(!serverOn)return;
@@ -919,7 +909,7 @@ async function srvSrcExtra(line,obj){ if(!serverOn)return; try{ await sbT('sourc
 async function sbLoadExtras(){
   try{
     var cr=await sbT('crew').select('*');
-    if(!cr.error){ crew={}; (cr.data||[]).forEach(function(r){ (crew[r.project]=crew[r.project]||[]).push({name:r.name,role:r.email||'',kind:r.kind||'프리랜서'}); }); }
+    if(!cr.error){ crew={}; (cr.data||[]).forEach(function(r){ (crew[r.project]=crew[r.project]||[]).push({name:r.name,email:r.email||'',kind:r.kind||'프리랜서'}); }); }
     var ax=await sbT('aux_rows').select('*').order('kind').order('ord');
     if(!ax.error && ax.data && ax.data.length){
       var m={bg:[],cf:[],buynew:[],buyold:[]};
@@ -940,7 +930,7 @@ function sbBanner(){
   return '<div class="note-box" style="background:#fff3e0;border-color:#eddcb4;color:#7d551a;display:flex;align-items:center;gap:10px;flex-wrap:wrap">🟡 <b>오프라인(내 컴퓨터)</b> — 서버에 연결되지 않아 이 컴퓨터에만 저장됩니다.'+(sbMsg?' <span style="font-size:11.5px">'+Q(sbMsg)+'</span>':'')+'<button onclick="forceReset()" style="margin-left:auto;background:#2f6db0;color:#fff;border:none;border-radius:8px;padding:7px 15px;font-weight:800;font-size:13px;cursor:pointer">🔌 서버에 로그인</button></div>';
 }
 
-function go(v){view=v;q='';curProj=null;mstSel=null;relLine=null; if(v==='mem'&&serverOn)loadUsers();window.scrollTo(0,0);render();}
+function go(v){view=v;q='';curProj=null;mstSel=null;relLine=null; if((v==='mem'||v==='cal')&&serverOn)loadUsers();window.scrollTo(0,0);render();}
 function render(){ try{ _render(); }catch(e){ showErr(e); } }
 function showErr(e){
   var m=document.getElementById('main');
@@ -950,8 +940,8 @@ window.addEventListener('error',function(ev){ try{ showErr(ev.error||{message:ev
 function _render(){
   const nav=document.getElementById('nav'), main=document.getElementById('main');
   const who=document.getElementById('who'), lg=document.getElementById('lgoutbtn');
-  if(!session){ nav.innerHTML=''; main.innerHTML=loginHTML(); if(who)who.textContent=''; if(lg)lg.style.display='none'; var rb=document.querySelector('.top button'); if(rb)rb.style.display='none'; var sb1=document.getElementById('sheetbtn'); if(sb1)sb1.style.display='none'; return; }
-  if(who)who.textContent='👤 '+session.name+' · '+session.role; if(lg)lg.style.display=''; var rb2=document.querySelector('.top button'); if(rb2)rb2.style.display=''; var sb2=document.getElementById('sheetbtn'); if(sb2)sb2.style.display='';
+  if(!session){ nav.innerHTML=''; main.innerHTML=loginHTML(); if(who)who.textContent=''; if(lg)lg.style.display='none'; var rb=document.querySelector('.top button'); if(rb)rb.style.display='none'; return; }
+  if(who)who.textContent='👤 '+session.name+' · '+session.role; if(lg)lg.style.display=''; var rb2=document.querySelector('.top button'); if(rb2)rb2.style.display='';
   const tabs=myTabs();
   if(!tabs.some(t=>t[0]===view)) view=tabs[0][0];
   nav.innerHTML=tabs.map(t=>`<button class="${view===t[0]?'on':''}" onclick="go('${t[0]}')">${t[1]}</button>`).join('');
