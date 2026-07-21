@@ -877,12 +877,15 @@ function matMasterRows(){
   return ['cf','bg'].map(function(k){
     var d=auxGet()[k]; if(!d) return '';
     var need=d.records.filter(function(r,ri){return matNeed(k,ri);}).length;
+    var qty=d.records.reduce(function(a,r,ri){ return a+num(matQty(k,ri)); },0);
     var m=MAT[k];
     return '<tr class="rowck" style="background:#fbfaf5" onclick="openMat(\''+k+'\')">'
-      +'<td>9.CONSUMABLE</td><td>'+(k==='cf'?'LEE':'SAVAGE')+'</td>'
-      +'<td style="color:#bbb;font-size:11px">-</td><td><b>'+m.label+'</b> <span class="pill" style="background:#eaf1f9;color:#2f6db0">'+d.records.length+'종</span>'
+      +'<td style="color:#aaa;font-size:11px">품목별관리</td>'
+      +'<td>9.CONSUMABLE</td>'
+      +'<td>'+(k==='cf'?'LEE':'SAVAGE')+'</td>'
+      +'<td><b>'+m.label+'</b> <span class="pill" style="background:#eaf1f9;color:#2f6db0">'+d.records.length+'종</span>'
       +(need?' <span class="pill p-warn">구매필요 '+need+'</span>':'')+'</td>'
-      +'<td class="n">'+d.records.length+'</td><td class="n">-</td><td class="n">-</td><td>소모자재</td></tr>';
+      +'<td class="n"><b>'+qty+'</b></td><td class="n">-</td><td class="n">-</td><td>소모자재</td></tr>';
   }).join('');
 }
 function matModal(){
