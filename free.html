@@ -72,7 +72,7 @@ input.cell{width:64px;font-size:12px;padding:2px 5px;text-align:center}
 </style><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
-<div class="top"><span class="logo">🎬 PA 장비 · 현장용</span><span class="tag">🎬 프리랜서용 · 내 프로젝트</span><span class="sp"></span>
+<div class="top"><span class="logo">🎬 PA 장비 · 현장용</span><span class="tag">🎬 프리랜서용 · 내 프로젝트</span><span class="sp"></span><a href="./index.html" id="backadmin" style="display:none;background:#2f4a66;color:#fff;border-radius:7px;padding:6px 12px;font-weight:800;font-size:12px;text-decoration:none;white-space:nowrap;margin-right:6px">👑 관리자 화면으로 ↩</a>
 <span id="who" style="font-size:12.5px;color:#dbe4ee;font-weight:700"></span><button onclick="logout()" id="lgoutbtn" style="display:none;background:#b1442f;color:#fff;border:none;border-radius:7px;padding:6px 11px;font-weight:700;font-size:12px;cursor:pointer">로그아웃</button></div>
 <nav id="nav"></nav>
 <main id="main"></main>
@@ -364,6 +364,7 @@ function invUse(){ // itemId -> [{proj,out,due,qty,returned}]
   allSrc().forEach(function(r){
     var id=r[S.itemId]; if(!id) return;
     if((val(r,S.status)||'').toString().toLowerCase()==='remove') return;
+    if(projStatus(r[S.proj])==='완료') return;   // 완료 프로젝트는 겹침 계산에서 제외
     (m[id]=m[id]||[]).push({proj:r[S.proj], out:_d2n(val(r,S.out)), due:_d2n(val(r,S.due)),
       qty:num(val(r,S.asgQ))||1, returned:!!val(r,S.retBy), line:r[S.line]});
   });
@@ -396,12 +397,12 @@ function invUseModal(){
   var rows=list.map(function(u){
     var st=u.returned?'<span class="pill p-ok">반납</span>':(u.out&&u.out<=TODAYKEY&&(!u.due||u.due>=TODAYKEY)?'<span class="pill p-warn">대여중</span>':'<span class="pill p-zero">예정/종료</span>');
     function f(n){ return n? (String(n).slice(0,4)+'-'+String(n).slice(4,6)+'-'+String(n).slice(6,8)) : '-'; }
-    return '<tr><td>'+Q(u.proj)+'</td><td class="n">'+u.qty+'</td><td>'+f(u.out)+'</td><td>'+f(u.due)+'</td><td>'+st+'</td></tr>';
+    return '<tr><td>'+Q(u.line)+'<div style="font-size:10.5px;color:#999">'+Q(u.proj)+'</div></td><td class="n">'+u.qty+'</td><td>'+f(u.out)+'</td><td>'+f(u.due)+'</td><td>'+st+'</td></tr>';
   }).join('');
   return '<div class="modal-bg" onclick="if(event.target===this){window.__useId=null;render();}"><div class="modal" style="max-width:640px">'
    +'<h3>📋 '+Q(e?ev(e,E.name):id)+' <span style="font-size:12px;color:#888">'+Q(id)+'</span></h3>'
-   +'<div style="font-size:13px;color:#666;margin-bottom:8px">이 장비를 쓴(쓸) 프로젝트 '+list.length+'건</div>'
-   +'<div style="max-height:50vh;overflow:auto"><table><thead><tr><th>프로젝트</th><th class="n">수량</th><th>출고</th><th>반납</th><th>상태</th></tr></thead><tbody>'+rows+'</tbody></table></div>'
+   +'<div style="font-size:13px;color:#666;margin-bottom:8px">이 장비가 들어간 소싱 라인 '+list.length+'건 (완료 프로젝트 포함)</div>'
+   +'<div style="max-height:50vh;overflow:auto"><table><thead><tr><th>라인ID</th><th class="n">수량</th><th>출고</th><th>반납</th><th>상태</th></tr></thead><tbody>'+rows+'</tbody></table></div>'
    +'<div class="mbtns"><button class="primary" onclick="window.__useId=null;render()">닫기</button></div></div></div>';
 }
 function openUse(id){ window.__useId=id; render(); }
@@ -941,7 +942,7 @@ function _render(){
   const nav=document.getElementById('nav'), main=document.getElementById('main');
   const who=document.getElementById('who'), lg=document.getElementById('lgoutbtn');
   if(!session){ nav.innerHTML=''; main.innerHTML=loginHTML(); if(who)who.textContent=''; if(lg)lg.style.display='none'; var rb=document.querySelector('.top button'); if(rb)rb.style.display='none'; return; }
-  if(who)who.textContent='👤 '+session.name+' · '+session.role; if(lg)lg.style.display=''; var rb2=document.querySelector('.top button'); if(rb2)rb2.style.display='';
+  if(who)who.textContent='👤 '+session.name+' · '+session.role; if(lg)lg.style.display=''; var ba=document.getElementById('backadmin'); if(ba)ba.style.display=(session.role==='관리자')?'':'none'; var rb2=document.querySelector('.top button'); if(rb2)rb2.style.display='';
   const tabs=myTabs();
   if(!tabs.some(t=>t[0]===view)) view=tabs[0][0];
   nav.innerHTML=tabs.map(t=>`<button class="${view===t[0]?'on':''}" onclick="go('${t[0]}')">${t[1]}</button>`).join('');
