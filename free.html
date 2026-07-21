@@ -17,7 +17,8 @@ h2{font-size:19px;margin:0 0 4px}.lead{color:var(--sub);font-size:13.5px;margin-
 .panel{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin:0 0 14px;overflow:auto;max-height:72vh}
 table{width:100%;border-collapse:collapse;font-size:13px}
 th,td{border-bottom:1px dotted #c9bfa8;border-right:1px dotted #ddd6c8;padding:7px 9px;text-align:left;vertical-align:middle;white-space:nowrap}
-thead th{background:#eef0f3;font-size:12px;position:sticky;top:0;z-index:5;box-shadow:0 1px 0 #d8d2c4}
+thead th{background:#eef0f3;font-size:12px;position:sticky;top:0;z-index:8;box-shadow:0 1px 0 #d8d2c4}
+table{position:relative}
 td.n,th.n{text-align:center}
 .pill{display:inline-block;font-size:11.5px;font-weight:800;padding:2px 8px;border-radius:999px}
 .p-ok{background:var(--okbg);color:var(--ok)}.p-warn{background:var(--warnbg);color:var(--warn)}
@@ -935,7 +936,16 @@ function sbBanner(){
 }
 
 function go(v){view=v;q='';curProj=null;mstSel=null;relLine=null; if((v==='mem'||v==='cal')&&serverOn)loadUsers();window.scrollTo(0,0);render();}
-function render(){ try{ _render(); }catch(e){ showErr(e); } }
+function render(){
+  var __sc=null, __el=document.querySelector('.panel');
+  try{ var ib0=document.querySelector('[data-scrollbox]');
+       __sc={w:window.scrollY||0, p:(__el?__el.scrollTop:0), inner:(ib0?ib0.scrollTop:null), f:(document.activeElement&&document.activeElement.id)||''}; }catch(e){}
+  try{ _render(); }catch(e){ showErr(e); return; }
+  try{ if(__sc){ window.scrollTo(0,__sc.w);
+      var el2=document.querySelector('.panel'); if(el2&&__sc.p) el2.scrollTop=__sc.p;
+      if(__sc.inner!=null){ var ib=document.querySelector('[data-scrollbox]'); if(ib) ib.scrollTop=__sc.inner; }
+      if(__sc.f){ var fe=document.getElementById(__sc.f); if(fe&&fe.focus){ fe.focus(); try{fe.select&&fe.select();}catch(e){} } } } }catch(e){}
+}
 function showErr(e){
   var m=document.getElementById('main');
   if(m) m.innerHTML='<div style="background:#fbe9e4;border:2px solid #e0b0a5;color:#a83c28;border-radius:12px;padding:16px 20px;margin:14px 0;font-size:15px"><b>⚠️ 화면 오류가 났습니다</b><br><br><b>메시지:</b> '+String(e&&e.message||e)+'<br><br><span style="font-size:12px;color:#777">'+String((e&&e.stack||'')).split('\n').slice(0,3).join('<br>')+'</span><br><br><button onclick="forceReset()" style="background:#2f6db0;color:#fff;border:none;border-radius:8px;padding:8px 16px;font-weight:700;cursor:pointer">처음으로</button></div>';
