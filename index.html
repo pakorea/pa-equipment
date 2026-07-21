@@ -175,7 +175,7 @@ function _projCount(f){
 }
 function stageFilter(){
   return `<div class="filt">
-    <input type="text" value="${Q(q)}" oninput="q=this.value;renderKeep(this)" placeholder="🔍 프로젝트·품목·Item_ID 검색">
+    <input type="text" value="${Q(q)}" oninput="q=this.value;renderKeep(this)" placeholder="🔍 프로젝트·품목·EQ_NO 검색">
     <span class="chip ${projFilter==='전체'?'on':''}" onclick="setProjFilter('전체')">전체 (${_projCount('전체')})</span>
     <span class="chip ${projFilter==='활성'?'on':''}" onclick="setProjFilter('활성')">진행중만 (${_projCount('활성')})</span>
     <span class="chip ${projFilter==='완료'?'on':''}" onclick="setProjFilter('완료')">완료만 (${_projCount('완료')})</span>
@@ -247,7 +247,7 @@ function addEqModal(){
    +'<h3>＋ 장비 추가 — '+Q(curProj)+'</h3>'
    +'<div class="filt"><input value="'+Q(addEqQ)+'" oninput="addEqQ=this.value;render()" placeholder="🔍 장비 검색" style="min-width:220px"></div>'
    +'<div class="filt" style="max-height:70px;overflow:auto">'+chips+'</div>'
-   +'<div style="max-height:46vh;overflow:auto"><table><thead><tr><th class="n">Item_ID</th><th>장비</th><th class="n">가용</th><th class="n">추가</th></tr></thead><tbody>'+rows+'</tbody></table></div>'
+   +'<div style="max-height:46vh;overflow:auto"><table><thead><tr><th class="n">EQ_NO</th><th>장비</th><th class="n">가용</th><th class="n">추가</th></tr></thead><tbody>'+rows+'</tbody></table></div>'
    +'<div class="mbtns"><button class="primary" onclick="closeAddEq()">닫기</button></div></div></div>';
 }
 function prepTable(rows){
@@ -557,7 +557,7 @@ function vCal(){
 }
 
 // ===== 📊 재고 (열 고르기 + 자동계산) =====
-const INVC=[['id','Item_ID'],['cat','카테고리'],['brand','브랜드'],['name','품목명'],['own','보유'],['rs','실재고'],['use','사용 프로젝트'],['rent','대여'],['loc','위치'],['vendor','렌탈가능업체'],['check','점검날짜']];
+const INVC=[['id','EQ_NO'],['cat','카테고리'],['brand','브랜드'],['name','품목명'],['own','보유'],['rs','실재고'],['use','사용 프로젝트'],['rent','대여'],['loc','위치'],['vendor','렌탈가능업체'],['check','점검날짜']];
 let invOn=LS('pa_v3_invcols',{id:1,cat:1,brand:1,name:1,own:1,rs:1,use:1,rent:1,loc:1,vendor:1,check:0});
 if(invOn.use===undefined)invOn.use=1;
 function invToggle(k){ invOn[k]=invOn[k]?0:1; LSs('pa_v3_invcols',invOn); render(); }
@@ -687,7 +687,7 @@ function vInvGrouped(){
    +'<div class="kpis"><div class="kpi"><div class="v">'+Object.keys(kinds).length+'</div><div class="l">품목(모델) 수</div></div>'
      +'<div class="kpi"><div class="v">'+all.length+'</div><div class="l">개체 수</div></div>'
      +'<div class="kpi"><div class="v" style="color:var(--warn)">'+zero+'</div><div class="l">재고 0(대여불가)</div></div></div>'
-   +'<div class="panel"><table><thead><tr><th>품목코드</th><th>카테고리</th><th>브랜드</th><th>품목명</th><th class="n">총보유</th><th class="n">실재고</th><th>사용현황(프로젝트)</th><th>위치</th></tr></thead><tbody>'+body+'</tbody></table></div>'
+   +'<div class="panel"><table><thead><tr><th>EQ_NO</th><th>카테고리</th><th>브랜드</th><th>품목명</th><th class="n">총보유</th><th class="n">실재고</th><th>사용현황(프로젝트)</th><th>위치</th></tr></thead><tbody>'+body+'</tbody></table></div>'
    +unitsModal()+mstModal()+matModal()+invUseModal();
 }
 function vInv(){
@@ -720,7 +720,7 @@ function vInv(){
   var _needBg=(auxGet()['bg']?auxGet()['bg'].records.filter(function(r,ri){return matNeed('bg',ri);}).length:0);
   const _lowItems=[];
   const lowWarn=_lowItems.length?`<div class="note-box" style="background:#fff3e0;border-color:#eddcb4;color:#7d551a">🔴 <b>소모품 보충 필요 ${_lowItems.length}건</b> — ${_lowItems.map(e=>Q(ev(e,E.name))).slice(0,8).join(', ')}${_lowItems.length>8?' 외':''} <span style="font-size:11px">(반납에서 잔량 50%↓ 체크됨)</span></div>`:'';
-  const orphanWarn=_dmgOrphan>0?`<div class="note-box" style="background:#fbeae5;border-color:#e6c3ba;color:#8a3221">⚠️ 장비에 연결 안 된 파손·분실 <b>${_dmgOrphan}건</b>이 있어 재고에 반영되지 않았습니다. (Item_ID 미매칭 라인 — 소싱시트에서 확인 필요)</div>`:'';
+  const orphanWarn=_dmgOrphan>0?`<div class="note-box" style="background:#fbeae5;border-color:#e6c3ba;color:#8a3221">⚠️ 장비에 연결 안 된 파손·분실 <b>${_dmgOrphan}건</b>이 있어 재고에 반영되지 않았습니다. (EQ_NO 미매칭 라인 — 소싱시트에서 확인 필요)</div>`:'';
   return `<h2>📊 재고 현황</h2><div class="lead"><b>실재고 = 보유 − 분실 − 파손 + 수리완료</b> (자동 계산) · 아래 칩으로 <b>보고 싶은 열만</b> 켜고 끕니다.</div>
     <div class="filt"><input type="text" value="${Q(q)}" oninput="q=this.value;renderKeep(this)" placeholder="🔍 검색"></div>
     <div class="filt">
@@ -736,7 +736,7 @@ function vInv(){
 // ===== 🔧 파손·이력 =====
 function vRep(){
   const gen=[]; allSrc().forEach(r=>{ const b=num(val(r,S.broken)); if(b>0){ for(let i=0;i<b;i++) gen.push({line:r[S.line],proj:r[S.proj],item:val(r,S.item),itemId:r[S.itemId]});}});
-  const th='<tr><th>수리ID</th><th>프로젝트</th><th>품목명</th><th>Item_ID</th><th>진행상태</th><th>수리업체</th><th>수리비용</th><th>비용귀속</th><th>출처</th></tr>';
+  const th='<tr><th>수리ID</th><th>프로젝트</th><th>품목명</th><th>EQ_NO</th><th>진행상태</th><th>수리업체</th><th>수리비용</th><th>비용귀속</th><th>출처</th></tr>';
   const R=REP.rows.map(r=>`<tr><td>${Q(r[0])}</td><td>${Q(r[2])}</td><td>${Q(r[3])}</td><td>${Q(r[4])}</td><td><span class="pill p-warn">${Q(r[6])||'접수'}</span></td><td>${Q(r[8])}</td><td>${Q(r[9])}</td><td>${Q(r[11])}</td><td><span class="badge">시트원본</span></td></tr>`).join('');
   const G=gen.map((x,i)=>`<tr><td>${Q(x.line)}-R${i+1}</td><td>${Q(x.proj)}</td><td>${Q(x.item)}</td><td>${Q(x.itemId)}</td><td><span class="pill p-warn">접수</span></td><td>-</td><td>-</td><td>프로젝트</td><td><span class="badge" style="background:#fbeae5;color:#b1442f">반납입력 자동</span></td></tr>`).join('');
   return `<h2>🔧 파손 · 수리 이력</h2><div class="lead"><b>물건 1개 = 1줄.</b> 반납에서 파손 개수를 넣으면 자동으로 줄이 생깁니다.</div>
@@ -796,14 +796,14 @@ function mstModal(){
   }).join('');
   return `<div class="modal-bg" onclick="if(event.target===this)mstClose()"><div class="modal">
     <h3>${isNew?'＋ 새 장비 추가':'✏️ '+Q(mstSel)+' 편집'}</h3>
-    ${isNew?'<div style="font-size:12.5px;color:#888;margin-bottom:6px">카테고리를 고르면 Item_ID가 자동으로 붙습니다 (그 카테고리 맨 끝 번호+1)</div>':''}
+    ${isNew?'<div style="font-size:12.5px;color:#888;margin-bottom:6px">카테고리를 고르면 EQ_NO가 자동으로 붙습니다 (그 카테고리 맨 끝 번호+1)</div>':''}
     ${fld}
     <div class="mbtns"><button class="primary" onclick="mstSave()">💾 저장</button>
     ${isNew?'':'<button class="danger" onclick="mstDelete()">🗑 삭제</button>'}
     <button onclick="mstClose()">닫기</button></div>
   </div></div>`;
 }
-const MSTC=[['id','Item_ID'],['cat','카테고리'],['sub','서브'],['brand','브랜드'],['name','품목명'],['own','보유'],['serial','시리얼'],['loc','위치'],['price','단가'],['check','점검날짜'],['special','특이사항']];
+const MSTC=[['id','EQ_NO'],['cat','카테고리'],['sub','서브'],['brand','브랜드'],['name','품목명'],['own','보유'],['serial','시리얼'],['loc','위치'],['price','단가'],['check','점검날짜'],['special','특이사항']];
 let mstOn=LS('pa_v3_mstcols',{id:1,cat:1,sub:1,brand:1,name:1,own:1,serial:1,loc:1,price:1,check:1,special:1});
 function mstColToggle(k){ mstOn[k]=mstOn[k]?0:1; LSs('pa_v3_mstcols',mstOn); render(); }
 
@@ -836,7 +836,7 @@ function unitsModal(){
   return '<div class="modal-bg" onclick="if(event.target===this)closeUnits()"><div class="modal" style="max-width:760px">'
    +'<h3>'+Q(unitOf)+'</h3>'
    +'<div style="font-size:13px;color:#666;margin-bottom:8px">개체 '+us.length+'대 · 총 보유 '+tot+' · 출고중 '+outN+' '+(isReadOnly()?'<span style="color:#999">(재고 현황은 보기 전용입니다)</span>':'<span style="color:#999">(줄을 클릭하면 그 개체를 수정합니다)</span>')+'</div>'
-   +'<div style="max-height:56vh;overflow:auto"><table><thead><tr><th>Item_ID</th><th>시리얼</th><th class="n">보유</th><th class="n">실재고</th><th>현재 위치/상태</th><th>특이사항</th></tr></thead><tbody>'+rows+'</tbody></table></div>'
+   +'<div style="max-height:56vh;overflow:auto"><table><thead><tr><th>EQ_NO</th><th>시리얼</th><th class="n">보유</th><th class="n">실재고</th><th>현재 위치/상태</th><th>특이사항</th></tr></thead><tbody>'+rows+'</tbody></table></div>'
    +'<div class="mbtns"><button class="primary" onclick="closeUnits()">닫기</button></div></div></div>';
 }
 function vMst(){
@@ -875,7 +875,7 @@ function vMst(){
       +'<div class="lead"><b>품목(모델)로 묶어서</b> 총수량을 봅니다. <b>줄을 클릭하면 개체별 시리얼·현재 위치</b>가 열립니다.</div>'
       +'<div class="filt"><input type="text" value="'+Q(q)+'" oninput="q=this.value;renderKeep(this)" placeholder="🔍 품목·브랜드 검색"><button class="addbtn" onclick="mstEdit(\'__new__\')">＋ 새 장비 추가</button></div>'
       +'<div class="filt">'+toggle+'</div>'
-      +'<div class="panel"><table><thead><tr><th>품목코드</th><th>카테고리</th><th>브랜드</th><th>품목명</th><th class="n">총보유</th><th class="n">실재고</th><th class="n">시리얼</th><th>위치</th></tr></thead><tbody>'+matMasterRows()+gbody+'</tbody></table></div>'
+      +'<div class="panel"><table><thead><tr><th>EQ_NO</th><th>카테고리</th><th>브랜드</th><th>품목명</th><th class="n">총보유</th><th class="n">실재고</th><th class="n">시리얼</th><th>위치</th></tr></thead><tbody>'+matMasterRows()+gbody+'</tbody></table></div>'
       +unitsModal()+mstModal()+matModal();
   }
   const rows=eqRows().filter(e=>{ if(!q)return true; const h=(ev(e,E.name)+' '+ev(e,E.cat)+' '+ev(e,E.brand)+' '+e[E.id]).toLowerCase(); return h.includes(q.toLowerCase()); });
@@ -888,7 +888,7 @@ function vMst(){
   }).join('');
   return `<h2>🗂 장비 마스터 <span style="font-size:12px;color:var(--sub)">(${eqRows().length}개체 · 행 클릭=편집)</span></h2>
     <div class="lead"><b>행 클릭=수정창</b> · 아래 칩으로 <b>보고 싶은 열만</b> 켜고 끕니다.</div>
-    <div class="filt"><input type="text" value="${Q(q)}" oninput="q=this.value;renderKeep(this)" placeholder="🔍 Item_ID·품목·브랜드 검색">
+    <div class="filt"><input type="text" value="${Q(q)}" oninput="q=this.value;renderKeep(this)" placeholder="🔍 EQ_NO·품목·브랜드 검색">
     <button class="addbtn" onclick="mstEdit('__new__')">＋ 새 장비 추가</button></div>
     <div class="filt">${toggle}</div>
     <div class="filt">${chips}</div>
@@ -1006,7 +1006,7 @@ function matListHTML(k,editable){
   var totQ=d.records.reduce(function(a,r,ri){return a+num(matQty(k,ri));},0);
   return '<div style="font-size:13px;color:#666;margin-bottom:8px">품목 '+d.records.length+'종 · 총 '+totQ+'개 · <b style="color:#b1442f">구매 필요 '+needN+'종</b></div>'
    +'<div class="filt"><input value="'+Q(matQ)+'" oninput="matQ=this.value;render()" placeholder="🔍 no·품목 검색" style="min-width:220px"></div>'
-   +'<div style="max-height:52vh;overflow:auto"><table><thead><tr><th>Item_ID</th><th class="n">구매넘버</th><th>품목</th><th class="n">보유</th><th class="n">실재고</th><th>현재 상태</th><th>구매 여부</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
+   +'<div style="max-height:52vh;overflow:auto"><table><thead><tr><th>EQ_NO</th><th class="n">구매넘버</th><th>품목</th><th class="n">보유</th><th class="n">실재고</th><th>현재 상태</th><th>구매 여부</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
 }
 
 
@@ -1095,12 +1095,12 @@ function vSrc(){
   var all=allSrc();
   var rows=all.filter(function(r){ if(!q)return true; return (r[S.proj]+' '+r[S.item]+' '+r[S.itemId]+' '+r[S.reqItem]).toLowerCase().includes(q.toLowerCase()); });
   var LIM=300; var shown=rows.slice(0,LIM);
-  var H=SRC.headers.map(function(h){return '<th>'+Q(h)+'</th>';}).join('');
+  var H=SRC.headers.map(function(h){return '<th>'+Q(dispName(h))+'</th>';}).join('');
   var body=shown.map(function(r){return '<tr>'+SRC.headers.map(function(h,i){return '<td>'+Q(val(r,i))+'</td>';}).join('')+'</tr>';}).join('');
   var more=rows.length>LIM?('<div class="note-box">전체 '+rows.length+'줄 중 처음 '+LIM+'줄만 표시합니다. 위 검색으로 좁혀 보세요.</div>'):'';
   return '<h2>📋 소싱시트 (원본 전체) <span style="font-size:12px;color:var(--sub)">(53열 · 총 '+all.length+'라인)</span></h2>'+
     '<div class="lead">시스템의 심장. 1줄 = 프로젝트 × 장비 1건. (참고용)</div>'+
-    '<div class="filt"><input type="text" value="'+Q(q)+'" oninput="q=this.value;renderKeep(this)" placeholder="🔍 프로젝트·품목·Item_ID 검색"></div>'+
+    '<div class="filt"><input type="text" value="'+Q(q)+'" oninput="q=this.value;renderKeep(this)" placeholder="🔍 프로젝트·품목·EQ_NO 검색"></div>'+
     more+
     '<div class="panel" style="max-height:70vh"><table style="font-size:11.5px"><thead><tr>'+H+'</tr></thead><tbody>'+body+'</tbody></table></div>';
 }
@@ -1148,6 +1148,7 @@ let npProj='', npSel={}, npRent=[], npCat='';
 function npProjects(){ const a=[...new Set(allSrc().map(r=>r[S.proj]).filter(Boolean))]; PROJ.rows.forEach(p=>{ if(a.indexOf(p[0])<0)a.push(p[0]); }); return a; }
 function setNpProj(v){ npProj=v; render(); }
 function newProject(){ const nm=prompt('새 프로젝트 이름 (예: 260720_클라이언트명_포토그래퍼)'); if(nm&&nm.trim()){ npProj=nm.trim(); render(); } }
+function dispName(h){ return String(h)==='Item_ID' ? 'EQ_NO' : String(h); }
 function catSort(list){
   var key=function(c){ var m=String(c||'').match(/^(\d+)(?:-(\d+))?/); return m? (parseInt(m[1],10)*100+(m[2]?parseInt(m[2],10):0)) : 99999; };
   return list.slice().sort(function(a,b){ var ka=key(a),kb=key(b); return ka!==kb? ka-kb : (a<b?-1:1); });
@@ -1345,7 +1346,7 @@ function vPrepNew(){
       <div class="filt">${catChips}</div>
       <div class="filt"><input type="text" value="${Q(q)}" oninput="q=this.value;renderKeep(this)" placeholder="🔍 장비 검색"></div>
       <div data-scrollbox style="max-height:44vh;overflow:auto;border:1px solid #eee;border-radius:8px;position:relative">
-      <table><thead><tr><th class="n">Item_ID</th><th>장비</th><th class="n">가용</th><th class="n">선택 수량</th></tr></thead><tbody>${matPick}${invRows}</tbody></table></div></div>
+      <table><thead><tr><th class="n">EQ_NO</th><th>장비</th><th class="n">가용</th><th class="n">선택 수량</th></tr></thead><tbody>${matPick}${invRows}</tbody></table></div></div>
     <div class="panel"><div style="font-weight:800;margin-bottom:8px">② 준비 리스트 (고른 것 + 렌탈)</div>
       ${listPanel}
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px">
