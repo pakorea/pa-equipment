@@ -797,6 +797,7 @@ function noAccessHTML(email){
    +'</div>';
 }
 function sbBanner(){
+  if(!session) return '';
   if(sbBusy) return '<div class="note-box" style="background:#eaf1f9;border-color:#cfe0f2;color:#2f6db0">⏳ '+Q(sbMsg||'처리 중…')+'</div>';
   if(serverOn) return '<div class="note-box" style="background:#e9f5ee;border-color:#a9d9be;color:#1f7a52">🟢 <b>서버 연결됨</b> — 이 데이터는 서버에서 왔고, 수정하면 모두에게 반영됩니다. <span style="font-size:11.5px">'+Q(sbMsg)+'</span></div>';
   return '<div class="note-box" style="background:#fff3e0;border-color:#eddcb4;color:#7d551a;display:flex;align-items:center;gap:10px;flex-wrap:wrap">🟡 <b>오프라인(내 컴퓨터)</b> — 서버에 연결되지 않아 이 컴퓨터에만 저장됩니다.'+(sbMsg?' <span style="font-size:11.5px">'+Q(sbMsg)+'</span>':'')+'<button onclick="forceReset()" style="margin-left:auto;background:#2f6db0;color:#fff;border:none;border-radius:8px;padding:7px 15px;font-weight:800;font-size:13px;cursor:pointer">🔌 서버에 로그인</button></div>';
@@ -812,8 +813,8 @@ window.addEventListener('error',function(ev){ try{ showErr(ev.error||{message:ev
 function _render(){
   const nav=document.getElementById('nav'), main=document.getElementById('main');
   const who=document.getElementById('who'), lg=document.getElementById('lgoutbtn');
-  if(!session){ nav.innerHTML=''; main.innerHTML=loginHTML(); if(who)who.textContent=''; if(lg)lg.style.display='none'; return; }
-  if(who)who.textContent='👤 '+session.name+' · '+session.role; if(lg)lg.style.display='';
+  if(!session){ nav.innerHTML=''; main.innerHTML=loginHTML(); if(who)who.textContent=''; if(lg)lg.style.display='none'; var rb=document.querySelector('.top button'); if(rb)rb.style.display='none'; return; }
+  if(who)who.textContent='👤 '+session.name+' · '+session.role; if(lg)lg.style.display=''; var rb2=document.querySelector('.top button'); if(rb2)rb2.style.display='';
   const tabs=myTabs();
   if(!tabs.some(t=>t[0]===view)) view=tabs[0][0];
   nav.innerHTML=tabs.map(t=>`<button class="${view===t[0]?'on':''}" onclick="go('${t[0]}')">${t[1]}</button>`).join('');
