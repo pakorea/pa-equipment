@@ -231,6 +231,89 @@ function lowSetOf(){ var m={}; allSrc().forEach(function(r){ if(edits[r[S.line]]
 
 
 // ===== 📁 프로젝트 =====
+
+// ===== 프로젝트 정보 수정 (이름·기간) =====
+let projEdit=null;
+function openProjEdit(name){ projEdit=name; render(); }
+function closeProjEdit(){ projEdit=null; render(); }
+function projEditModal(){
+  if(!projEdit) return '';
+  var nm=projEdit;
+  var rs=allSrc().filter(function(r){return r[S.proj]===nm;});
+  var outs=rs.map(function(r){return val(r,S.out);}).filter(Boolean).sort();
+  var dues=rs.map(function(r){return val(r,S.due);}).filter(Boolean).sort();
+  function toISO(x){ var d=_cd(x); if(!d)return ''; return d.y+'-'+String(d.mo).padStart(2,'0')+'-'+String(d.d).padStart(2,'0'); }
+  var o=toISO(outs[0]||''), du=toISO(dues[dues.length-1]||'');
+  var st=projStatus(nm)==='완료'?'완료':'진행';
+  return '<div class="modal-bg" onclick="if(event.target===this)closeProjEdit()"><div class="modal" style="max-width:520px">'
+   +'<h3>✏️ 프로젝트 정보 수정</h3>'
+   +'<div style="font-size:12.5px;color:#888;margin-bottom:10px">라인 '+rs.length+'개 · 이름을 바꾸면 모든 라인ID도 같이 바뀝니다</div>'
+   +'<div class="mrow"><label>프로젝트명</label><input id="pe_name" value="'+Q(nm)+'"></div>'
+   +'<div class="mrow"><label>출고일</label><input id="pe_out" type="date" value="'+Q(o)+'"></div>'
+   +'<div class="mrow"><label>반납일</label><input id="pe_due" type="date" value="'+Q(du)+'"></div>'
+   +'<div class="mrow"><label>상태</label><select id="pe_st"><option'+(st==='진행'?' selected':'')+'>진행</option><option'+(st==='완료'?' selected':'')+'>완료</option></select></div>'
+   +'<div class="mbtns"><button class="primary" onclick="saveProjEdit()">💾 저장</button>'
+   +'<button class="danger" onclick="deleteProject()">🗑 프로젝트 삭제</button>'
+   +'<button onclick="closeProjEdit()">닫기</button></div>'
+   +'<div style="font-size:11.5px;color:#999;margin-top:10px">＊날짜를 비우면 그 값은 그대로 둡니다. 삭제는 라인 전체가 사라집니다(되돌리기 불가).</div>'
+   +'</div></div>';
+}
+function _ymd(v){ if(!v)return ''; var p=String(v).split('-'); if(p.length!==3)return ''; return String(p[0]).slice(2)+'-'+p[1]+'-'+p[2]; }
+async function saveProjEdit(){
+  var oldName=projEdit;
+  var nn=(document.getElementById('pe_name').value||'').trim();
+  var no=_ymd(document.getElementById('pe_out').value);
+  var nd=_ymd(document.getElementById('pe_due').value);
+  var nst=document.getElementById('pe_st').value;
+  if(!nn){ alert('프로젝트명을 넣어주세요'); return; }
+  var rows=allSrc().filter(function(r){return r[S.proj]===oldName;});
+  var renamed=(nn!==oldName);
+  if(renamed && allSrc().some(function(r){return r[S.proj]===nn;})){ alert('이미 있는 프로젝트명입니다'); return; }
+  sbBusy=true; sbMsg='프로젝트 수정 중…'; render();
+  try{
+    for(var i=0;i<rows.length;i++){
+      var r=rows[i], oldLine=r[S.line], patch={};
+      if(renamed){ var seq=String(oldLine).split('-').pop();
+        var newLine=nn+'-'+seq; patch['라인ID']=newLine; patch['프로젝트']=nn; }
+      if(no) patch['출고일']=no;
+      if(nd) patch['반납일']=nd;
+      if(serverOn && Object.keys(patch).length){ await sbT('sourcing').update(patch).eq('라인ID',oldLine); }
+      // 로컬 반영
+      if(renamed){ r[S.proj]=nn; r[S.line]=patch['라인ID']; }
+      if(no) r[S.out]=no;
+      if(nd) r[S.due]=nd;
+    }
+    if(serverOn){
+      if(renamed){ await sbT('projects').update({'프로젝트':nn,'상태':nst}).eq('프로젝트',oldName);
+                   await sbT('crew').update({project:nn}).eq('project',oldName); }
+      else { await sbT('projects').update({'상태':nst}).eq('프로젝트',oldName); }
+    }
+    projOv[renamed?nn:oldName]=nst;
+    if(renamed && crew[oldName]){ crew[nn]=crew[oldName]; delete crew[oldName]; crewSave(); }
+    LSs('pa_v3_projst',projOv);
+    _dmg=null;_pdmax=null;window.__invUse=null;
+    if(curProj===oldName) curProj=(renamed?nn:oldName);
+    sbMsg='수정 완료';
+  }catch(e){ sbMsg='수정 실패: '+(e.message||e); }
+  sbBusy=false; projEdit=null; render();
+}
+async function deleteProject(){
+  var nm=projEdit;
+  if(!confirm('['+nm+'] 프로젝트를 통째로 지울까요? 라인 전체가 사라지며 되돌릴 수 없습니다.')) return;
+  sbBusy=true; sbMsg='삭제 중…'; render();
+  try{
+    if(serverOn){ await sbT('sourcing').delete().eq('프로젝트',nm);
+                  await sbT('projects').delete().eq('프로젝트',nm);
+                  await sbT('crew').delete().eq('project',nm); }
+    DB.sourcing.rows=DB.sourcing.rows.filter(function(r){return r[S.proj]!==nm;});
+    srcAdd=srcAdd.filter(function(r){return r[S.proj]!==nm;}); LSs('pa_v3_srcadd',srcAdd);
+    DB.projects.rows=DB.projects.rows.filter(function(r){return r[0]!==nm;});
+    delete crew[nm]; crewSave();
+    _dmg=null;_pdmax=null;window.__invUse=null; curProj=null;
+    sbMsg='삭제 완료';
+  }catch(e){ sbMsg='삭제 실패: '+(e.message||e); }
+  sbBusy=false; projEdit=null; render();
+}
 function openProj(p){curProj=p;stage='prep';window.scrollTo(0,0);render();}
 function backProj(){curProj=null;render();}
 function setStage(sg){stage=sg;render();}
@@ -249,7 +332,7 @@ function vProj(){
       <div class="pb"><span class="badge">📦 준비 ${pd}/${rs.length}</span><span class="badge">🎬 랩업 ${wd}/${rs.length}</span><span class="badge">↩️ 반납 ${rd}/${rs.length}</span></div></div>`;
   }).join('');
   return `<h2>📁 프로젝트</h2><div class="lead">프로젝트를 클릭하면 <b>준비 → 랩업 → 반납</b> 페이지가 열립니다.</div>
-    ${stageFilter()}<div class="plist">${cards||'<div class="panel">프로젝트 없음</div>'}</div>`;
+    ${projEditModal()}${stageFilter()}<div class="plist">${cards||'<div class="panel">프로젝트 없음</div>'}</div>`;
 }
 function vProjDetail(){
   const rows=allSrc().filter(r=>r[S.proj]===curProj && (val(r,S.status)||'').toString().toLowerCase()!=='remove');
@@ -264,12 +347,13 @@ function vProjDetail(){
         : '반납 체크 + 파손·분실 개수를 적으면 반납상태 자동 계산, 재고에 즉시 반영됩니다.';
   return `<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:4px">
       <button class="backbtn" onclick="backProj()">← 프로젝트 목록</button>
+      <button class="backbtn" onclick="openProjEdit('${QJ(curProj)}')">✏️ 정보 수정</button>
       <h2 style="margin:0">📁 ${Q(curProj)}</h2>
       <span style="color:var(--sub);font-size:13px">${Q(projDates(curProj))}</span>
       ${projStatus(curProj)==='완료'
         ?`<span class="pill p-ok">✔ 완료됨</span><button class="backbtn" onclick="setProjDone('${QJ(curProj)}',false)">↩ 완료 취소</button>`
         :`<button class="backbtn" style="color:var(--ok);border-color:#9fd4b4;font-weight:800" onclick="if(confirm('[${Q(curProj)}] 프로젝트를 완료 처리할까요? (활성 목록에서 숨겨지고, 완료 포함을 누르면 보입니다)'))setProjDone('${QJ(curProj)}',true)">✔ 프로젝트 완료 처리</button>`}</div>
-    <div class="stgbar">${tabs}</div><div class="lead">${lead}</div>${body}${relModal()}`;
+    <div class="stgbar">${tabs}</div><div class="lead">${lead}</div>${body}${relModal()}${projEditModal()}`;
 }
 
 // ===== 📅 캘린더 (1번 방식: 월 이동 + 일정바 + 인원배치) =====
@@ -661,7 +745,7 @@ function npAdd(id,d){ const v=Math.max(0,(npSel[id]||0)+d); if(v)npSel[id]=v; el
 function npSet(id,v){ const n=Math.max(0,parseInt(v)||0); if(n)npSel[id]=n; else delete npSel[id]; render(); }
 function npAddRent(){ const nm=document.getElementById('npRentName').value.trim(); const q=Math.max(1,parseInt(document.getElementById('npRentQty').value)||1); if(!nm){alert('렌탈 품목 이름을 넣어주세요');return;} npRent.push({name:nm,qty:q}); render(); }
 function npRmRent(i){ npRent.splice(i,1); render(); }
-function npCheckout(){
+async function npCheckout(){
   if(!npProj){ alert('프로젝트를 먼저 고르거나 ＋새 프로젝트로 만들어주세요'); return; }
   if(!Object.keys(npSel).length && !npRent.length){ alert('고른 장비가 없습니다'); return; }
   const out=document.getElementById('npOut').value||''; const due=document.getElementById('npDue').value||'';
@@ -687,7 +771,25 @@ function npCheckout(){
     srcAdd.push(row);
   });
   LSs('pa_v3_srcadd',srcAdd);
-  const msg='['+npProj+'] 라인 '+made+'개 생성 완료.'+(rentMsg.length?'\n렌탈 필요: '+rentMsg.join(', '):'');
+  // ── 서버에 저장 (모두에게 보이게) ──
+  var newRows=srcAdd.slice(-made);
+  if(serverOn){
+    sbBusy=true; sbMsg='서버에 저장 중…'; render();
+    try{
+      var objs=newRows.map(function(rw){ var o={}; SRC.headers.forEach(function(h,i){ o[h]=rw[i]==null?'':String(rw[i]); }); return o; });
+      for(var i=0;i<objs.length;i+=200){ var rr=await sbT('sourcing').insert(objs.slice(i,i+200)); if(rr&&rr.error) throw rr.error; }
+      // 프로젝트 등록(없으면)
+      var pe=await sbT('projects').select('프로젝트').eq('프로젝트',npProj).limit(1);
+      if(!pe.error && (!pe.data||!pe.data.length)){ await sbT('projects').insert({'프로젝트':npProj,'상태':'진행'}); DB.projects.rows.push([npProj,'진행','','']); }
+      // 서버본을 기준으로: 로컬 임시분 제거하고 baseline에 반영
+      newRows.forEach(function(rw){ DB.sourcing.rows.push(rw); });
+      srcAdd=srcAdd.slice(0,srcAdd.length-made); LSs('pa_v3_srcadd',srcAdd);
+      sbMsg='저장 완료 · 모두에게 보입니다';
+    }catch(e){ sbMsg='⚠️ 서버 저장 실패: '+(e.message||e)+' (내 화면에만 남음)'; }
+    sbBusy=false;
+  } else { sbMsg='⚠️ 오프라인 — 이 컴퓨터에만 저장됨'; }
+  _dmg=null;_pdmax=null;window.__invUse=null;
+  const msg='['+npProj+'] 라인 '+made+'개 생성 완료.'+(serverOn?'\n서버에 저장되어 모두에게 보입니다.':'\n⚠️ 오프라인이라 이 컴퓨터에만 저장됐습니다.')+(rentMsg.length?'\n렌탈 필요: '+rentMsg.join(', '):'');
   npSel={}; npRent=[];
   alert(msg);
   curProj=npProj; stage='prep'; view='proj'; render();
