@@ -644,15 +644,16 @@ function invMatRows(){
   return ['cf','bg'].map(function(k){
     var d=auxGet()[k]; if(!d) return '';
     if(q && (MAT[k].label.toLowerCase().indexOf(q.toLowerCase())<0)) return '';
-    if(invMode!=='all') return '';
+    if(invMode==='out') return '';
     var need=d.records.filter(function(r,ri){return matNeed(k,ri);}).length;
     var qty=d.records.reduce(function(a,r,ri){ return a+num(matQty(k,ri)); },0);
     return '<tr class="rowck" style="background:#fbfaf5" onclick="openMat(\''+k+'\')">'
       +'<td style="font-family:ui-monospace,monospace;font-size:11.5px">'+matCodeTxt(k)+'</td><td>9.CONSUMABLE</td><td>'+(k==='cf'?'LEE':'SAVAGE')+'</td>'
       +'<td><b>'+MAT[k].label+'</b> <span class="pill" style="background:#eaf1f9;color:#2f6db0">'+d.records.length+'종</span>'
       +(need?' <span class="pill p-warn">구매필요 '+need+'</span>':'')+'</td>'
-      +'<td class="n">'+qty+'</td><td class="n">-</td>'
-      +'<td>'+(need?'<span style="color:#a8632a;font-size:12px">잔량 50% 이하 '+need+'종</span>':'<span style="color:#ccc">-</span>')+'</td>'
+      +'<td class="n"><b>'+qty+'</b></td>'
+      +'<td class="n"><span class="pill '+(need?'p-warn':(qty<=0?'p-zero':'p-ok'))+'">'+qty+'</span></td>'
+      +'<td>'+(need?'<span style="color:#a8632a;font-size:12px">구매 필요 '+need+'종</span>':'<span style="color:#ccc">-</span>')+'</td>'
       +'<td>소모자재</td></tr>';
   }).join('');
 }
@@ -946,13 +947,16 @@ function matListHTML(k,editable){
         : (need?'<span class="pill p-warn">구매 필요</span>':'<span class="pill p-ok">충분</span>');
       return '<tr'+(need?' style="background:#fff6f3"':'')+'>'
         +'<td style="font-family:ui-monospace,monospace;font-size:11.5px">'+Q(matCode(k,x.ri))+'</td>'
-        +'<td class="n">'+Q(x.r[iNo]||'-')+'</td><td>'+Q(x.r[iNm]||'')+'</td><td class="n">'+qcell+'</td><td>'+chk+'</td></tr>';
+        +'<td class="n">'+Q(x.r[iNo]||'-')+'</td><td>'+Q(x.r[iNm]||'')+'</td><td class="n">'+qcell+'</td>'
+        +'<td class="n"><span class="pill '+(need?'p-warn':(num(qty)<=0?'p-zero':'p-ok'))+'">'+Q(qty)+'</span></td>'
+        +'<td>'+(need?'<span class="pill p-warn">구매 필요</span>':'<span class="pill p-ok">보관</span>')+'</td>'
+        +'<td>'+chk+'</td></tr>';
     }).join('');
   var needN=d.records.filter(function(r,ri){return matNeed(k,ri);}).length;
   var totQ=d.records.reduce(function(a,r,ri){return a+num(matQty(k,ri));},0);
   return '<div style="font-size:13px;color:#666;margin-bottom:8px">품목 '+d.records.length+'종 · 총 '+totQ+'개 · <b style="color:#b1442f">구매 필요 '+needN+'종</b></div>'
    +'<div class="filt"><input value="'+Q(matQ)+'" oninput="matQ=this.value;render()" placeholder="🔍 no·품목 검색" style="min-width:220px"></div>'
-   +'<div style="max-height:52vh;overflow:auto"><table><thead><tr><th>EQ코드</th><th class="n">구매넘버</th><th>품목</th><th class="n">수량</th><th>구매 여부</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
+   +'<div style="max-height:52vh;overflow:auto"><table><thead><tr><th>Item_ID</th><th class="n">구매넘버</th><th>품목</th><th class="n">보유</th><th class="n">실재고</th><th>현재 상태</th><th>구매 여부</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
 }
 
 
@@ -991,7 +995,9 @@ function matMasterRows(){
       +'<td>'+(k==='cf'?'LEE':'SAVAGE')+'</td>'
       +'<td><b>'+m.label+'</b> <span class="pill" style="background:#eaf1f9;color:#2f6db0">'+d.records.length+'종</span>'
       +(need?' <span class="pill p-warn">구매필요 '+need+'</span>':'')+'</td>'
-      +'<td class="n"><b>'+qty+'</b></td><td class="n">-</td><td class="n">-</td><td>소모자재</td></tr>';
+      +'<td class="n"><b>'+qty+'</b></td>'
+      +'<td class="n"><span class="pill '+(need?'p-warn':(qty<=0?'p-zero':'p-ok'))+'">'+qty+'</span></td>'
+      +'<td class="n">'+d.records.length+'종</td><td>소모자재</td></tr>';
   }).join('');
 }
 function matModal(){
