@@ -72,7 +72,7 @@ input.cell{width:64px;font-size:12px;padding:2px 5px;text-align:center}
 </style><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
-<div class="top"><span class="logo">📦 PA 장비관리</span><span class="tag">🔐 구글 로그인 · 웹버전</span><span class="sp"></span>
+<div class="top"><span class="logo">📦 PA 장비관리</span><span class="tag">🔐 구글 로그인 · 전체 서버저장 v6</span><span class="sp"></span>
 <span id="who" style="font-size:12.5px;color:#dbe4ee;font-weight:700"></span><button onclick="resetAll()" style="background:#e7edf3;color:#2f4a66;border:none;border-radius:7px;padding:6px 11px;font-weight:700;font-size:12px;cursor:pointer">입력 초기화</button><button onclick="logout()" id="lgoutbtn" style="display:none;background:#b1442f;color:#fff;border:none;border-radius:7px;padding:6px 11px;font-weight:700;font-size:12px;cursor:pointer">로그아웃</button></div>
 <nav id="nav"></nav>
 <main id="main"></main>
@@ -131,7 +131,7 @@ function retStatus(row){
 let projOv=LS('pa_v3_projst',{});
 function projDateMax(name){ if(!_pdmax){ _pdmax={}; allSrc().forEach(function(r){ var p=r[S.proj]; var d=_cd(val(r,S.due))||_cd(val(r,S.out)); if(d){ var key=d.y*10000+d.mo*100+d.d; if(!_pdmax[p]||key>_pdmax[p])_pdmax[p]=key; } }); } return _pdmax[name]||0; }
 function projStatus(name){ if(projOv[name])return projOv[name]==='완료'?'완료':''; var dm=projDateMax(name); if(dm&&dm<TODAYKEY)return '완료'; var r=PROJ.rows.find(function(x){return x[0]===name;}); return r?(r[1]==='완료'?'완료':''):''; }
-function setProjDone(name,done){ projOv[name]=done?'완료':'진행'; LSs('pa_v3_projst',projOv); render(); }
+function setProjDone(name,done){ projOv[name]=done?'완료':'진행'; LSs('pa_v3_projst',projOv); srvProjStatus(name,done?'완료':'진행'); render(); }
 function activeLines(){
   return allSrc().filter(r=>{
     if((val(r,S.status)||'').toString().toLowerCase()==='remove')return false;
@@ -211,16 +211,16 @@ function retTable(rows){
 }
 function onRetBy(line,checked){ setVal(line,S.retBy, checked?ME:''); }
 function isConsumable(r){ var c=(val(r,S.cat)||'').toUpperCase(); return c.indexOf('CONSUMABLE')>=0||c.indexOf('소모')>=0; }
-function onLow(line,checked){ if(!edits[line])edits[line]={}; edits[line].low=checked; save(); }
+function onLow(line,checked){ if(!edits[line])edits[line]={}; edits[line].low=checked; save(); srvSrcExtra(line,{low:checked}); }
 function addPhoto(line,input){ var f=input.files&&input.files[0]; if(!f)return;
   var rd=new FileReader(); rd.onload=function(e){ var img=new Image();
     img.onload=function(){ var mx=900; var sc=Math.min(1,mx/Math.max(img.width,img.height));
       var cv=document.createElement('canvas'); cv.width=Math.round(img.width*sc); cv.height=Math.round(img.height*sc);
       cv.getContext('2d').drawImage(img,0,0,cv.width,cv.height); var d=cv.toDataURL('image/jpeg',0.6);
-      if(!edits[line])edits[line]={}; if(!edits[line].photos)edits[line].photos=[]; edits[line].photos.push(d); save(); render(); };
+      if(!edits[line])edits[line]={}; if(!edits[line].photos)edits[line].photos=[]; edits[line].photos.push(d); save(); srvSrcExtra(line,{photos:edits[line].photos}); render(); };
     img.src=e.target.result; };
   rd.readAsDataURL(f); }
-function delPhoto(line,i){ if(edits[line]&&edits[line].photos){ edits[line].photos.splice(i,1); save(); render(); } }
+function delPhoto(line,i){ if(edits[line]&&edits[line].photos){ edits[line].photos.splice(i,1); save(); srvSrcExtra(line,{photos:edits[line].photos}); render(); } }
 function viewPhoto(line,i){ var p=edits[line]&&edits[line].photos&&edits[line].photos[i]; if(p){ var w=window.open(''); if(w){w.document.write('<title>반납 사진</title><body style="margin:0;background:#111"><img src="'+p+'" style="max-width:100%;display:block;margin:auto"></body>');} } }
 function lowSetOf(){ var m={}; allSrc().forEach(function(r){ if(edits[r[S.line]]&&edits[r[S.line]].low&&r[S.itemId]) m[r[S.itemId]]=true; }); return m; }
 
@@ -292,8 +292,8 @@ function calPrev(){ calMonth=_mShift(calMonth,-1); render(); }
 function calNext(){ calMonth=_mShift(calMonth,1); render(); }
 function selectCal(name){ calSel=(calSel===name?null:name); render(); }
 function calGoProj(name){ curProj=name; stage='prep'; view='proj'; window.scrollTo(0,0); render(); }
-function addCrew(){ if(!calSel)return; const n=document.getElementById('cName').value.trim(); if(!n){alert('이름을 입력하세요');return;} const role=document.getElementById('cRole').value.trim(); const kind=document.getElementById('cKind').value; if(!crew[calSel])crew[calSel]=[]; crew[calSel].push({name:n,role:role,kind:kind}); crewSave(); render(); }
-function delCrew(proj,i){ if(crew[proj]){ crew[proj].splice(i,1); crewSave(); render(); } }
+function addCrew(){ if(!calSel)return; const n=document.getElementById('cName').value.trim(); if(!n){alert('이름을 입력하세요');return;} const role=document.getElementById('cRole').value.trim(); const kind=document.getElementById('cKind').value; if(!crew[calSel])crew[calSel]=[]; crew[calSel].push({name:n,role:role,kind:kind}); crewSave(); srvCrewSet(calSel,crew[calSel]); render(); }
+function delCrew(proj,i){ if(crew[proj]){ crew[proj].splice(i,1); crewSave(); srvCrewSet(proj,crew[proj]); render(); } }
 function crewPanelHTML(name){
   const cs=name.replace(/'/g,'');
   const list=crew[name]||[];
@@ -403,16 +403,18 @@ function nextId(code){
 function mstEdit(id){ mstSel=id; render(); }
 function mstClose(){ mstSel=null; render(); }
 function mstSave(){
+  var __isNew=(mstSel==='__new__'); var __id=mstSel;
   const gv=k=>{const el=document.getElementById('mf_'+k); return el?el.value:'';};
   if(mstSel==='__new__'){
     const cat=gv('cat'); const id=nextId(codeOfCat(cat)||'ETC');
     const row=new Array(EQ.headers.length).fill('');
     row[E.id]=id;
     MF.forEach(f=>{ if(E[f[0]]>=0) row[E[f[0]]]=gv(f[0]); });
-    eqAdd.push(row);
+    eqAdd.push(row); srvEqInsert(row);
   } else {
     if(!eqOv[mstSel])eqOv[mstSel]={};
     MF.forEach(f=>{ if(E[f[0]]>=0) eqOv[mstSel][E[f[0]]]=gv(f[0]); });
+    var __o={}; MF.forEach(function(f){ if(E[f[0]]>=0){ var hh=DB.equip.headers[E[f[0]]]; if(hh)__o[hh]=gv(f[0]); } }); srvEqUpdate(mstSel,__o);
   }
   save(); mstSel=null; render();
 }
@@ -420,6 +422,7 @@ function mstDelete(){
   if(confirm(mstSel+' 장비를 목록에서 뺄까요? (번호는 재사용 안 함)')){
     const ai=eqAdd.findIndex(r=>r[E.id]===mstSel);
     if(ai>=0)eqAdd.splice(ai,1); else eqDel.push(mstSel);
+    srvEqDelete(mstSel);
     save(); mstSel=null; render();
   }
 }
@@ -468,12 +471,12 @@ function vMst(){
 // ===== 🎨 배경지·필터 (편집) =====
 function auxGet(){ return LS('pa_v3_aux',null)||AUX; }
 function auxEnsure(){ let a=LS('pa_v3_aux',null); if(!a){a=JSON.parse(JSON.stringify(AUX)); LSs('pa_v3_aux',a);} return a; }
-function auxSet(tab,ri,ci,v){ const a=auxEnsure(); a[tab].records[ri][ci]=v; LSs('pa_v3_aux',a); }
-function auxAdd(tab){ const a=auxEnsure(); a[tab].records.push(new Array(a[tab].headers.length).fill('')); LSs('pa_v3_aux',a); render(); }
+function auxSet(tab,ri,ci,v){ const a=auxEnsure(); a[tab].records[ri][ci]=v; LSs('pa_v3_aux',a); srvAuxSave(tab,a[tab].records,a[tab].headers); }
+function auxAdd(tab){ const a=auxEnsure(); a[tab].records.push(new Array(a[tab].headers.length).fill('')); LSs('pa_v3_aux',a); srvAuxSave(tab,a[tab].records,a[tab].headers); render(); }
 function auxReset(){ if(confirm('배경지·필터 표를 원래 시트값으로 되돌릴까요?')){localStorage.removeItem('pa_v3_aux');render();} }
-function auxUp(tab,ri){ const a=auxEnsure(); if(ri<=0)return; const r=a[tab].records; const t=r[ri-1]; r[ri-1]=r[ri]; r[ri]=t; LSs('pa_v3_aux',a); render(); }
-function auxDown(tab,ri){ const a=auxEnsure(); const r=a[tab].records; if(ri>=r.length-1)return; const t=r[ri+1]; r[ri+1]=r[ri]; r[ri]=t; LSs('pa_v3_aux',a); render(); }
-function auxDelRow(tab,ri){ if(!confirm('이 줄을 지울까요?'))return; const a=auxEnsure(); a[tab].records.splice(ri,1); LSs('pa_v3_aux',a); render(); }
+function auxUp(tab,ri){ const a=auxEnsure(); if(ri<=0)return; const r=a[tab].records; const t=r[ri-1]; r[ri-1]=r[ri]; r[ri]=t; LSs('pa_v3_aux',a); srvAuxSave(tab,a[tab].records,a[tab].headers); render(); }
+function auxDown(tab,ri){ const a=auxEnsure(); const r=a[tab].records; if(ri>=r.length-1)return; const t=r[ri+1]; r[ri+1]=r[ri]; r[ri]=t; LSs('pa_v3_aux',a); srvAuxSave(tab,a[tab].records,a[tab].headers); render(); }
+function auxDelRow(tab,ri){ if(!confirm('이 줄을 지울까요?'))return; const a=auxEnsure(); a[tab].records.splice(ri,1); LSs('pa_v3_aux',a); srvAuxSave(tab,a[tab].records,a[tab].headers); render(); }
 function auxTable(tab,title){
   const d=auxGet()[tab];
   const H=d.headers.map(h=>`<th>${Q(h)}</th>`).join('')+'<th>순서·삭제</th>';
@@ -764,6 +767,9 @@ async function sbLoadAll(){
     var pj=await sbFetchAll('projects',DB.projects.headers);
     var rp=await sbFetchAll('repair',DB.repair.headers);
     DB.equip.rows=eq; DB.sourcing.rows=sr; DB.projects.rows=pj; DB.repair.rows=rp;
+    await sbLoadExtras();
+    eqOv={};eqDel=[];eqAdd=[];projOv={};
+    try{localStorage.removeItem('pa_v3_eq');localStorage.removeItem('pa_v3_eqdel');localStorage.removeItem('pa_v3_eqadd');localStorage.removeItem('pa_v3_projst');localStorage.removeItem('pa_v3_crew');}catch(e){}
     _dmg=null;_pdmax=null; serverOn=true;
     sbMsg='서버 연결됨 · 장비 '+eq.length+' · 소싱 '+sr.length+' · 프로젝트 '+pj.length;
   }catch(e){ serverOn=false; sbMsg='서버 불러오기 실패: '+(e.message||e); }
@@ -813,6 +819,46 @@ function noAccessHTML(email){
    +'<div style="font-size:14.5px;color:var(--sub);line-height:1.7">로그인하신 계정: <b>'+Q(email)+'</b><br>관리자(명진)에게 <b>등록을 요청</b>해 주세요.<br>등록되면 바로 이용하실 수 있습니다.</div>'
    +'<button onclick="forceReset()" style="margin-top:18px;background:#eef1f5;color:#333;border:1px solid #ccc;border-radius:9px;padding:10px 20px;font-weight:700;cursor:pointer">다른 계정으로 로그인</button>'
    +'</div>';
+}
+
+// ================= 모든 데이터 서버 저장 =================
+function sbT(t){ var c=sbClient(); return c?c.from(t):null; }
+// --- 장비 마스터 ---
+async function srvEqUpdate(id,obj){ if(!serverOn)return; try{ await sbT('equipment').update(obj).eq('Item_ID',id); }catch(e){ console.warn('장비수정 서버저장 실패',e); } }
+async function srvEqInsert(row){ if(!serverOn)return; try{ var o={}; DB.equip.headers.forEach(function(h,i){o[h]=row[i]==null?'':String(row[i]);}); await sbT('equipment').insert(o); }catch(e){ console.warn('장비추가 실패',e); } }
+async function srvEqDelete(id){ if(!serverOn)return; try{ await sbT('equipment').delete().eq('Item_ID',id); }catch(e){ console.warn('장비삭제 실패',e); } }
+// --- 프로젝트 상태(완료처리) ---
+async function srvProjStatus(name,st){ if(!serverOn)return; try{ await sbT('projects').update({'상태':st}).eq('프로젝트',name); }catch(e){ console.warn('프로젝트상태 실패',e); } }
+// --- 캘린더 인원배치 ---
+async function srvCrewSet(proj,list){ if(!serverOn)return;
+  try{ await sbT('crew').delete().eq('project',proj);
+       if(list&&list.length){ await sbT('crew').insert(list.map(function(c){return {project:proj,name:c.name,kind:c.kind,email:c.role||''};})); }
+  }catch(e){ console.warn('인원배치 실패',e); } }
+// --- 배경지·필터·매입 ---
+async function srvAuxSave(kind,records,headers){ if(!serverOn)return;
+  try{ await sbT('aux_rows').delete().eq('kind',kind);
+       var rows=records.map(function(r,i){ var o={}; headers.forEach(function(h,j){o[h]=r[j]==null?'':String(r[j]);}); return {kind:kind,ord:i,data:o}; });
+       for(var i=0;i<rows.length;i+=200){ await sbT('aux_rows').insert(rows.slice(i,i+200)); }
+  }catch(e){ console.warn('배경지/매입 저장 실패',e); } }
+// --- 사진·소모품 (소싱) ---
+async function srvSrcExtra(line,obj){ if(!serverOn)return; try{ await sbT('sourcing').update(obj).eq('라인ID',line); }catch(e){ console.warn('사진/소모품 저장 실패',e); } }
+// --- 서버에서 부가데이터 불러오기 ---
+async function sbLoadExtras(){
+  try{
+    var cr=await sbT('crew').select('*');
+    if(!cr.error){ crew={}; (cr.data||[]).forEach(function(r){ (crew[r.project]=crew[r.project]||[]).push({name:r.name,role:r.email||'',kind:r.kind||'프리랜서'}); }); }
+    var ax=await sbT('aux_rows').select('*').order('kind').order('ord');
+    if(!ax.error && ax.data && ax.data.length){
+      var m={bg:[],cf:[],buynew:[],buyold:[]};
+      ax.data.forEach(function(r){ if(m[r.kind]) m[r.kind].push(r.data||{}); });
+      Object.keys(m).forEach(function(k){
+        if(!AUX[k]||!m[k].length) return;
+        var hs=AUX[k].headers;
+        AUX[k].records=m[k].map(function(o){ return hs.map(function(h){ return o[h]==null?'':o[h]; }); });
+      });
+      try{ localStorage.removeItem('pa_v3_aux'); }catch(e){}
+    }
+  }catch(e){ console.warn('부가데이터 로드 실패',e); }
 }
 function sbBanner(){
   if(!session) return '';
