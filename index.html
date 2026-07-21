@@ -630,7 +630,72 @@ function mstModal(){
 const MSTC=[['id','Item_ID'],['cat','카테고리'],['sub','서브'],['brand','브랜드'],['name','품목명'],['own','보유'],['serial','시리얼'],['loc','위치'],['price','단가'],['check','점검날짜'],['special','특이사항']];
 let mstOn=LS('pa_v3_mstcols',{id:1,cat:1,sub:1,brand:1,name:1,own:1,serial:1,loc:1,price:1,check:1,special:1});
 function mstColToggle(k){ mstOn[k]=mstOn[k]?0:1; LSs('pa_v3_mstcols',mstOn); render(); }
+
+// ===== 장비 마스터: 모델(품목명)로 묶어보기 + 개체 상세 =====
+let mstGroup = LS('pa_v3_mstgroup',1);
+function toggleMstGroup(){ mstGroup=mstGroup?0:1; LSs('pa_v3_mstgroup',mstGroup); render(); }
+let unitOf=null;
+function openUnits(nm){ unitOf=nm; render(); }
+function closeUnits(){ unitOf=null; render(); }
+function unitsOf(nm){ return eqRows().filter(function(e){ return ev(e,E.name)===nm; }); }
+function unitOut(id){ // 이 개체가 지금 나가있는 프로젝트
+  var l=(invUse()[id]||[]).filter(function(u){ return !u.returned; });
+  return l.length? l[0] : null;
+}
+function unitsModal(){
+  if(!unitOf) return '';
+  var us=unitsOf(unitOf);
+  var rows=us.map(function(e){
+    var id=e[E.id]; var o=unitOut(id); var rs=realStock(id);
+    var where = o? ('<span class="pill p-warn">출고중</span> <span style="font-size:11px">'+Q(o.proj)+'</span>')
+                 : ('<span class="pill p-ok">보관</span> <span style="font-size:11px;color:#888">'+Q(ev(e,E.loc)||'위치 미기재')+'</span>');
+    return '<tr class="rowck" onclick="unitOf=null;mstEdit(\''+QJ(id)+'\')">'
+      +'<td>'+Q(id)+'</td><td>'+Q(ev(e,E.serial)||'-')+'</td><td class="n">'+Q(ev(e,E.own))+'</td>'
+      +'<td class="n">'+rs+'</td><td>'+where+'</td><td>'+Q(ev(e,E.special)||'')+'</td></tr>';
+  }).join('');
+  var tot=us.reduce(function(a,e){return a+num(ev(e,E.own));},0);
+  var outN=us.filter(function(e){return unitOut(e[E.id]);}).length;
+  return '<div class="modal-bg" onclick="if(event.target===this)closeUnits()"><div class="modal" style="max-width:760px">'
+   +'<h3>📦 '+Q(unitOf)+'</h3>'
+   +'<div style="font-size:13px;color:#666;margin-bottom:8px">개체 '+us.length+'대 · 총 보유 '+tot+' · 출고중 '+outN+' <span style="color:#999">(줄을 클릭하면 그 개체를 수정합니다)</span></div>'
+   +'<div style="max-height:56vh;overflow:auto"><table><thead><tr><th>Item_ID</th><th>시리얼</th><th class="n">보유</th><th class="n">실재고</th><th>현재 위치/상태</th><th>특이사항</th></tr></thead><tbody>'+rows+'</tbody></table></div>'
+   +'<div class="mbtns"><button class="primary" onclick="closeUnits()">닫기</button></div></div></div>';
+}
 function vMst(){
+  var toggle='<span class="chip '+(mstGroup?'on':'')+'" onclick="toggleMstGroup()">'+(mstGroup?'✓ ':'')+'📦 품목(모델)별 묶어보기</span>';
+  if(mstGroup){
+    var g={};
+    eqRows().forEach(function(e){
+      var nm=ev(e,E.name)||'(이름없음)';
+      if(q){ var h=(nm+' '+ev(e,E.cat)+' '+ev(e,E.brand)+' '+e[E.id]).toLowerCase(); if(!h.includes(q.toLowerCase())) return; }
+      (g[nm]=g[nm]||[]).push(e);
+    });
+    var keys=Object.keys(g).sort();
+    var gbody=keys.map(function(nm){
+      var us=g[nm];
+      var tot=us.reduce(function(a,e){return a+num(ev(e,E.own));},0);
+      var rs=us.reduce(function(a,e){var v=realStock(e[E.id]); return a+(v==null?0:v);},0);
+      var outN=us.filter(function(e){return unitOut(e[E.id]);}).length;
+      var ser=us.filter(function(e){return ev(e,E.serial);}).length;
+      var e0=us[0];
+      var badge = us.length>1
+        ? '<span class="pill" style="background:#eaf1f9;color:#2f6db0">개체 '+us.length+'대</span>'
+        : '<span style="color:#ccc;font-size:11px">단일</span>';
+      var outB = outN? ' <span class="pill p-warn">출고중 '+outN+'</span>':'';
+      return '<tr class="rowck" onclick="openUnits(\''+QJ(nm)+'\')">'
+        +'<td>'+Q(ev(e0,E.cat))+'</td><td>'+Q(ev(e0,E.brand))+'</td>'
+        +'<td><b>'+Q(nm)+'</b> '+badge+outB+'</td>'
+        +'<td class="n"><b>'+tot+'</b></td><td class="n"><span class="pill '+(rs<=0?'p-zero':(rs<=1?'p-warn':'p-ok'))+'">'+rs+'</span></td>'
+        +'<td class="n">'+(ser?ser+'개':'-')+'</td>'
+        +'<td>'+Q(ev(e0,E.loc))+'</td></tr>';
+    }).join('');
+    return '<h2>🗂 장비 마스터 <span style="font-size:12px;color:var(--sub)">(품목 '+keys.length+'종 · 개체 '+eqRows().length+'대)</span></h2>'
+      +'<div class="lead"><b>품목(모델)로 묶어서</b> 총수량을 봅니다. <b>줄을 클릭하면 개체별 시리얼·현재 위치</b>가 열립니다.</div>'
+      +'<div class="filt"><input type="text" value="'+Q(q)+'" oninput="q=this.value;renderKeep(this)" placeholder="🔍 품목·브랜드 검색"><button class="addbtn" onclick="mstEdit(\'__new__\')">＋ 새 장비 추가</button></div>'
+      +'<div class="filt">'+toggle+'</div>'
+      +'<div class="panel"><table><thead><tr><th>카테고리</th><th>브랜드</th><th>품목명</th><th class="n">총보유</th><th class="n">실재고</th><th class="n">시리얼</th><th>위치</th></tr></thead><tbody>'+gbody+'</tbody></table></div>'
+      +unitsModal()+mstModal();
+  }
   const rows=eqRows().filter(e=>{ if(!q)return true; const h=(ev(e,E.name)+' '+ev(e,E.cat)+' '+ev(e,E.brand)+' '+e[E.id]).toLowerCase(); return h.includes(q.toLowerCase()); });
   const cell={id:e=>Q(e[E.id]),cat:e=>Q(ev(e,E.cat)),sub:e=>Q(ev(e,E.sub)),brand:e=>Q(ev(e,E.brand)),name:e=>Q(ev(e,E.name)),own:e=>Q(ev(e,E.own)),serial:e=>Q(ev(e,E.serial)),loc:e=>Q(ev(e,E.loc)),price:e=>Q(ev(e,E.price)),check:e=>Q(E.check>=0?ev(e,E.check):''),special:e=>Q(ev(e,E.special))};
   const cols=MSTC.filter(c=>mstOn[c[0]]);
@@ -639,12 +704,13 @@ function vMst(){
     const edited=eqOv[e[E.id]]||eqAdd.some(r=>r[E.id]===e[E.id]);
     return `<tr class="rowck" onclick="mstEdit('${QJ(e[E.id])}')">${cols.map(c=>`<td>${cell[c[0]](e)}${(c[0]==='id'&&edited)?' <span style="font-size:9px;color:#2f6db0">●수정됨</span>':''}</td>`).join('')}</tr>`;
   }).join('');
-  return `<h2>🗂 장비 마스터 <span style="font-size:12px;color:var(--sub)">(${eqRows().length}품목 · 행 클릭=편집)</span></h2>
+  return `<h2>🗂 장비 마스터 <span style="font-size:12px;color:var(--sub)">(${eqRows().length}개체 · 행 클릭=편집)</span></h2>
     <div class="lead"><b>행 클릭=수정창</b> · 아래 칩으로 <b>보고 싶은 열만</b> 켜고 끕니다.</div>
     <div class="filt"><input type="text" value="${Q(q)}" oninput="q=this.value;renderKeep(this)" placeholder="🔍 Item_ID·품목·브랜드 검색">
     <button class="addbtn" onclick="mstEdit('__new__')">＋ 새 장비 추가</button></div>
+    <div class="filt">${toggle}</div>
     <div class="filt">${chips}</div>
-    <div class="panel"><table><thead><tr>${cols.map(c=>`<th>${c[1]}</th>`).join('')}</tr></thead><tbody>${body}</tbody></table></div>${mstModal()}`;
+    <div class="panel"><table><thead><tr>${cols.map(c=>`<th>${c[1]}</th>`).join('')}</tr></thead><tbody>${body}</tbody></table></div>${unitsModal()}${mstModal()}`;
 }
 
 // ===== 🎨 배경지·필터 (편집) =====
