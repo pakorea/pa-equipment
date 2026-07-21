@@ -1187,7 +1187,11 @@ async function npCheckout(){
     row[S.item]=ev(e,E.name); row[S.related]=ev(e,E.related); row[S.cat]=ev(e,E.cat);
     row[S.comp]=ev(e,E.comp); row[S.itemId]=id; row[S.brand]=ev(e,E.brand);
     row[S.own]=ev(e,E.own); row[S.out]=out; row[S.due]=due;
-    if(qy>av){ row[S.short]=qy-av; row[S.innote]='부족 '+(qy-av)+'개 → 렌탈 필요'; rentMsg.push(ev(e,E.name)+' '+(qy-av)+'개'); }
+    var _nm=ev(e,E.name)||'';
+    row[S.eqnote]=npNoteGet(_nm,'eq');
+    var _in=npNoteGet(_nm,'in');
+    if(qy>av){ row[S.short]=qy-av; row[S.innote]=(_in?_in+' / ':'')+'부족 '+(qy-av)+'개 → 렌탈 필요'; rentMsg.push(ev(e,E.name)+' '+(qy-av)+'개'); }
+    else { row[S.innote]=_in; }
     srcAdd.push(row);
   });
   Object.keys(npMat).forEach(function(key){
@@ -1198,14 +1202,19 @@ async function npCheckout(){
     row[S.line]=npProj+'-'+String(n).padStart(2,'0');
     row[S.proj]=npProj; row[S.reqQ]=qy; row[S.reqItem]=npMatLabel(k,ri); row[S.asgQ]=qy;
     row[S.item]=npMatLabel(k,ri); row[S.cat]='9.CONSUMABLE'; row[S.out]=out; row[S.due]=due;
-    if(qy>av){ row[S.short]=qy-av; row[S.innote]='잔량 부족 '+(qy-av)+' → 구매 필요'; rentMsg.push(npMatLabel(k,ri)+' '+(qy-av)); }
+    row[S.eqnote]=npNoteGet(key,'eq');
+    var _in2=npNoteGet(key,'in');
+    if(qy>av){ row[S.short]=qy-av; row[S.innote]=(_in2?_in2+' / ':'')+'잔량 부족 '+(qy-av)+' → 구매 필요'; rentMsg.push(npMatLabel(k,ri)+' '+(qy-av)); }
+    else { row[S.innote]=_in2; }
     srcAdd.push(row);
   });
   npRent.forEach(r=>{ n++; made++;
     const row=new Array(SRC.headers.length).fill('');
     row[S.line]=npProj+'-'+String(n).padStart(2,'0');
     row[S.proj]=npProj; row[S.reqQ]=r.qty; row[S.reqItem]=r.name; row[S.asgQ]=r.qty; row[S.item]=r.name;
-    row[S.innote]='외부 렌탈'; row[S.out]=out; row[S.due]=due;
+    row[S.eqnote]=npNoteGet('rent|'+npRent.indexOf(r),'eq');
+    var _in3=npNoteGet('rent|'+npRent.indexOf(r),'in');
+    row[S.innote]=(_in3?_in3+' / ':'')+'외부 렌탈'; row[S.out]=out; row[S.due]=due;
     srcAdd.push(row);
   });
   LSs('pa_v3_srcadd',srcAdd);
@@ -1228,7 +1237,7 @@ async function npCheckout(){
   } else { sbMsg='⚠️ 오프라인 — 이 컴퓨터에만 저장됨'; }
   _dmg=null;_pdmax=null;_matEqCache=null;window.__invUse=null;
   const msg='['+npProj+'] 라인 '+made+'개 생성 완료.'+(serverOn?'\n서버에 저장되어 모두에게 보입니다.':'\n⚠️ 오프라인이라 이 컴퓨터에만 저장됐습니다.')+(rentMsg.length?'\n렌탈 필요: '+rentMsg.join(', '):'');
-  npSel={}; npMat={}; npRent=[];
+  npSel={}; npMat={}; npNote={}; npRent=[];
   alert(msg);
   curProj=npProj; stage='prep'; view='proj'; render();
 }
@@ -1259,6 +1268,9 @@ function npModelClear(nm){ npUnits(nm).forEach(function(e){ delete npSel[e[E.id]
 
 // ===== 프로젝트 준비: LEE FILTER · SAVAGE 낱개 고르기 =====
 var npMat={};
+var npNote={};   // 프로젝트 준비 단계 노트: key → {eq:'', in:''}
+function npNoteGet(key,f){ return (npNote[key]&&npNote[key][f])||''; }
+function npNoteSet(key,f,v){ if(!npNote[key])npNote[key]={eq:'',in:''}; npNote[key][f]=v; }
 function matHdrIdx(k,name){ var d=auxGet()[k]; if(!d)return -1; for(var i=0;i<d.headers.length;i++){ if(String(d.headers[i]).indexOf(name)>=0) return i; } return -1; }
 function matCode(k,ri){ var d=auxGet()[k]; if(!d||!d.records[ri])return ''; var i=matHdrIdx(k,'EQ코드'); return i<0?'':(d.records[ri][i]||''); }
 function matName(k,ri){ var d=auxGet()[k]; if(!d||!d.records[ri])return ''; var i=matHdrIdx(k,'품목'); return i<0?'':(d.records[ri][i]||''); }
@@ -1332,16 +1344,23 @@ function vPrepNew(){
     var qy=_sg[nm]; var av=npModelAvail(nm);
     var j = qy<=av ? '<span class="j-ok">보유 충당 ✔</span>' : ('<span class="j-rent">'+(qy-av)+'개 부족 → 렌탈</span>');
     return '<tr><td>'+Q(nm)+'</td><td class="n">'+qy+'</td><td class="n">'+av+'</td><td>'+j+'</td>'
+      +'<td><input class="note note-eq" value="'+Q(npNoteGet(nm,'eq'))+'" placeholder="포토 공유 비고" onchange="npNoteSet(\''+QJ(nm)+'\',\'eq\',this.value)"></td>'
+      +'<td><input class="note note-in" value="'+Q(npNoteGet(nm,'in'))+'" placeholder="팀·프리랜서 공유 비고" onchange="npNoteSet(\''+QJ(nm)+'\',\'in\',this.value)"></td>'
       +'<td class="n"><button class="mini" onclick="npModelClear(\''+QJ(nm)+'\')">×</button></td></tr>';
   }).join('') + Object.keys(npMat).map(function(key){
     var p=key.split('|'), k=p[0], ri=parseInt(p[1],10);
     var qy=npMat[key], av=Math.max(0,num(matQty(k,ri)));
     var j = qy<=av ? '<span class="j-ok">보유 충당 ✔</span>' : ('<span class="j-rent">'+(qy-av)+'개 부족 → 구매</span>');
     return '<tr style="background:#fbfaf5"><td>'+Q(npMatLabel(k,ri))+'</td><td class="n">'+qy+'</td><td class="n">'+av+'</td><td>'+j+'</td>'
+      +'<td><input class="note note-eq" value="'+Q(npNoteGet(key,'eq'))+'" placeholder="포토 공유 비고" onchange="npNoteSet(\''+QJ(key)+'\',\'eq\',this.value)"></td>'
+      +'<td><input class="note note-in" value="'+Q(npNoteGet(key,'in'))+'" placeholder="팀·프리랜서 공유 비고" onchange="npNoteSet(\''+QJ(key)+'\',\'in\',this.value)"></td>'
       +'<td class="n"><button class="mini" onclick="npMatClear(\''+QJ(key)+'\')">×</button></td></tr>';
   }).join('');
-  const rentRows=npRent.map((r,i)=>`<tr><td>${Q(r.name)} <span class="pill p-rent">렌탈</span></td><td class="n">${r.qty}</td><td class="n">-</td><td><span class="j-rent">외부 렌탈</span></td><td class="n"><button class="mini" onclick="npRmRent(${i})">×</button></td></tr>`).join('');
-  const listPanel=(selRows||rentRows)?`<table><thead><tr><th>준비 품목</th><th class="n">수량</th><th class="n">가용</th><th>판정</th><th class="n">빼기</th></tr></thead><tbody>${selRows}${rentRows}</tbody></table>`
+  const rentRows=npRent.map((r,i)=>`<tr><td>${Q(r.name)} <span class="pill p-rent">렌탈</span></td><td class="n">${r.qty}</td><td class="n">-</td><td><span class="j-rent">외부 렌탈</span>`
+    +`</td><td><input class="note note-eq" value="${Q(npNoteGet('rent|'+i,'eq'))}" placeholder="포토 공유 비고" onchange="npNoteSet('rent|${i}','eq',this.value)"></td>`
+    +`<td><input class="note note-in" value="${Q(npNoteGet('rent|'+i,'in'))}" placeholder="팀·프리랜서 공유 비고" onchange="npNoteSet('rent|${i}','in',this.value)"></td>`
+    +`<td class="n"><button class="mini" onclick="npRmRent(${i})">×</button></td></tr>`).join('');
+  const listPanel=(selRows||rentRows)?`<table><thead><tr><th>준비 품목</th><th class="n">수량</th><th class="n">가용</th><th>판정</th><th>EQ NOTE<br><span style="font-weight:400;font-size:10px;color:#8a7a5c">포토 공유</span></th><th>내부 노트<br><span style="font-weight:400;font-size:10px;color:#5c7a9a">팀·프리랜서 공유</span></th><th class="n">빼기</th></tr></thead><tbody>${selRows}${rentRows}</tbody></table>`
     :'<div style="color:#bbb;padding:10px">아직 고른 장비가 없습니다. 위에서 고르세요.</div>';
   return `<h2>📦 프로젝트 준비 <span style="font-size:12px;color:var(--sub)">⭐ 프로젝트 생성 + 장비 구성</span></h2>
     <div class="lead">프로젝트를 만들고, 카테고리별로 장비를 골라 <b>수량과 재고를 판정</b>한 뒤, <b>소싱 라인으로 만듭니다.</b></div>
