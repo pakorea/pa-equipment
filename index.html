@@ -78,6 +78,8 @@ input.cell{width:64px;font-size:12px;padding:2px 5px;text-align:center}
 .stickytop{position:sticky;top:0;z-index:100;background:var(--bg);box-shadow:0 2px 10px rgba(0,0,0,.08)}
 .stickytop .top{position:static}
 .stickytop nav{position:static;box-shadow:none}
+.note-eq{background:#fdf6ec;border-color:#e6d3b3}
+.note-in{background:#eef4fb;border-color:#cfdcec}
 </style><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
@@ -255,14 +257,15 @@ function prepTable(rows){
   const body=rows.map(r=>{
     const l=r[S.line]; const st=val(r,S.prepSt)||'미완료'; const done=st==='준비완료';
     return `<tr><td>${relCell(r)}</td><td class="n">${Q(val(r,S.asgQ))}</td>
-      <td>${Q(val(r,S.cat))}</td><td>${Q(val(r,S.related))}</td><td>${Q(val(r,S.eqnote))}</td>
+      <td>${Q(val(r,S.cat))}</td><td>${Q(val(r,S.related))}</td>
+      <td><input class="note note-eq" value="${Q(val(r,S.eqnote))}" onchange="setValNoRender('${QJ(l)}',${S.eqnote},this.value)" placeholder="포토 공유 비고"></td>
       <td><select onchange="onPrepSt('${QJ(l)}',this.value)">${stOpts(st)}</select></td>
       <td>${done?('<span class="pill p-ok">✔ '+Q(nameOf(val(r,S.prepBy)))+'</span>'):'<span class="pill p-zero">-</span>'}</td>
       <td><input class="note" value="${Q(val(r,S.prepNote))}" onchange="setValNoRender('${QJ(l)}',${S.prepNote},this.value)" placeholder="준비노트"></td>
-      <td><input class="note" value="${Q(val(r,S.innote))}" onchange="setValNoRender('${QJ(l)}',${S.innote},this.value)" placeholder="내부노트"></td>
+      <td><input class="note note-in" value="${Q(val(r,S.innote))}" onchange="setValNoRender('${QJ(l)}',${S.innote},this.value)" placeholder="팀·프리랜서 공유 비고"></td>
       <td class="n"><button onclick="delLine('${QJ(l)}')" title="이 장비를 프로젝트에서 빼기" style="border:none;background:none;color:#b23b25;cursor:pointer;font-size:15px">🗑</button></td></tr>`;
   }).join('');
-  return `<div class="panel"><table><thead><tr><th>품목</th><th class="n">배정</th><th>카테고리</th><th>연관장비</th><th>EQ노트</th><th>준비상태</th><th>담당</th><th>준비노트</th><th>내부노트</th><th class="n">빼기</th></tr></thead><tbody>${body}</tbody></table></div>`;
+  return `<div class="panel"><table><thead><tr><th>품목</th><th class="n">배정</th><th>카테고리</th><th>연관장비</th><th>EQ NOTE<br><span style="font-weight:400;font-size:10px;color:#8a7a5c">포토 공유</span></th><th>준비상태</th><th>담당</th><th>준비노트</th><th>내부 노트<br><span style="font-weight:400;font-size:10px;color:#5c7a9a">팀·프리랜서 공유</span></th><th class="n">빼기</th></tr></thead><tbody>${body}</tbody></table></div>`;
 }
 function onPrepSt(line,v){ setValNoRender(line,S.prepSt,v); if(v==='준비완료')setValNoRender(line,S.prepBy,ME); else if(v==='미완료')setValNoRender(line,S.prepBy,''); render(); }
 function wrapTable(rows){
@@ -272,9 +275,11 @@ function wrapTable(rows){
       <td>${Q(val(r,S.comp))}</td>
       <td><select onchange="onWrapSt('${QJ(l)}',this.value)">${stOpts(st)}</select></td>
       <td>${done?('<span class="pill p-ok">✔ '+Q(nameOf(val(r,S.wrapBy)))+'</span>'):'<span class="pill p-zero">-</span>'}</td>
-      <td><input class="note" value="${Q(val(r,S.wrapNote))}" onchange="setValNoRender('${QJ(l)}',${S.wrapNote},this.value)" placeholder="랩업노트"></td></tr>`;
+      <td><input class="note" value="${Q(val(r,S.wrapNote))}" onchange="setValNoRender('${QJ(l)}',${S.wrapNote},this.value)" placeholder="랩업노트"></td>
+      <td><input class="note note-eq" value="${Q(val(r,S.eqnote))}" onchange="setValNoRender('${QJ(l)}',${S.eqnote},this.value)" placeholder="포토 공유 비고"></td>
+      <td><input class="note note-in" value="${Q(val(r,S.innote))}" onchange="setValNoRender('${QJ(l)}',${S.innote},this.value)" placeholder="팀·프리랜서 공유 비고"></td></tr>`;
   }).join('');
-  return `<div class="panel"><table><thead><tr><th>품목</th><th class="n">배정</th><th>구성품</th><th>랩업상태</th><th>담당</th><th>랩업노트</th></tr></thead><tbody>${body}</tbody></table></div>
+  return `<div class="panel"><table><thead><tr><th>품목</th><th class="n">배정</th><th>구성품</th><th>랩업상태</th><th>담당</th><th>랩업노트</th><th>EQ NOTE<br><span style="font-weight:400;font-size:10px;color:#8a7a5c">포토 공유</span></th><th>내부 노트<br><span style="font-weight:400;font-size:10px;color:#5c7a9a">팀·프리랜서 공유</span></th></tr></thead><tbody>${body}</tbody></table></div>
     <div class="panel"><div style="font-weight:800;margin-bottom:6px">🎨 소모자재 잔량 체크 <span style="font-size:12px;color:var(--sub)">(50% 이하만 체크 → 구매 필요)</span></div>
       <div style="display:flex;gap:10px;flex-wrap:wrap">
         <button class="addbtn" onclick="openMat('cf')">LEE FILTER 열기</button>
@@ -296,9 +301,11 @@ function retTable(rows){
       <td class="n">${normal>=0?normal:0}</td>
       <td><span class="pill ${rs.c}">${rs.t}</span> ${by?('<span style="font-size:11px;color:#888">'+Q(nameOf(by))+'</span>'):''}</td>
       <td>${photoCell}</td>
-      <td><input class="note" value="${Q(val(r,S.retNote))}" onchange="setValNoRender('${QJ(l)}',${S.retNote},this.value)" placeholder="반납노트"></td></tr>`;
+      <td><input class="note" value="${Q(val(r,S.retNote))}" onchange="setValNoRender('${QJ(l)}',${S.retNote},this.value)" placeholder="반납노트"></td>
+      <td><input class="note note-eq" value="${Q(val(r,S.eqnote))}" onchange="setValNoRender('${QJ(l)}',${S.eqnote},this.value)" placeholder="포토 공유 비고"></td>
+      <td><input class="note note-in" value="${Q(val(r,S.innote))}" onchange="setValNoRender('${QJ(l)}',${S.innote},this.value)" placeholder="팀·프리랜서 공유 비고"></td></tr>`;
   }).join('');
-  return `<div class="panel"><table><thead><tr><th>품목</th><th class="n">배정</th><th class="n">반납☑</th><th class="n">파손</th><th class="n">분실</th><th class="n">정상</th><th>반납상태(자동)</th><th>📷 사진</th><th>반납노트</th></tr></thead><tbody>${body}</tbody></table></div>`;
+  return `<div class="panel"><table><thead><tr><th>품목</th><th class="n">배정</th><th class="n">반납☑</th><th class="n">파손</th><th class="n">분실</th><th class="n">정상</th><th>반납상태(자동)</th><th>📷 사진</th><th>반납노트</th><th>EQ NOTE<br><span style="font-weight:400;font-size:10px;color:#8a7a5c">포토 공유</span></th><th>내부 노트<br><span style="font-weight:400;font-size:10px;color:#5c7a9a">팀·프리랜서 공유</span></th></tr></thead><tbody>${body}</tbody></table></div>`;
 }
 function onRetBy(line,checked){ setVal(line,S.retBy, checked?ME:''); }
 function isConsumable(r){
