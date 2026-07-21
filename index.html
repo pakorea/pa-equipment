@@ -267,8 +267,8 @@ function wrapTable(rows){
   return `<div class="panel"><table><thead><tr><th>품목</th><th class="n">배정</th><th>구성품</th><th>랩업상태</th><th>담당</th><th>랩업노트</th></tr></thead><tbody>${body}</tbody></table></div>
     <div class="panel"><div style="font-weight:800;margin-bottom:6px">🎨 소모자재 잔량 체크 <span style="font-size:12px;color:var(--sub)">(50% 이하만 체크 → 구매 필요)</span></div>
       <div style="display:flex;gap:10px;flex-wrap:wrap">
-        <button class="addbtn" onclick="openMat('cf')">🎨 LEE FILTER 열기</button>
-        <button class="addbtn" onclick="openMat('bg')">🖼 SAVAGE(배경지) 열기</button>
+        <button class="addbtn" onclick="openMat('cf')">LEE FILTER 열기</button>
+        <button class="addbtn" onclick="openMat('bg')">SAVAGE(배경지) 열기</button>
       </div></div>${matModal()}`;
 }
 function onWrapSt(line,v){ setValNoRender(line,S.wrapSt,v); if(v==='랩업완료')setValNoRender(line,S.wrapBy,ME); else if(v==='미완료')setValNoRender(line,S.wrapBy,''); render(); }
@@ -818,7 +818,7 @@ function auxTable(tab,title){
 }
 
 // ===== 소모자재(LEE FILTER / SAVAGE) 잔량 관리 =====
-const MAT={cf:{label:'LEE FILTER',icon:'🎨'}, bg:{label:'SAVAGE (배경지)',icon:'🖼'}};
+const MAT={cf:{label:'LEE FILTER',icon:''}, bg:{label:'SAVAGE (배경지)',icon:''}};
 let matOpen=null, matQ='';
 function openMat(k){ matOpen=k; matQ=''; render(); }
 function closeMat(){ matOpen=null; render(); }
@@ -877,7 +877,7 @@ function matMasterRows(){
     var m=MAT[k];
     return '<tr class="rowck" style="background:#fbfaf5" onclick="openMat(\''+k+'\')">'
       +'<td>9.CONSUMABLE</td><td>'+(k==='cf'?'LEE':'SAVAGE')+'</td>'
-      +'<td><b>'+m.icon+' '+m.label+'</b> <span class="pill" style="background:#eaf1f9;color:#2f6db0">'+d.records.length+'종</span>'
+      +'<td><b>'+m.label+'</b> <span class="pill" style="background:#eaf1f9;color:#2f6db0">'+d.records.length+'종</span>'
       +(need?' <span class="pill p-warn">구매필요 '+need+'</span>':'')+'</td>'
       +'<td class="n">'+d.records.length+'</td><td class="n">-</td><td class="n">-</td><td>소모자재</td></tr>';
   }).join('');
@@ -886,7 +886,7 @@ function matModal(){
   if(!matOpen) return '';
   var m=MAT[matOpen];
   return '<div class="modal-bg" onclick="if(event.target===this)closeMat()"><div class="modal" style="max-width:720px">'
-   +'<h3>'+m.icon+' '+m.label+'</h3>'
+   +'<h3>'+m.label+'</h3>'
    +'<div style="font-size:12.5px;color:#888;margin-bottom:6px">랩업/반납 때 <b>50% 이하</b>면 체크하세요. 체크된 것만 구매 대상입니다.</div>'
    +matListHTML(matOpen,true)
    +'<div class="mbtns"><button class="primary" onclick="closeMat()">닫기</button></div></div></div>';
@@ -895,8 +895,8 @@ function vBg(){
   return '<h2>🎨 LEE FILTER · SAVAGE</h2>'
     +'<div class="lead">품목마다 <b>수량</b>과 <b>구매 여부</b>만 관리합니다. 랩업/반납 때 <b>50% 이하</b>면 체크 → <b>구매 필요</b>로 표시됩니다.</div>'
     +'<div style="display:flex;gap:14px;flex-wrap:wrap">'
-    +'<div class="panel" style="flex:1;min-width:320px"><div style="font-weight:800;margin-bottom:8px">🎨 LEE FILTER</div>'+matListHTML('cf',true)+'</div>'
-    +'<div class="panel" style="flex:1;min-width:320px"><div style="font-weight:800;margin-bottom:8px">🖼 SAVAGE (배경지)</div>'+matListHTML('bg',true)+'</div>'
+    +'<div class="panel" style="flex:1;min-width:320px"><div style="font-weight:800;margin-bottom:8px">LEE FILTER</div>'+matListHTML('cf',true)+'</div>'
+    +'<div class="panel" style="flex:1;min-width:320px"><div style="font-weight:800;margin-bottom:8px">SAVAGE (배경지)</div>'+matListHTML('bg',true)+'</div>'
     +'</div>';
 }
 
@@ -1225,7 +1225,7 @@ function sbSaveCell(line,idx,v){
   if(!serverOn) return;
   var h=DB.sourcing.headers[idx]; if(!h) return;
   var o={}; o[h]=String(v==null?'':v);
-  try{ var c=sbClient(); if(c) c.from('sourcing').update(o).eq('라인ID',line).then(function(r){ if(r&&r.error) console.warn('서버저장 실패',r.error); }); }catch(e){ console.warn('서버저장 오류',e); }
+  try{ var c=sbClient(); if(c) c.from('sourcing').update(o).eq('라인ID',line).then(function(r){ if(r&&r.error) srvErr('입력값',r.error); }); }catch(e){ srvErr('입력값',e); }
 }
 
 // ===== 구글 로그인 =====
@@ -1258,25 +1258,28 @@ function noAccessHTML(email){
 
 // ================= 모든 데이터 서버 저장 =================
 function sbT(t){ var c=sbClient(); return c?c.from(t):null; }
+function srvErr(what,e){ var msg=(e&&(e.message||e.details||e.hint))||String(e); sbMsg='⚠️ '+what+' 서버 저장 실패: '+msg; try{alert('⚠️ '+what+' 서버 저장 실패\n\n'+msg+'\n\n다른 사람에게 반영되지 않았습니다.');}catch(x){} render(); }
+async function srvRun(what,p){ try{ var r=await p; if(r&&r.error){ srvErr(what,r.error); return false; } return true; }catch(e){ srvErr(what,e); return false; } }
 // --- 장비 마스터 ---
-async function srvEqUpdate(id,obj){ if(!serverOn)return; try{ await sbT('equipment').update(obj).eq('Item_ID',id); }catch(e){ console.warn('장비수정 서버저장 실패',e); } }
-async function srvEqInsert(row){ if(!serverOn)return; try{ var o={}; DB.equip.headers.forEach(function(h,i){o[h]=row[i]==null?'':String(row[i]);}); await sbT('equipment').insert(o); }catch(e){ console.warn('장비추가 실패',e); } }
-async function srvEqDelete(id){ if(!serverOn)return; try{ await sbT('equipment').delete().eq('Item_ID',id); }catch(e){ console.warn('장비삭제 실패',e); } }
+async function srvEqUpdate(id,obj){ if(!serverOn)return; await srvRun('장비 수정', sbT('equipment').update(obj).eq('Item_ID',id)); }
+async function srvEqInsert(row){ if(!serverOn){ alert('서버에 연결되지 않아 추가할 수 없습니다.'); return; }
+  var o={}; DB.equip.headers.forEach(function(h,i){o[h]=row[i]==null?'':String(row[i]);});
+  var ok=await srvRun('장비 추가', sbT('equipment').insert(o));
+  if(ok){ sbMsg='장비 추가됨 (모두에게 반영)'; render(); } }
+async function srvEqDelete(id){ if(!serverOn)return; await srvRun('장비 삭제', sbT('equipment').delete().eq('Item_ID',id)); }
 // --- 프로젝트 상태(완료처리) ---
-async function srvProjStatus(name,st){ if(!serverOn)return; try{ await sbT('projects').update({'상태':st}).eq('프로젝트',name); }catch(e){ console.warn('프로젝트상태 실패',e); } }
+async function srvProjStatus(name,st){ if(!serverOn)return; await srvRun('프로젝트 상태', sbT('projects').update({'상태':st}).eq('프로젝트',name)); }
 // --- 캘린더 인원배치 ---
 async function srvCrewSet(proj,list){ if(!serverOn)return;
-  try{ await sbT('crew').delete().eq('project',proj);
-       if(list&&list.length){ await sbT('crew').insert(list.map(function(c){return {project:proj,name:c.name,kind:c.kind,email:c.email||''};})); }
-  }catch(e){ console.warn('인원배치 실패',e); } }
-// --- 배경지·필터·매입 ---
+  if(!await srvRun('인원배치 정리', sbT('crew').delete().eq('project',proj))) return;
+  if(list&&list.length) await srvRun('인원배치', sbT('crew').insert(list.map(function(c){return {project:proj,name:c.name,kind:c.kind,email:c.email||''};}))); }
+// --- LEE FILTER · SAVAGE · 매입 ---
 async function srvAuxSave(kind,records,headers){ if(!serverOn)return;
-  try{ await sbT('aux_rows').delete().eq('kind',kind);
-       var rows=records.map(function(r,i){ var o={}; headers.forEach(function(h,j){o[h]=r[j]==null?'':String(r[j]);}); return {kind:kind,ord:i,data:o}; });
-       for(var i=0;i<rows.length;i+=200){ await sbT('aux_rows').insert(rows.slice(i,i+200)); }
-  }catch(e){ console.warn('배경지/매입 저장 실패',e); } }
-// --- 사진·소모품 (소싱) ---
-async function srvSrcExtra(line,obj){ if(!serverOn)return; try{ await sbT('sourcing').update(obj).eq('라인ID',line); }catch(e){ console.warn('사진/소모품 저장 실패',e); } }
+  if(!await srvRun('자재 정리', sbT('aux_rows').delete().eq('kind',kind))) return;
+  var rows=records.map(function(r,i){ var o={}; headers.forEach(function(h,j){o[h]=r[j]==null?'':String(r[j]);}); return {kind:kind,ord:i,data:o}; });
+  for(var i=0;i<rows.length;i+=200){ if(!await srvRun('자재 저장', sbT('aux_rows').insert(rows.slice(i,i+200)))) return; } }
+// --- 사진 (소싱) ---
+async function srvSrcExtra(line,obj){ if(!serverOn)return; await srvRun('사진 저장', sbT('sourcing').update(obj).eq('라인ID',line)); }
 // --- 서버에서 부가데이터 불러오기 ---
 async function sbLoadExtras(){
   try{
