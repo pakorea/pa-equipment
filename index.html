@@ -1185,7 +1185,8 @@ function matReadOnly(){ return view!=='bg'; }  // LEE FILTER·SAVAGE 탭에서�
 function matIdx(k,name){ var h=matHead(k); for(var i=0;i<h.length;i++){ if(String(h[i]).indexOf(name)>=0) return i; } return -1; }
 function matNeed(k,ri){ var a=auxGet()[k]; var r=a.records[ri]||[]; var i=matIdx(k,'보충'); return i>=0 && String(r[i]||'').trim()!==''; }
 function matToggle(k,ri,on){
-  var a=auxEnsure(); var i=matIdx(k,'보충');
+  var a=auxEnsure(); if(!a[k]||!a[k].records[ri]){ render(); return; }
+  var i=matIdx(k,'보충');
   if(i<0){ a[k].headers.push('보충필요'); a[k].records.forEach(function(r){ while(r.length<a[k].headers.length) r.push(''); }); i=a[k].headers.length-1; }
   var d=new Date(); var today=String(d.getFullYear()).slice(2)+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
   a[k].records[ri][i]= on? ('필요 '+today) : '';
@@ -1215,7 +1216,8 @@ function matNextCode(k){
   return pre+String(mx+1).padStart(3,'0');
 }
 function matSetCell(k,ri,headName,v){
-  var a=auxEnsure(); var i=matHdrIdx(k,headName);
+  var a=auxEnsure(); if(!a[k]||!a[k].records[ri]){ render(); return; }
+  var i=matHdrIdx(k,headName);
   if(i<0){ a[k].headers.push(headName); a[k].records.forEach(function(r){ while(r.length<a[k].headers.length) r.push(''); }); i=a[k].headers.length-1; }
   a[k].records[ri][i]=String(v==null?'':v);
   LSs('pa_v3_aux',a); srvAuxSave(k,a[k].records,a[k].headers); render();
@@ -1237,7 +1239,8 @@ function matDelItem(k,ri){
   sbMsg=code+' 삭제됨'; render();
 }
 function matSetQty(k,ri,v){
-  var a=auxEnsure(); var iq=matIdx(k,'수량');
+  var a=auxEnsure(); if(!a[k]||!a[k].records[ri]){ render(); return; }
+  var iq=matIdx(k,'수량');
   if(iq<0){ a[k].headers.push('수량'); a[k].records.forEach(function(r){ while(r.length<a[k].headers.length) r.push(''); }); iq=a[k].headers.length-1; }
   a[k].records[ri][iq]=String(v||'0');
   LSs('pa_v3_aux',a); srvAuxSave(k,a[k].records,a[k].headers); render();
