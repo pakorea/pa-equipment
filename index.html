@@ -1954,7 +1954,7 @@ async function sbLoadExtras(){
     // (저장은 서버·로컬 둘 다 되지만, 그동안 화면은 로컬만 읽어 다른 기기·초기화 시 사진이 사라졌다)
     // 사진이 있는 줄만 가져와 가볍게. 서버가 최신 증빙이므로 서버 값으로 채운다.
     try{
-      var ph=await sbT('sourcing').select('라인ID,photos,low').not('photos','is',null);
+      var ph=await sbT('sourcing').select('라인ID,photos,low').neq('photos','[]');
       if(ph&&!ph.error&&ph.data){
         ph.data.forEach(function(r){
           var line=r['라인ID']; if(!line)return;
