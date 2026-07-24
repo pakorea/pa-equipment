@@ -107,7 +107,7 @@ let eqOv={}, eqDel=[], eqAdd=[], mstSel=null, buyView='new', holdKey='', people=
 function LS(k,d){ try{const v=localStorage.getItem(k); return v?JSON.parse(v):d;}catch(e){return d;} }
 function LSs(k,v){ try{localStorage.setItem(k,JSON.stringify(v));}catch(e){} }
 function load(){ edits=LS('pa_v3_edits',{}); eqOv=LS('pa_v3_eq',{}); eqDel=LS('pa_v3_eqdel',[]); eqAdd=LS('pa_v3_eqadd',[]); people=LS('pa_v3_people',{}); }
-function save(){ _dmg=null; _pdmax=null; LSs('pa_v3_edits',edits); LSs('pa_v3_eq',eqOv); LSs('pa_v3_eqdel',eqDel); LSs('pa_v3_eqadd',eqAdd); LSs('pa_v3_people',people); }
+function save(){ _dmg=null; _pdmax=null; window.__invUse=null; LSs('pa_v3_edits',edits); LSs('pa_v3_eq',eqOv); LSs('pa_v3_eqdel',eqDel); LSs('pa_v3_eqadd',eqAdd); LSs('pa_v3_people',people); }
 function resetAll(){ if(confirm('입력한 값(준비/반납/장비수정/인원 등)을 모두 지우고 원본 데이터로 되돌릴까요?')){['pa_v3_edits','pa_v3_eq','pa_v3_eqdel','pa_v3_eqadd','pa_v3_people','pa_v3_crew','pa_v3_aux','pa_v3_projst','pa_v3_srcadd','pa_v3_invcols'].forEach(k=>localStorage.removeItem(k));srcAdd=[];projOv={};eqOv={};eqDel=[];eqAdd=[];_dmg=null;_pdmax=null;load();render();} }
 load();
 function Q(s){return (s==null?'':s).toString().replace(/"/g,'&quot;');}
@@ -1181,12 +1181,18 @@ function matToggle(k,ri,on){
   LSs('pa_v3_aux',a); srvAuxSave(k,a[k].records,a[k].headers); render();
 }
 
+function _firstNum(x){
+  // '1(80%)'·'2 (거의없음)'·'1개' 처럼 뒤에 메모가 붙은 값에서 '앞 숫자 하나'만 읽는다.
+  // (예전엔 숫자를 모두 이어붙여 1(80%)→180 으로 6배 부풀려짐)
+  var m=String(x==null?'':x).match(/(\d+(?:\.\d+)?)/);
+  return m? parseFloat(m[1]) : 0;
+}
 function matQty(k,ri){
   var a=auxGet()[k]; var r=(a.records[ri]||[]);
   var iq=matIdx(k,'수량');
-  if(iq>=0 && String(r[iq]||'').trim()!=='') return String(r[iq]).trim();
+  if(iq>=0 && String(r[iq]||'').trim()!=='') return String(_firstNum(r[iq]));
   var sum=0, h=matHead(k);
-  h.forEach(function(hh,i){ if(/소량|쓰던|새것/.test(String(hh))){ var v=parseFloat(String(r[i]||'').replace(/[^0-9.]/g,'')); if(!isNaN(v)) sum+=v; } });
+  h.forEach(function(hh,i){ if(/소량|쓰던|새것/.test(String(hh))){ sum+=_firstNum(r[i]); } });
   return sum? String(sum) : '0';
 }
 
@@ -1410,6 +1416,16 @@ function npRmRent(i){ npRent.splice(i,1); render(); }
 
 function _toYY(v){ if(!v)return ''; var p=String(v).split('-'); if(p.length!==3)return String(v); return String(p[0]).slice(-2)+'-'+p[1]+'-'+p[2]; }
 function _fromName(nm){ var m=String(nm||'').match(/^(\d{2})(\d{2})(\d{2})/); return m? (m[1]+'-'+m[2]+'-'+m[3]) : ''; }
+function maxLineSeq(proj){
+  // 이 프로젝트의 라인ID(예: 프로젝트명-07)에서 최대 순번을 찾는다. 삭제된 줄도 서버 기록엔 남을 수 있으므로 최대값 기준.
+  var mx=0;
+  allSrc().forEach(function(r){
+    if(r[S.proj]!==proj) return;
+    var m=String(r[S.line]||'').match(/-(\d+)\s*$/);
+    if(m){ var v=parseInt(m[1],10); if(v>mx) mx=v; }
+  });
+  return mx;
+}
 async function npCheckout(){
   if(!npProj){ alert('프로젝트를 먼저 고르거나 ＋새 프로젝트로 만들어주세요'); return; }
   if(!serverOn){ alert('⚠️ 서버에 연결되지 않았습니다.\n\n지금 만들면 이 컴퓨터에만 저장되어 다른 사람에게 안 보입니다.\n페이지를 새로고침(Cmd+Shift+R)하고 다시 로그인해 주세요.'); return; }
@@ -1418,7 +1434,9 @@ async function npCheckout(){
   if(!out) out=_fromName(npProj);          // 프로젝트명 앞 YYMMDD에서 자동
   if(!due) due=out;                        // 반납일 없으면 출고일과 동일
   if(!out){ alert('출고일을 넣어주세요.\n\n날짜가 없으면 캘린더·재고 사용현황에 나타나지 않습니다.\n(프로젝트명을 260722_이름 처럼 만들면 자동으로 채워집니다)'); return; }
-  let n=allSrc().filter(r=>r[S.proj]===npProj).length; let made=0; const rentMsg=[];
+  // 라인번호는 '개수'가 아니라 '지금까지 쓴 최대 번호'에서 이어붙인다.
+  // (개수 기반이면 중간 줄을 지운 뒤 새 줄이 기존 번호와 겹쳐 기록이 뒤섞임)
+  let n=maxLineSeq(npProj); let made=0; const rentMsg=[];
   Object.keys(npSel).forEach(id=>{
     const e=eqRows().find(r=>r[E.id]===id); if(!e)return;
     const qy=npSel[id]; const av=Math.max(0,realStock(id)||0);
@@ -1938,7 +1956,7 @@ function sbBanner(){
   if(!session) return '';
   if(sbBusy) return '<div class="note-box" style="background:#eaf1f9;border-color:#cfe0f2;color:#2f6db0">⏳ '+Q(sbMsg||'처리 중…')+'</div>';
   if(serverOn) return '<div class="note-box" style="background:#e9f5ee;border-color:#a9d9be;color:#1f7a52">🟢 <b>서버 연결됨</b> — 이 데이터는 서버에서 왔고, 수정하면 모두에게 반영됩니다. <span style="font-size:11.5px">'+Q(sbMsg)+'</span></div>';
-  return '<div class="note-box" style="background:#fff3e0;border-color:#eddcb4;color:#7d551a;display:flex;align-items:center;gap:10px;flex-wrap:wrap">🟡 <b>오프라인(내 컴퓨터)</b> — 서버에 연결되지 않아 이 컴퓨터에만 저장됩니다.'+(sbMsg?' <span style="font-size:11.5px">'+Q(sbMsg)+'</span>':'')+'<button onclick="forceReset()" style="margin-left:auto;background:#2f6db0;color:#fff;border:none;border-radius:8px;padding:7px 15px;font-weight:800;font-size:13px;cursor:pointer">🔌 서버에 로그인</button></div>';
+  return '<div class="note-box" style="background:#fde7e0;border-color:#e6bda8;color:#8a3a1e;display:flex;align-items:center;gap:10px;flex-wrap:wrap">🔴 <b>오프라인 — 지금 화면은 최신이 아닐 수 있습니다.</b> 서버에 연결되지 않아, <b>예전에 받아둔 낡은 목록</b>을 보여주는 중입니다. 재고·준비·반납 판단은 <b>서버 로그인 후</b> 하세요. 지금 고친 것은 이 컴퓨터에만 남습니다.'+(sbMsg?' <span style="font-size:11.5px">'+Q(sbMsg)+'</span>':'')+'<button onclick="forceReset()" style="margin-left:auto;background:#b1442f;color:#fff;border:none;border-radius:8px;padding:7px 15px;font-weight:800;font-size:13px;cursor:pointer">🔌 서버에 로그인</button></div>';
 }
 
 function go(v){view=v;q='';curProj=null;mstSel=null;relLine=null; if((v==='mem'||v==='cal')&&serverOn)loadUsers();window.scrollTo(0,0);render();}
