@@ -119,7 +119,7 @@ function LS(k,d){ try{const v=localStorage.getItem(k); return v?JSON.parse(v):d;
 function LSs(k,v){ try{localStorage.setItem(k,JSON.stringify(v));}catch(e){} }
 function load(){ edits=LS('pa_v3_edits',{}); eqOv=LS('pa_v3_eq',{}); eqDel=LS('pa_v3_eqdel',[]); eqAdd=LS('pa_v3_eqadd',[]); people=LS('pa_v3_people',{}); }
 function save(){ _dmg=null; _pdmax=null; window.__invUse=null; LSs('pa_v3_edits',edits); LSs('pa_v3_eq',eqOv); LSs('pa_v3_eqdel',eqDel); LSs('pa_v3_eqadd',eqAdd); LSs('pa_v3_people',people); }
-function resetAll(){ if(confirm('입력한 값(준비/반납/장비수정/인원 등)을 모두 지우고 원본 데이터로 되돌릴까요?')){['pa_v3_edits','pa_v3_eq','pa_v3_eqdel','pa_v3_eqadd','pa_v3_people','pa_v3_crew','pa_v3_aux','pa_v3_projst','pa_v3_srcadd','pa_v3_invcols'].forEach(k=>localStorage.removeItem(k));srcAdd=[];projOv={};eqOv={};eqDel=[];eqAdd=[];_dmg=null;_pdmax=null;load();render();} }
+function resetAll(){ if(confirm('입력한 값(준비/반납/장비수정/인원 등)을 모두 지우고 원본 데이터로 되돌릴까요?')){['pa_v3_edits','pa_v3_eq','pa_v3_eqdel','pa_v3_eqadd','pa_v3_people','pa_v3_crew','pa_v3_aux','pa_v3_projst','pa_v3_srcadd','pa_v3_invcols'].forEach(k=>localStorage.removeItem(k));srcAdd=[];projOv={};eqOv={};eqDel=[];eqAdd=[];_dmg=null;_pdmax=null;_matEqCache=null;window.__invUse=null;load();render();} }
 load();
 function Q(s){return (s==null?'':s).toString().replace(/"/g,'&quot;');}
 function QJ(s){ return (s==null?'':s).toString().replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;').replace(/[\r\n]+/g,' '); }
@@ -130,7 +130,7 @@ function setVal(line,idx,v){ if(!edits[line])edits[line]={}; edits[line][idx]=v;
 function setValNoRender(line,idx,v){ if(!edits[line])edits[line]={}; edits[line][idx]=v; save(); sbSaveCell(line,idx,v); }
 // ==== 장비 오버레이 ====
 function _clearMatCache(){_matEqCache=null;}
-function eqRows(){ return EQ.rows.concat(eqAdd).filter(r=>eqDel.indexOf(r[E.id])<0); }
+function eqRows(){ return EQ.rows.concat(eqAdd).filter(r=>eqDel.indexOf(r[E.id])<0).sort(function(a,b){ return String(a[E.id]||'').localeCompare(String(b[E.id]||''),undefined,{numeric:true}); }); }
 function ev(r,idx){ const o=eqOv[r[E.id]]; return (o&&o[idx]!==undefined)?o[idx]:r[idx]; }
 function buildDmg(){
   var m={}, orphan=0;
@@ -160,7 +160,7 @@ function projDateMax(name){
       var d=_cd(val(r,S.due))||_cd(val(r,S.out)); if(d){ var key=d.y*10000+d.mo*100+d.d; if(!_pdmax[p]||key>_pdmax[p])_pdmax[p]=key; } }); }
   return _pdmax[name]||0; }
 function projStatus(name){ if(projOv[name])return projOv[name]==='완료'?'완료':''; var dm=projDateMax(name); if(dm&&dm<TODAYKEY)return '완료'; var r=PROJ.rows.find(function(x){return x[0]===name;}); return r?(r[1]==='완료'?'완료':''):''; }
-function setProjDone(name,done){ projOv[name]=done?'완료':'진행'; LSs('pa_v3_projst',projOv); srvProjStatus(name,done?'완료':'진행'); render(); }
+function setProjDone(name,done){ projOv[name]=done?'완료':'진행'; LSs('pa_v3_projst',projOv); srvProjStatus(name,done?'완료':'진행'); _pdmax=null;window.__invUse=null; render(); }
 function activeLines(){
   return allSrc().filter(r=>{
     if((val(r,S.status)||'').toString().toLowerCase()==='remove')return false;
@@ -254,7 +254,7 @@ async function addEqToProj(id){
   if(!serverOn){ alert('서버에 연결되지 않아 추가할 수 없습니다. 새로고침 후 다시 로그인해 주세요.'); return; }
   var e=eqRows().find(function(r){return r[E.id]===id;}); if(!e) return;
   var rows=allSrc().filter(function(r){return r[S.proj]===curProj;});
-  var seq=rows.length+1;
+  var seq=maxLineSeq(curProj)+1;   // 개수+1이 아니라 최대번호+1 (중간 줄 삭제 후 라인ID 겹침 방지)
   var out='', due='';
   rows.forEach(function(r){ if(!out&&val(r,S.out))out=val(r,S.out); if(!due&&val(r,S.due))due=val(r,S.due); });
   var row=new Array(SRC.headers.length).fill('');
@@ -724,11 +724,12 @@ function invGroupRows(){
   var g={};
   eqRows().forEach(function(e){
     if(isMatEq(e[E.id])) return;   // LEE FILTER·SAVAGE 줄로 흡수
+    if(invCat && ev(e,E.cat)!==invCat) return;
     var nm=ev(e,E.name)||'(이름없음)';
     if(q){ var h=(nm+' '+ev(e,E.cat)+' '+ev(e,E.brand)+' '+e[E.id]).toLowerCase(); if(!h.includes(q.toLowerCase())) return; }
     (g[nm]=g[nm]||[]).push(e);
   });
-  return Object.keys(g).sort().map(function(nm){
+  return Object.keys(g).sort(function(a,b){ return String(g[a][0][E.id]||'').localeCompare(String(g[b][0][E.id]||''),undefined,{numeric:true}); }).map(function(nm){
     var us=g[nm];
     if(invMode==='out'  && !us.some(function(e){return invOut(e[E.id]).length>0;})) return '';
     if(invMode==='clash'&& !us.some(function(e){return !!invClash(e[E.id]);})) return '';
@@ -775,7 +776,7 @@ function invMatRows(){
 }
 
 function vInvGrouped(){
-  var body=invMatRows()+invGroupRows();
+  var body=(invCat?'':invMatRows())+invGroupRows();
   var all=eqRows(); var zero=all.filter(function(e){var v=realStock(e[E.id]);return v!=null&&v<=0;}).length;
   var kinds={}; all.forEach(function(e){ kinds[ev(e,E.name)||'?']=1; });
   var toggle='<span class="chip on" onclick="toggleInvGroup()">✓ 품목(모델)별 묶어보기 (총수량)</span>';
@@ -787,6 +788,7 @@ function vInvGrouped(){
      +'<span class="chip '+(invMode==='out'?'on':'')+'" onclick="setInvMode(\'out\')">지금 나간 장비</span>'
      +'<span class="chip '+(invMode==='clash'?'on':'')+'" onclick="setInvMode(\'clash\')">일정 겹침(부족)</span>'
    +'</div>'
+   +catFilterChips(invCat,'setInvCat')
    +'<div class="filt">'+toggle+'</div>'
    +'<div class="kpis"><div class="kpi"><div class="v">'+Object.keys(kinds).length+'</div><div class="l">품목(모델) 수</div></div>'
      +'<div class="kpi"><div class="v">'+all.length+'</div><div class="l">개체 수</div></div>'
@@ -800,6 +802,7 @@ function vInv(){
     const cls=rs<=0?'p-zero':(rs<=1?'p-warn':'p-ok');
     return {e,id,rs,cls};
   }).filter(x=>{ if(!q)return true; const h=(ev(x.e,E.name)+' '+ev(x.e,E.cat)+' '+ev(x.e,E.brand)+' '+x.id).toLowerCase(); return h.includes(q.toLowerCase()); })
+   .filter(x=>!invCat||ev(x.e,E.cat)===invCat)
    .filter(x=>{ if(invMode==='out') return invOut(x.id).length>0; if(invMode==='clash') return !!invClash(x.id); return true; });
   const cell={id:x=>Q(x.id),cat:x=>Q(ev(x.e,E.cat)),brand:x=>Q(ev(x.e,E.brand)),name:x=>Q(ev(x.e,E.name)),
     own:x=>`<span class="n">${num(ev(x.e,E.own))}</span>`,rs:x=>`<span class="pill ${x.cls}">${x.rs}</span>`,
@@ -832,6 +835,7 @@ function vInv(){
       <span class="chip ${invMode==='out'?'on':''}" onclick="setInvMode('out')">🔴 지금 나간 장비</span>
       <span class="chip ${invMode==='clash'?'on':''}" onclick="setInvMode('clash')">⚠️ 일정 겹침(부족)</span>
     </div>
+    ${catFilterChips(invCat,'setInvCat')}
     <div class="filt">${chips}</div>
     <div class="kpis"><div class="kpi"><div class="v">${eqRows().length}</div><div class="l">전체 품목</div></div><div class="kpi"><div class="v" style="color:var(--warn)">${zero}</div><div class="l">재고 0(대여불가)</div></div><div class="kpi"><div class="v">${rows.length}</div><div class="l">검색 결과</div></div></div>
     <div class="panel"><table><thead><tr>${thead}</tr></thead><tbody>${body}</tbody></table></div>`;
@@ -1056,6 +1060,35 @@ let mstGroup = LS('pa_v3_mstgroup2',1);
 let invGroup = LS('pa_v3_invgroup',1);
 function toggleInvGroup(){ invGroup=invGroup?0:1; try{localStorage.setItem('pa_v3_invgroup',invGroup);}catch(e){} render(); }
 function toggleMstGroup(){ mstGroup=mstGroup?0:1; LSs('pa_v3_mstgroup2',mstGroup); render(); }
+let mstSheet = LS('pa_v3_mstsheet',1);   // 시트 원본 보기(전체 열) 기본 ON
+let mstCat='';   // 장비마스터 카테고리 필터 (''=전체)
+let invCat='';   // 재고현황 카테고리 필터 (''=전체)
+function toggleMstSheet(){ mstSheet=mstSheet?0:1; LSs('pa_v3_mstsheet',mstSheet); render(); }
+function catFilterChips(cur,setter){
+  // 목차(카테고리) — 검색되는 드롭다운. 클릭하면 목록, 타이핑하면 걸러짐.
+  var cats=catSort([...new Set(eqRows().map(function(r){return ev(r,E.cat);}).filter(Boolean))]);
+  var dlid='catdl_'+setter;
+  var opts=cats.map(function(c){return '<option value="'+Q(c)+'"></option>';}).join('');
+  return '<div class="filt" style="align-items:center;gap:8px">'
+    +'<span style="font-size:12.5px;color:var(--sub);font-weight:700">🔎 카테고리</span>'
+    +'<input list="'+dlid+'" value="'+Q(cur)+'" placeholder="전체 — 클릭하거나 입력해 검색" onchange="'+setter+'(this.value)" style="min-width:230px" class="cell">'
+    +'<datalist id="'+dlid+'">'+opts+'</datalist>'
+    +(cur?'<button class="reset" onclick="'+setter+'(\'\')">✕ 전체</button>':'<span style="font-size:11.5px;color:#aaa">('+cats.length+'개 카테고리)</span>')
+    +'</div>';
+}
+function setMstCat(c){ mstCat=c; render(); }
+function setInvCat(c){ invCat=c; render(); }
+let mstColF={};                          // 장비마스터 시트뷰 — 열별 검색어 (key→문자열)
+let mstColW=LS('pa_v3_mstcolw',{});      // 장비마스터 시트뷰 — 열별 너비 (key→px)
+function clearMstCols(){ mstColF={}; mstColW={}; try{localStorage.removeItem('pa_v3_mstcolw');}catch(e){} render(); }
+function _mstColResize(ev,key,defW){      // 열 경계 드래그로 너비 조절
+  ev.preventDefault(); ev.stopPropagation();
+  var startX=ev.clientX, startW=mstColW[key]||defW||110;
+  var col=document.getElementById('mcol_'+key);
+  function mv(e){ var w=Math.max(44,startW+(e.clientX-startX)); mstColW[key]=w; if(col) col.style.width=w+'px'; }
+  function up(){ document.removeEventListener('mousemove',mv); document.removeEventListener('mouseup',up); LSs('pa_v3_mstcolw',mstColW); }
+  document.addEventListener('mousemove',mv); document.addEventListener('mouseup',up);
+}
 let unitOf=null;
 function unitDel(id){
   var e=eqRows().find(function(r){return r[E.id]===id;});
@@ -1101,15 +1134,64 @@ function unitsModal(){
 }
 function vMst(){
   var toggle='<span class="chip '+(mstGroup?'on':'')+'" onclick="toggleMstGroup()">'+(mstGroup?'✓ ':'')+'품목(모델)별 묶어보기 (총수량)</span>';
+  var toggleSheet='<span class="chip '+(mstSheet?'on':'')+'" onclick="toggleMstSheet()">'+(mstSheet?'✓ ':'')+'시트 원본 보기(전체 열)</span>';
+  var _catf=function(e){ return !mstCat || ev(e,E.cat)===mstCat; };
+  // ===== 시트 원본 보기 — 시트 '장비DB' 1행 구조 그대로 (전체 열·헤더행 + 열별 검색 + 열너비 조절) =====
+  if(mstSheet){
+    var H=DB.equip.headers;
+    var checkIdx=H.indexOf('점검날짜');
+    // 열 정의: 기본 열 + 수정시각/수정자 + (점검날짜 맨 뒤)
+    var colDefs=[];
+    for(var _i=0;_i<H.length;_i++){ if(_i===checkIdx) continue; (function(i){ colDefs.push({key:'c'+i, name:H[i], get:function(e){return ev(e,i);}}); })(_i); }
+    colDefs.push({key:'m_t', name:'수정시각', get:function(e){var m=metaOf('eq',e[E.id])||{}; return _fmtWhen(m.t);}});
+    colDefs.push({key:'m_w', name:'수정자', get:function(e){var m=metaOf('eq',e[E.id])||{}; return _who(m.w);}});
+    if(checkIdx>=0) colDefs.push({key:'chk', name:'점검날짜', get:function(e){return ev(e,checkIdx);}});
+    function _defW(cd){ if(cd.key==='c'+E.name||cd.key==='c'+E.special||cd.key==='c'+E.comp||cd.key==='c'+E.related||cd.key==='c'+E.alt) return 210;
+      if(cd.key==='c'+E.serial||cd.key==='c'+E.loc||cd.key==='m_t'||cd.key==='c'+E.vendor) return 140; return 108; }
+    var base=eqRows().filter(function(e){ return _catf(e); });
+    var srows=base.filter(function(e){
+      if(q){ var h=(ev(e,E.name)+' '+ev(e,E.cat)+' '+ev(e,E.brand)+' '+e[E.id]).toLowerCase(); if(!h.includes(q.toLowerCase())) return false; }
+      for(var ci=0;ci<colDefs.length;ci++){ var fv=mstColF[colDefs[ci].key]; if(fv){ if(String(colDefs[ci].get(e)||'').toLowerCase().indexOf(String(fv).toLowerCase())<0) return false; } }
+      return true;
+    });
+    // 열별 드롭다운(항목 40개 이하인 열만)
+    function _distinct(cd){ var seen={},arr=[]; for(var k=0;k<base.length;k++){ var v=String(cd.get(base[k])||'').trim(); if(v&&!seen[v]){ seen[v]=1; arr.push(v); if(arr.length>40) return null; } } return arr.sort(); }
+    var colgroup='<colgroup>'+colDefs.map(function(cd){ var w=mstColW[cd.key]||_defW(cd); return '<col id="mcol_'+cd.key+'" style="width:'+w+'px">'; }).join('')+'</colgroup>';
+    var sths=colDefs.map(function(cd){ return '<th style="position:relative;background:#f4f0e6">'+Q(cd.name)
+      +'<span title="드래그해서 열 너비 조절" onmousedown="_mstColResize(event,\''+cd.key+'\','+_defW(cd)+')" style="position:absolute;top:0;right:0;width:8px;height:100%;cursor:col-resize;user-select:none"></span></th>'; }).join('');
+    var sfilt=colDefs.map(function(cd){ var dist=_distinct(cd);
+      var dl=dist?('<datalist id="mfl_'+cd.key+'">'+dist.map(function(v){return '<option value="'+Q(v)+'"></option>';}).join('')+'</datalist>'):'';
+      return '<th style="padding:2px 3px;background:#faf8f2">'
+        +'<input class="cell" style="width:100%;min-width:38px;font-weight:400;font-size:11px;padding:2px 4px" value="'+Q(mstColF[cd.key]||'')+'" '
+        +(dist?'list="mfl_'+cd.key+'" ':'')+'placeholder="검색" id="mfi_'+cd.key+'" '
+        +'oninput="mstColF[\''+cd.key+'\']=this.value;renderKeep(this,event)" oncompositionend="mstColF[\''+cd.key+'\']=this.value;renderKeepDone(this)">'+dl+'</th>'; }).join('');
+    var sbody=srows.map(function(e){
+      var edited=eqOv[e[E.id]]||eqAdd.some(function(r){return r[E.id]===e[E.id];});
+      var tds=colDefs.map(function(cd){ var v=Q(cd.get(e));
+        if(cd.key==='c'+E.id&&edited) v+=' <span style="font-size:9px;color:#2f6db0">●수정됨</span>';
+        var mono=(cd.key==='m_t'||cd.key==='m_w')?' style="font-size:11px;color:#777;overflow:hidden;text-overflow:ellipsis"':' style="overflow:hidden;text-overflow:ellipsis"';
+        return '<td'+mono+'>'+v+'</td>'; }).join('');
+      return '<tr class="rowck" onclick="mstEdit(\''+QJ(e[E.id])+'\')">'+tds+'</tr>';
+    }).join('');
+    var anyF=Object.keys(mstColF).some(function(k){return mstColF[k];})||Object.keys(mstColW).length;
+    return '<h2>🗂 장비 마스터 <span style="font-size:12px;color:var(--sub)">(시트 원본 보기 · '+srows.length+'개체 · 행 클릭=편집)</span></h2>'
+      +'<div class="lead"><b>시트 ‘장비DB’와 같은 구조</b> · <b>각 열 아래 칸에 입력하면 그 열에서 검색</b>됩니다 · <b>열 경계를 좌우로 끌면 너비 조절</b>. 행을 클릭하면 수정창이 열립니다.</div>'
+      +'<div class="filt"><input type="text" value="'+Q(q)+'" id="srch6" oninput="q=this.value;renderKeep(this,event)" oncompositionend="q=this.value;renderKeepDone(this)" placeholder="🔍 전체 검색(EQ_NO·품목·브랜드)"><button class="addbtn" onclick="mstEdit(\'__new__\')">＋ 새 장비 추가</button>'+(anyF?'<button class="reset" onclick="clearMstCols()">✕ 열 검색·너비 초기화</button>':'')+'</div>'
+      +'<div class="filt">'+toggleSheet+toggle+'</div>'
+      +catFilterChips(mstCat,'setMstCat')
+      +'<div class="panel" style="max-height:68vh;overflow:auto"><table style="font-size:11.5px;white-space:nowrap;table-layout:fixed">'+colgroup+'<thead><tr>'+sths+'</tr><tr>'+sfilt+'</tr></thead><tbody>'+sbody+'</tbody></table></div>'
+      +unitsModal()+mstModal()+matModal();
+  }
   if(mstGroup){
     var g={};
     eqRows().forEach(function(e){
       if(isMatEq(e[E.id])) return;   // LEE FILTER·SAVAGE 줄로 흡수
+      if(!_catf(e)) return;
       var nm=ev(e,E.name)||'(이름없음)';
       if(q){ var h=(nm+' '+ev(e,E.cat)+' '+ev(e,E.brand)+' '+e[E.id]).toLowerCase(); if(!h.includes(q.toLowerCase())) return; }
       (g[nm]=g[nm]||[]).push(e);
     });
-    var keys=Object.keys(g).sort();
+    var keys=Object.keys(g).sort(function(a,b){ return String(g[a][0][E.id]||'').localeCompare(String(g[b][0][E.id]||''),undefined,{numeric:true}); });
     var gbody=keys.map(function(nm){
       var us=g[nm];
       var tot=us.reduce(function(a,e){return a+num(ev(e,E.own));},0);
@@ -1134,11 +1216,12 @@ function vMst(){
     return '<h2>🗂 장비 마스터 <span style="font-size:12px;color:var(--sub)">(품목 '+keys.length+'종 · 개체 '+eqRows().length+'대)</span></h2>'
       +'<div class="lead"><b>품목(모델)로 묶어서</b> 총수량을 봅니다. <b>줄을 클릭하면 개체별 시리얼·현재 위치</b>가 열립니다.</div>'
       +'<div class="filt"><input type="text" value="'+Q(q)+'" id="srch5" oninput="q=this.value;renderKeep(this,event)" oncompositionend="q=this.value;renderKeepDone(this)" placeholder="🔍 품목·브랜드 검색"><button class="addbtn" onclick="mstEdit(\'__new__\')">＋ 새 장비 추가</button></div>'
-      +'<div class="filt">'+toggle+'</div>'
-      +'<div class="panel"><table><thead><tr><th>EQ_NO</th><th>카테고리</th><th>브랜드</th><th>품목명</th><th class="n">총보유</th><th class="n">실재고</th><th class="n">시리얼</th><th>위치</th></tr></thead><tbody>'+matMasterRows()+gbody+'</tbody></table></div>'
+      +'<div class="filt">'+toggleSheet+toggle+'</div>'
+      +catFilterChips(mstCat,'setMstCat')
+      +'<div class="panel"><table><thead><tr><th>EQ_NO</th><th>카테고리</th><th>브랜드</th><th>품목명</th><th class="n">총보유</th><th class="n">실재고</th><th class="n">시리얼</th><th>위치</th></tr></thead><tbody>'+(mstCat?'':matMasterRows())+gbody+'</tbody></table></div>'
       +unitsModal()+mstModal()+matModal();
   }
-  const rows=eqRows().filter(e=>{ if(!q)return true; const h=(ev(e,E.name)+' '+ev(e,E.cat)+' '+ev(e,E.brand)+' '+e[E.id]).toLowerCase(); return h.includes(q.toLowerCase()); });
+  const rows=eqRows().filter(e=>{ if(!_catf(e))return false; if(!q)return true; const h=(ev(e,E.name)+' '+ev(e,E.cat)+' '+ev(e,E.brand)+' '+e[E.id]).toLowerCase(); return h.includes(q.toLowerCase()); });
   const cell={id:e=>Q(e[E.id]),cat:e=>Q(ev(e,E.cat)),sub:e=>Q(ev(e,E.sub)),brand:e=>Q(ev(e,E.brand)),name:e=>Q(ev(e,E.name)),own:e=>Q(ev(e,E.own)),serial:e=>Q(ev(e,E.serial)),loc:e=>Q(ev(e,E.loc)),price:e=>Q(ev(e,E.price)),check:e=>Q(E.check>=0?ev(e,E.check):''),special:e=>Q(ev(e,E.special)),edited:e=>metaCell('eq',e[E.id])};
   const cols=MSTC.filter(c=>mstOn[c[0]]);
   const chips=MSTC.map(c=>`<span class="chip ${mstOn[c[0]]?'on':''}" onclick="mstColToggle('${c[0]}')">${mstOn[c[0]]?'✓ ':''}${c[1]}</span>`).join('');
@@ -1150,7 +1233,8 @@ function vMst(){
     <div class="lead"><b>행 클릭=수정창</b> · 아래 칩으로 <b>보고 싶은 열만</b> 켜고 끕니다.</div>
     <div class="filt"><input type="text" value="${Q(q)}" id="srch6" oninput="q=this.value;renderKeep(this,event)" oncompositionend="q=this.value;renderKeepDone(this)" placeholder="🔍 EQ_NO·품목·브랜드 검색">
     <button class="addbtn" onclick="mstEdit('__new__')">＋ 새 장비 추가</button></div>
-    <div class="filt">${toggle}</div>
+    <div class="filt">${toggleSheet}${toggle}</div>
+    ${catFilterChips(mstCat,'setMstCat')}
     <div class="filt">${chips}</div>
     <div class="panel"><table><thead><tr>${cols.map(c=>`<th>${c[1]}</th>`).join('')}</tr></thead><tbody>${body}</tbody></table></div>${unitsModal()}${mstModal()}${matModal()}`;
 }
@@ -1334,9 +1418,9 @@ function matModal(){
 function vBg(){
   return '<h2>🎨 LEE FILTER · SAVAGE</h2>'
     +'<div class="lead"><b>여기가 LEE FILTER · SAVAGE의 유일한 수정 창구입니다.</b> 여기서 고치거나 추가하면 장비 마스터·재고 현황·프로젝트 준비에 자동으로 같이 반영됩니다.<br>품목마다 <b>수량</b>과 <b>구매 여부</b>를 관리합니다. 랩업/반납 때 <b>50% 이하</b>면 체크 → <b>구매 필요</b>로 표시됩니다.</div>'
-    +'<div style="display:flex;gap:14px;flex-wrap:wrap">'
-    +'<div class="panel" style="flex:1;min-width:320px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><div style="font-weight:800">LEE FILTER</div><button class="addbtn" onclick="matAddItem(\'cf\')">＋ 품목 추가</button></div>'+matListHTML('cf',true)+'</div>'
-    +'<div class="panel" style="flex:1;min-width:320px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><div style="font-weight:800">SAVAGE (배경지)</div><button class="addbtn" onclick="matAddItem(\'bg\')">＋ 품목 추가</button></div>'+matListHTML('bg',true)+'</div>'
+    +'<div style="display:flex;flex-direction:column;gap:14px">'
+    +'<div class="panel" style="width:100%"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><div style="font-weight:800">LEE FILTER</div><button class="addbtn" onclick="matAddItem(\'cf\')">＋ 품목 추가</button></div>'+matListHTML('cf',true)+'</div>'
+    +'<div class="panel" style="width:100%"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><div style="font-weight:800">SAVAGE (배경지)</div><button class="addbtn" onclick="matAddItem(\'bg\')">＋ 품목 추가</button></div>'+matListHTML('bg',true)+'</div>'
     +'</div>';
 }
 
@@ -1344,19 +1428,24 @@ function vBg(){
 let buyOn=LS('pa_v3_buycols',null)||{};
 function buyColToggle(i){ const k=buyView; if(!buyOn[k])buyOn[k]={}; buyOn[k][i]=(buyOn[k][i]===false)?true:false; LSs('pa_v3_buycols',buyOn); render(); }
 function vBuy(){
-  const d=buyView==='new'?AUX.buynew:AUX.buyold;
+  const tabKey=buyView==='new'?'buynew':'buyold';
+  const d=(auxGet()[tabKey])||(buyView==='new'?AUX.buynew:AUX.buyold);
   const on=i=>!(buyOn[buyView]&&buyOn[buyView][i]===false);
   const idxs=d.headers.map((h,i)=>i).filter(on);
   const chips=d.headers.map((h,i)=>`<span class="chip ${on(i)?'on':''}" onclick="buyColToggle(${i})">${on(i)?'✓ ':''}${Q(h)||('열'+(i+1))}</span>`).join('');
-  const H=idxs.map(i=>`<th>${Q(d.headers[i])}</th>`).join('');
-  const body=d.records.filter(r=>{ if(!q)return true; return r.join(' ').toLowerCase().includes(q.toLowerCase()); })
-    .map(r=>`<tr>${idxs.map(i=>`<td>${Q(r[i])}</td>`).join('')}</tr>`).join('');
-  return `<h2>🧾 매입내역</h2><div class="lead">장비 구매 기록 · 아래 칩으로 <b>열 켜고 끄기</b>.</div>
-    <div class="filt"><span class="chip ${buyView==='new'?'on':''}" onclick="buyView='new';q='';render()">최근 매입 (${AUX.buynew.records.length})</span>
-    <span class="chip ${buyView==='old'?'on':''}" onclick="buyView='old';q='';render()">기존 매입 (${AUX.buyold.records.length})</span>
+  const H=idxs.map(i=>`<th>${Q(d.headers[i])||('열'+(i+1))}</th>`).join('')+'<th style="width:44px">삭제</th>';
+  const recs=d.records.map((r,ri)=>({r,ri})).filter(x=>{ if(!q)return true; return x.r.join(' ').toLowerCase().includes(q.toLowerCase()); });
+  const body=recs.map(function(x){ var r=x.r, ri=x.ri;
+    return `<tr>${idxs.map(i=>`<td><input class="cell" style="min-width:88px" value="${Q(r[i])}" onchange="auxSet('${tabKey}',${ri},${i},this.value)"></td>`).join('')}`
+      +`<td><button class="reset" style="color:#b23b25" onclick="auxDelRow('${tabKey}',${ri})">🗑</button></td></tr>`;
+  }).join('');
+  return `<h2>🧾 매입내역</h2><div class="lead">장비 구매 기록 · <b>칸을 직접 고치면 서버에 저장</b>되어 다른 기기·관리자에게도 반영됩니다. · 아래 칩으로 <b>열 켜고 끄기</b>.</div>
+    <div class="filt"><span class="chip ${buyView==='new'?'on':''}" onclick="buyView='new';q='';render()">최근 매입 (${(auxGet().buynew||AUX.buynew).records.length})</span>
+    <span class="chip ${buyView==='old'?'on':''}" onclick="buyView='old';q='';render()">기존 매입 (${(auxGet().buyold||AUX.buyold).records.length})</span>
+    <button class="addbtn" onclick="auxAdd('${tabKey}')">＋ 매입 추가</button>
     <input type="text" value="${Q(q)}" id="srch7" oninput="q=this.value;renderKeep(this,event)" oncompositionend="q=this.value;renderKeepDone(this)" placeholder="🔍 검색"></div>
     <div class="filt">${chips}</div>
-    <div class="panel" style="max-height:70vh"><table><thead><tr>${H}</tr></thead><tbody>${body}</tbody></table></div>`;
+    <div class="panel" style="max-height:70vh;overflow:auto"><table><thead><tr>${H}</tr></thead><tbody>${body}</tbody></table></div>`;
 }
 
 // ===== 📋 소싱시트 =====
@@ -1858,7 +1947,7 @@ async function sbLoadAll(){
     DB.equip.rows=eq; DB.sourcing.rows=sortByLine(sr); DB.projects.rows=pj; DB.repair.rows=rp;
     await sbLoadExtras();
     await sbLoadMeta();
-    eqOv={};eqDel=[];eqAdd=[];projOv={};_matEqCache=null;
+    eqOv={};eqDel=[];eqAdd=[];projOv={};_matEqCache=null;window.__invUse=null;
     try{localStorage.removeItem('pa_v3_eq');localStorage.removeItem('pa_v3_eqdel');localStorage.removeItem('pa_v3_eqadd');localStorage.removeItem('pa_v3_projst');localStorage.removeItem('pa_v3_crew');}catch(e){}
     _dmg=null;_pdmax=null; serverOn=true;
     sbMsg='서버 연결됨 · 장비 '+eq.length+' · 소싱 '+sr.length+' · 프로젝트 '+pj.length;
@@ -1976,7 +2065,11 @@ async function sbLoadExtras(){
           if(typeof arr==='string'){ try{ arr=JSON.parse(arr); }catch(e){ arr=null; } }
           if(Array.isArray(arr)&&arr.length){
             if(!edits[line])edits[line]={};
-            edits[line].photos=arr;                 // 서버 = 진실원본
+            // 덮어쓰기 금지 — 로컬(아직 서버에 못 올라간 사진)과 서버를 합친다(합집합, 중복 제거).
+            var loc=Array.isArray(edits[line].photos)?edits[line].photos:[];
+            var merged=loc.slice();
+            arr.forEach(function(p){ if(merged.indexOf(p)<0) merged.push(p); });
+            edits[line].photos=merged;
           }
           if(r['low']===true||r['low']==='true'){ if(!edits[line])edits[line]={}; edits[line].low=true; }
         });
