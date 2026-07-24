@@ -130,7 +130,16 @@ function setVal(line,idx,v){ if(!edits[line])edits[line]={}; edits[line][idx]=v;
 function setValNoRender(line,idx,v){ if(!edits[line])edits[line]={}; edits[line][idx]=v; save(); sbSaveCell(line,idx,v); }
 // ==== 장비 오버레이 ====
 function _clearMatCache(){_matEqCache=null;}
-function eqRows(){ return EQ.rows.concat(eqAdd).filter(r=>eqDel.indexOf(r[E.id])<0).sort(function(a,b){ return String(a[E.id]||'').localeCompare(String(b[E.id]||''),undefined,{numeric:true}); }); }
+var _eqRowsCache=null,_eqRowsRef=null,_eqRowsSig='';
+function eqRows(){
+  // EQ코드 정렬은 비싸다(localeCompare). 매 호출마다 정렬하면 재고화면이 수초 멈춘다.
+  // 데이터(EQ.rows 교체·eqAdd·eqDel)가 바뀔 때만 다시 정렬하고, 아니면 캐시를 재사용.
+  var sig=eqAdd.length+'|'+eqDel.join(',');
+  if(_eqRowsCache && _eqRowsRef===EQ.rows && _eqRowsSig===sig) return _eqRowsCache;
+  var r=EQ.rows.concat(eqAdd).filter(function(x){return eqDel.indexOf(x[E.id])<0;})
+    .sort(function(a,b){ return String(a[E.id]||'').localeCompare(String(b[E.id]||''),undefined,{numeric:true}); });
+  _eqRowsCache=r; _eqRowsRef=EQ.rows; _eqRowsSig=sig; return r;
+}
 function ev(r,idx){ const o=eqOv[r[E.id]]; return (o&&o[idx]!==undefined)?o[idx]:r[idx]; }
 function buildDmg(){
   var m={}, orphan=0;
@@ -1165,7 +1174,9 @@ function vMst(){
         +'<input class="cell" style="width:100%;min-width:38px;font-weight:400;font-size:11px;padding:2px 4px" value="'+Q(mstColF[cd.key]||'')+'" '
         +(dist?'list="mfl_'+cd.key+'" ':'')+'placeholder="검색" id="mfi_'+cd.key+'" '
         +'oninput="mstColF[\''+cd.key+'\']=this.value;renderKeep(this,event)" oncompositionend="mstColF[\''+cd.key+'\']=this.value;renderKeepDone(this)">'+dl+'</th>'; }).join('');
-    var sbody=srows.map(function(e){
+    var LIM=150, shown=srows.slice(0,LIM);
+    var more=srows.length>LIM? '<div class="note-box">전체 '+srows.length+'개 중 처음 '+LIM+'개만 표시합니다. 위 <b>전체 검색</b>이나 <b>각 열 검색칸</b>·<b>카테고리</b>로 좁히면 나머지도 보입니다.</div>' : '';
+    var sbody=shown.map(function(e){
       var edited=eqOv[e[E.id]]||eqAdd.some(function(r){return r[E.id]===e[E.id];});
       var tds=colDefs.map(function(cd){ var v=Q(cd.get(e));
         if(cd.key==='c'+E.id&&edited) v+=' <span style="font-size:9px;color:#2f6db0">●수정됨</span>';
@@ -1179,6 +1190,7 @@ function vMst(){
       +'<div class="filt"><input type="text" value="'+Q(q)+'" id="srch6" oninput="q=this.value;renderKeep(this,event)" oncompositionend="q=this.value;renderKeepDone(this)" placeholder="🔍 전체 검색(EQ_NO·품목·브랜드)"><button class="addbtn" onclick="mstEdit(\'__new__\')">＋ 새 장비 추가</button>'+(anyF?'<button class="reset" onclick="clearMstCols()">✕ 열 검색·너비 초기화</button>':'')+'</div>'
       +'<div class="filt">'+toggleSheet+toggle+'</div>'
       +catFilterChips(mstCat,'setMstCat')
+      +more
       +'<div class="panel" style="max-height:68vh;overflow:auto"><table style="font-size:11.5px;white-space:nowrap;table-layout:fixed">'+colgroup+'<thead><tr>'+sths+'</tr><tr>'+sfilt+'</tr></thead><tbody>'+sbody+'</tbody></table></div>'
       +unitsModal()+mstModal()+matModal();
   }
