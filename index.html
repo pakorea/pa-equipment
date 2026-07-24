@@ -1950,6 +1950,25 @@ async function sbLoadExtras(){
       });
       try{ localStorage.removeItem('pa_v3_aux'); }catch(e){}
     }
+    // 반납 사진·저재고 표시를 서버에서 불러와 화면(edits)에 채운다.
+    // (저장은 서버·로컬 둘 다 되지만, 그동안 화면은 로컬만 읽어 다른 기기·초기화 시 사진이 사라졌다)
+    // 사진이 있는 줄만 가져와 가볍게. 서버가 최신 증빙이므로 서버 값으로 채운다.
+    try{
+      var ph=await sbT('sourcing').select('라인ID,photos,low').not('photos','is',null);
+      if(ph&&!ph.error&&ph.data){
+        ph.data.forEach(function(r){
+          var line=r['라인ID']; if(!line)return;
+          var arr=r['photos'];
+          if(typeof arr==='string'){ try{ arr=JSON.parse(arr); }catch(e){ arr=null; } }
+          if(Array.isArray(arr)&&arr.length){
+            if(!edits[line])edits[line]={};
+            edits[line].photos=arr;                 // 서버 = 진실원본
+          }
+          if(r['low']===true||r['low']==='true'){ if(!edits[line])edits[line]={}; edits[line].low=true; }
+        });
+        LSs('pa_v3_edits',edits);
+      }
+    }catch(e){ console.warn('사진 로드 실패',e); }
   }catch(e){ console.warn('부가데이터 로드 실패',e); }
 }
 function sbBanner(){
