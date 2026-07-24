@@ -1,6 +1,9 @@
 <!doctype html><html lang="ko"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>PA 장비관리 — 관리자 사이트 (3번)</title>
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<title>PA 장비관리 — 관리자 사이트 (3번) · v260725a</title>
 <style>
 :root{--bg:#f7f5f0;--card:#fff;--ink:#222;--sub:#666;--line:#e6e1d8;--accent:#2f6db0;
  --ok:#1f7a52;--okbg:#e7f4ec;--warn:#b1442f;--warnbg:#fbeae5;--rent:#8a5a1a;--rentbg:#f7efe0}
@@ -2101,20 +2104,20 @@ function go(v){view=v;q='';curProj=null;mstSel=null;relLine=null; if((v==='mem'|
 function render(){
   var __sc=null, __el=document.querySelector('.panel');
   try{
-    var __boxes=[].slice.call(document.querySelectorAll('[data-scrollbox]')).map(function(b){return b.scrollTop;});
-    var __mod=document.querySelector('.modal'); 
+    var __boxes=[].slice.call(document.querySelectorAll('[data-scrollbox]')).map(function(b){return {t:b.scrollTop,l:b.scrollLeft};});
+    var __mod=document.querySelector('.modal');
     var __ae=document.activeElement;
-    __sc={w:window.scrollY||0, p:(__el?__el.scrollTop:0), boxes:__boxes, mod:(__mod?__mod.scrollTop:0),
+    __sc={w:window.scrollY||0, wx:window.scrollX||0, p:(__el?__el.scrollTop:0), pl:(__el?__el.scrollLeft:0), boxes:__boxes, mod:(__mod?__mod.scrollTop:0),
           f:(__ae&&__ae.id)||'', sel:(__ae&&__ae.selectionStart!=null)?__ae.selectionStart:null};
   }catch(e){}
   try{ _render(); }catch(e){ showErr(e); return; }
   try{
     if(__sc){
-      window.scrollTo(0,__sc.w);
-      var el2=document.querySelector('.panel'); if(el2&&__sc.p) el2.scrollTop=__sc.p;
+      window.scrollTo(__sc.wx||0,__sc.w);
+      var el2=document.querySelector('.panel'); if(el2){ if(__sc.p) el2.scrollTop=__sc.p; if(__sc.pl) el2.scrollLeft=__sc.pl; }
       if(__sc.boxes&&__sc.boxes.length){
         var nb=document.querySelectorAll('[data-scrollbox]');
-        for(var bi=0;bi<nb.length&&bi<__sc.boxes.length;bi++){ if(__sc.boxes[bi]) nb[bi].scrollTop=__sc.boxes[bi]; }
+        for(var bi=0;bi<nb.length&&bi<__sc.boxes.length;bi++){ if(__sc.boxes[bi]){ nb[bi].scrollTop=__sc.boxes[bi].t; nb[bi].scrollLeft=__sc.boxes[bi].l; } }
       }
       var m2=document.querySelector('.modal'); if(m2&&__sc.mod) m2.scrollTop=__sc.mod;
       if(__sc.f){ var fe=document.getElementById(__sc.f); if(fe&&fe.focus){ fe.focus(); try{ if(__sc.sel!=null&&fe.setSelectionRange) fe.setSelectionRange(__sc.sel,__sc.sel); else if(fe.select) fe.select(); }catch(e){} } }
