@@ -99,6 +99,17 @@ const S={line:0,proj:1,reqQ:2,reqItem:3,reqNote:4,asgQ:5,item:6,related:7,cat:8,
  vPA:36,vHK:37,vLight:38,vLala:39,vDay:40,vPro:41,vSLR:42,v8:43,distSum:44,verify:45,out:46,due:47,days:48,price:49,amount:50};
 const E={id:0,cat:1,sub:2,brand:3,name:4,own:5,realStock:6,rentable:7,alt:8,related:9,altname:10,comp:11,serial:12,loc:13,vendor:14,price:15,studio:16,special:17,purpose:18,buy:19,link:20,check:EQ.headers.indexOf('점검날짜')};
 let srcAdd=LS('pa_v3_srcadd',[]);
+function sortByLine(rows){
+  // 서버는 순서를 보장하지 않아, 어떤 줄을 수정(사진/반납 등)하면 다음에 그 줄이 목록에서 자리를 옮긴다.
+  // 라인ID(프로젝트명-순번)로 안정 정렬해 늘 같은 자리에 있게 한다. 순번은 숫자로 비교(‑100이 ‑99 뒤로).
+  var li=DB.sourcing.headers.indexOf('라인ID');
+  function parse(id){ var m=String(id||'').match(/^(.*)-(\d+)\s*$/); return m? {p:m[1], n:parseInt(m[2],10)} : {p:String(id||''), n:0}; }
+  return rows.slice().sort(function(a,b){
+    var A=parse(a[li]), B=parse(b[li]);
+    if(A.p!==B.p) return A.p<B.p?-1:1;
+    return A.n-B.n;
+  });
+}
 function allSrc(){ return DB.sourcing.rows.concat(srcAdd); }
 let view='src', edits={}, projFilter=LS('pa_v3_projfilter','전체'), q='', curProj=null, stage='prep';
 let _dmg=null, _dmgOrphan=0, _pdmax=null;
@@ -1841,7 +1852,7 @@ async function sbLoadAll(){
     var sr=await sbFetchAll('sourcing',DB.sourcing.headers);
     var pj=await sbFetchAll('projects',DB.projects.headers);
     var rp=await sbFetchAll('repair',DB.repair.headers);
-    DB.equip.rows=eq; DB.sourcing.rows=sr; DB.projects.rows=pj; DB.repair.rows=rp;
+    DB.equip.rows=eq; DB.sourcing.rows=sortByLine(sr); DB.projects.rows=pj; DB.repair.rows=rp;
     await sbLoadExtras();
     await sbLoadMeta();
     eqOv={};eqDel=[];eqAdd=[];projOv={};_matEqCache=null;
