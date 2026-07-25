@@ -3,7 +3,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>PA 장비관리 — 관리자 사이트 (3번) · v260725b</title>
+<title>PA 장비관리 — 관리자 사이트 (3번) · v260725c</title>
 <style>
 :root{--bg:#f7f5f0;--card:#fff;--ink:#222;--sub:#666;--line:#e6e1d8;--accent:#2f6db0;
  --ok:#1f7a52;--okbg:#e7f4ec;--warn:#b1442f;--warnbg:#fbeae5;--rent:#8a5a1a;--rentbg:#f7efe0}
@@ -323,6 +323,8 @@ function addEqModal(){
    +'<div class="mbtns"><button class="primary" onclick="closeAddEq()">닫기</button></div></div></div>';
 }
 function prepTable(rows){
+  // 준비 목록도 다른 탭(재고현황·장비마스터)과 같은 EQ_NO 순서로 정렬 (빈 EQ_NO는 뒤로)
+  rows=rows.slice().sort(function(a,b){ var A=String(a[S.itemId]||''), B=String(b[S.itemId]||''); if(!A&&B)return 1; if(A&&!B)return -1; return A.localeCompare(B,undefined,{numeric:true}); });
   const stOpts=(cur)=>['미완료','준비완료','확인필요'].map(o=>`<option ${cur===o?'selected':''}>${o}</option>`).join('');
   const body=rows.map(r=>{
     const l=r[S.line]; const st=val(r,S.prepSt)||'미완료'; const done=st==='준비완료';
