@@ -3,7 +3,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>PA 장비관리 — 관리자 사이트 (3번) · v260726b</title>
+<title>PA 장비관리 — 관리자 사이트 (3번) · v260726c</title>
 <style>
 :root{--bg:#f7f5f0;--card:#fff;--ink:#222;--sub:#666;--line:#e6e1d8;--accent:#2f6db0;
  --ok:#1f7a52;--okbg:#e7f4ec;--warn:#b1442f;--warnbg:#fbeae5;--rent:#8a5a1a;--rentbg:#f7efe0}
@@ -1891,7 +1891,16 @@ function membersSave(){ LSs('pa_v3_members',members); }
 let session=LS('pa_v3_session',null);
 let ME=session?session.email:'';
 function isAdmin(){ return session&&session.role==='관리자'; }
-function myTabs(){ return (session&&session.role==='관리자')?ALLTABS:ALLTABS.filter(function(t){return ['proj','cal','inv','bg'].indexOf(t[0])>=0;}); }
+// ===== 2사이트 구조: 관리자 사이트(index.html) ↔ 프리랜서 사이트(free.html) =====
+var IS_FREE_SITE = /free\.html/i.test((typeof location!=='undefined'&&location.pathname)||'');
+function _freeTabs(){ return ALLTABS.filter(function(t){return ['proj','inv','bg'].indexOf(t[0])>=0;}); }  // 담당 프로젝트·재고현황·LEE FILTER·SAVAGE
+function myTabs(){ return IS_FREE_SITE ? _freeTabs() : ALLTABS; }
+function _freeRedirectHTML(){ return '<div style="max-width:520px;margin:56px auto;background:#fff;border:1px solid var(--line);border-radius:16px;padding:34px 30px;text-align:center;box-shadow:0 6px 24px rgba(0,0,0,.07)">'
+  +'<div style="font-size:42px">🔒</div>'
+  +'<div style="font-size:21px;font-weight:800;margin:10px 0 8px">프리랜서 사이트를 이용하세요</div>'
+  +'<div style="font-size:14.5px;color:var(--sub);line-height:1.75">이 화면(관리자 사이트)은 <b>관리자 전용</b>입니다.<br>프리랜서는 프리랜서 사이트에서 <b>담당 프로젝트·재고현황·LEE FILTER·SAVAGE</b>를 이용하실 수 있습니다.</div>'
+  +'<a href="./free.html" style="display:inline-block;margin-top:18px;background:#1f7a52;color:#fff;border-radius:9px;padding:11px 22px;font-weight:800;text-decoration:none">🎬 프리랜서 사이트로 이동 →</a>'
+  +'<div style="margin-top:12px"><button onclick="forceReset()" style="background:#eef1f5;color:#333;border:1px solid #ccc;border-radius:9px;padding:9px 18px;font-weight:700;cursor:pointer">다른 계정으로 로그인</button></div></div>'; }
 function loginHTML(){
   return '<div style="max-width:420px;margin:56px auto;background:#fff;border:1px solid var(--line);border-radius:16px;padding:36px 28px;box-shadow:0 6px 24px rgba(0,0,0,.07);text-align:center">'
    +'<div style="font-size:24px;font-weight:800;margin-bottom:6px">📦 PA 장비관리</div>'
@@ -2188,11 +2197,22 @@ function _render(){
   const nav=document.getElementById('nav'), main=document.getElementById('main');
   const who=document.getElementById('who'), lg=document.getElementById('lgoutbtn');
   if(!session){ nav.innerHTML=''; main.innerHTML=loginHTML(); if(who)who.textContent=''; if(lg)lg.style.display='none'; var rb=document.querySelector('.top button'); if(rb)rb.style.display='none'; var sb1=document.getElementById('sheetbtn'); if(sb1)sb1.style.display='none'; var fb1=document.getElementById('freebtn'); if(fb1)fb1.style.display='none'; return; }
-  if(who)who.textContent='👤 '+session.name+' · '+session.role; if(lg)lg.style.display=''; var rb2=document.querySelector('.top button'); if(rb2)rb2.style.display='';
+  if(who)who.textContent='👤 '+session.name+' · '+session.role+(IS_FREE_SITE?' · 프리랜서 화면':''); if(lg)lg.style.display='';
   var _adm=isAdmin();
-  var sb2=document.getElementById('sheetbtn'); if(sb2)sb2.style.display=_adm?'':'none';
-  var fb2=document.getElementById('freebtn'); if(fb2)fb2.style.display=_adm?'':'none';
-  var rbt=document.getElementById('resetbtn'); if(rbt)rbt.style.display=_adm?'':'none';
+  // 프리랜서가 관리자 사이트(index.html)에 접속 → 차단(프리랜서 사이트로 안내)
+  if(!IS_FREE_SITE && !_adm){
+    nav.innerHTML=''; main.innerHTML=_freeRedirectHTML();
+    var _rbX=document.querySelector('.top button'); if(_rbX)_rbX.style.display='none';
+    ['sheetbtn','freebtn','resetbtn'].forEach(function(id){ var e=document.getElementById(id); if(e)e.style.display='none'; });
+    return;
+  }
+  var rb2=document.querySelector('.top button'); if(rb2)rb2.style.display='';
+  var sb2=document.getElementById('sheetbtn'); if(sb2)sb2.style.display=(_adm && !IS_FREE_SITE)?'':'none';
+  var rbt=document.getElementById('resetbtn'); if(rbt)rbt.style.display=(_adm && !IS_FREE_SITE)?'':'none';
+  var fb2=document.getElementById('freebtn');
+  if(fb2){ fb2.style.display=_adm?'':'none'; fb2.target='_self';
+    if(IS_FREE_SITE){ fb2.href='./index.html'; fb2.textContent='↩ 관리자 사이트'; fb2.style.background='#2f4a66'; }
+    else { fb2.href='./free.html'; fb2.textContent='🎬 프리랜서 사이트 ↗'; fb2.style.background='#1f7a52'; } }
   const tabs=myTabs();
   if(!tabs.some(t=>t[0]===view)) view=tabs[0][0];
   nav.innerHTML=tabs.map(t=>`<button class="${view===t[0]?'on':''}" onclick="go('${t[0]}')">${t[1]}</button>`).join('');
