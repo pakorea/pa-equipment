@@ -3,7 +3,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>PA 장비관리 — 관리자 사이트 (3번) · v260726e</title>
+<title>PA 장비관리 — 관리자 사이트 (3번) · v260726f</title>
 <style>
 :root{--bg:#f7f5f0;--card:#fff;--ink:#222;--sub:#666;--line:#e6e1d8;--accent:#2f6db0;
  --ok:#1f7a52;--okbg:#e7f4ec;--warn:#b1442f;--warnbg:#fbeae5;--rent:#8a5a1a;--rentbg:#f7efe0}
@@ -230,8 +230,18 @@ function pDate(x){ if(!x)return null; var s=(''+x).trim().replace(/[.\/]/g,'-');
   m=s.match(/^(\d{2})(\d{2})(\d{2})$/); if(m){return Math.floor(new Date(2000+ +m[1],+m[2]-1,+m[3]).getTime()/86400000);}
   return null; }
 function setProjFilter(v){ projFilter=v; try{localStorage.setItem('pa_v3_projfilter',JSON.stringify(v));}catch(e){} render(); }
+// 프리랜서 사이트: 로그인한 사람이 배정(crew)된 프로젝트 집합 (관리자 사이트면 null=제한없음)
+function _freeMyProjs(){
+  if(!IS_FREE_SITE) return null;
+  var em=String((typeof session!=='undefined'&&session&&session.email)||ME||'').toLowerCase();
+  var m={};
+  Object.keys(crew||{}).forEach(function(pj){ (crew[pj]||[]).forEach(function(c){ if(String(c.email||'').toLowerCase()===em) m[pj]=1; }); });
+  return m;
+}
 function _projCount(f){
+  var mine=_freeMyProjs();
   var ps=[...new Set(allSrc().filter(function(r){return (val(r,S.status)||'').toString().toLowerCase()!=='remove';}).map(function(r){return r[S.proj];}))];
+  if(mine) ps=ps.filter(function(p){return mine[p];});   // 프리랜서: 배정된 것만 카운트
   if(f==='활성') return ps.filter(function(p){return projStatus(p)!=='완료';}).length;
   if(f==='완료') return ps.filter(function(p){return projStatus(p)==='완료';}).length;
   return ps.length;
@@ -518,12 +528,8 @@ function vProj(){
   if(curProj)return vProjDetail();
   const lines=activeLines(); const g=groupByProj(lines);
   // 프리랜서 사이트: 로그인한 사람이 배정(crew)된 프로젝트만 (관리자가 봐도 본인 배정만)
-  if(IS_FREE_SITE){
-    var _myEm=String((session&&session.email)||ME||'').toLowerCase();
-    var _mine={};
-    Object.keys(crew||{}).forEach(function(pj){ (crew[pj]||[]).forEach(function(c){ if(String(c.email||'').toLowerCase()===_myEm) _mine[pj]=1; }); });
-    Object.keys(g).forEach(function(pj){ if(!_mine[pj]) delete g[pj]; });
-  }
+  var _mineP=_freeMyProjs();
+  if(_mineP){ Object.keys(g).forEach(function(pj){ if(!_mineP[pj]) delete g[pj]; }); }
   const _key=function(p){ var rs=allSrc().filter(function(r){return r[S.proj]===p;});
     var ds=rs.map(function(r){return val(r,S.out)||'';}).filter(Boolean).sort(); return ds.length?ds[ds.length-1]:''; };
   const cards=Object.keys(g).sort(function(a,b){ var ka=_key(a),kb=_key(b); if(ka===kb) return a<b?1:-1; return ka<kb?1:-1; }).map(pj=>{
@@ -2172,7 +2178,7 @@ async function sbLoadExtras(){
 function sbBanner(){
   if(!session) return '';
   if(sbBusy) return '<div class="note-box" style="background:#eaf1f9;border-color:#cfe0f2;color:#2f6db0">⏳ '+Q(sbMsg||'처리 중…')+'</div>';
-  if(serverOn) return '<div class="note-box" style="background:#e9f5ee;border-color:#a9d9be;color:#1f7a52">🟢 <b>서버 연결됨</b> — 이 데이터는 서버에서 왔고, 수정하면 모두에게 반영됩니다. <span style="font-size:11.5px">'+Q(sbMsg)+'</span></div>';
+  if(serverOn) return '<div class="note-box" style="background:#e9f5ee;border-color:#a9d9be;color:#1f7a52">🟢 <b>서버 연결됨</b> — '+(IS_FREE_SITE?'관리자와 <b>같은 서버 데이터</b>를 봅니다. 내 프로젝트 준비·반납만 저장되고, <b>재고·LEE FILTER·SAVAGE는 보기 전용</b>입니다.':'이 데이터는 서버에서 왔고, 수정하면 모두에게 반영됩니다. <span style="font-size:11.5px">'+Q(sbMsg)+'</span>')+'</div>';
   return '<div class="note-box" style="background:#fde7e0;border-color:#e6bda8;color:#8a3a1e;display:flex;align-items:center;gap:10px;flex-wrap:wrap">🔴 <b>오프라인 — 지금 화면은 최신이 아닐 수 있습니다.</b> 서버에 연결되지 않아, <b>예전에 받아둔 낡은 목록</b>을 보여주는 중입니다. 재고·준비·반납 판단은 <b>서버 로그인 후</b> 하세요. 지금 고친 것은 이 컴퓨터에만 남습니다.'+(sbMsg?' <span style="font-size:11.5px">'+Q(sbMsg)+'</span>':'')+'<button onclick="forceReset()" style="margin-left:auto;background:#b1442f;color:#fff;border:none;border-radius:8px;padding:7px 15px;font-weight:800;font-size:13px;cursor:pointer">🔌 서버에 로그인</button></div>';
 }
 
