@@ -3,7 +3,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>PA 장비관리 — 관리자 사이트 (3번) · v260725g</title>
+<title>PA 장비관리 — 관리자 사이트 (3번) · v260726a</title>
 <style>
 :root{--bg:#f7f5f0;--card:#fff;--ink:#222;--sub:#666;--line:#e6e1d8;--accent:#2f6db0;
  --ok:#1f7a52;--okbg:#e7f4ec;--warn:#b1442f;--warnbg:#fbeae5;--rent:#8a5a1a;--rentbg:#f7efe0}
@@ -789,7 +789,7 @@ function invMatRows(){
     var need=d.records.filter(function(r,ri){return matNeed(k,ri);}).length;
     var qty=d.records.reduce(function(a,r,ri){ return a+num(matQty(k,ri)); },0);
     return '<tr class="rowck" style="background:#fbfaf5" onclick="openMat(\''+k+'\')">'
-      +'<td style="font-family:ui-monospace,monospace;font-size:11.5px">'+matCodeTxt(k)+'</td><td>9.CONSUMABLE</td><td>'+(k==='cf'?'LEE':'SAVAGE')+'</td>'
+      +'<td style="font-family:ui-monospace,monospace;font-size:11.5px">'+matCodeTxt(k)+'</td><td>11. LEE FILTER · SAVAGE</td><td>'+(k==='cf'?'LEE':'SAVAGE')+'</td>'
       +'<td><b>'+MAT[k].label+'</b> <span class="pill" style="background:#eaf1f9;color:#2f6db0">'+d.records.length+'종</span>'
       +(need?' <span class="pill p-warn">구매필요 '+need+'</span>':'')+'</td>'
       +'<td class="n"><b>'+qty+'</b></td>'
@@ -800,7 +800,7 @@ function invMatRows(){
 }
 
 function vInvGrouped(){
-  var body=invGroupRows()+(invCat?'':invMatRows());
+  var body=invGroupRows()+((invCat && invCat!=='11. LEE FILTER · SAVAGE')?'':invMatRows());
   var all=eqRows(); var zero=all.filter(function(e){var v=realStock(e[E.id]);return v!=null&&v<=0;}).length;
   var kinds={}; all.forEach(function(e){ kinds[ev(e,E.name)||'?']=1; });
   var toggle='<span class="chip on" onclick="toggleInvGroup()">✓ 품목(모델)별 묶어보기 (총수량)</span>';
@@ -1245,7 +1245,7 @@ function vMst(){
       +'<div class="filt"><input type="text" value="'+Q(q)+'" id="srch5" oninput="q=this.value;renderKeep(this,event)" oncompositionend="q=this.value;renderKeepDone(this)" placeholder="🔍 품목·브랜드 검색"><button class="addbtn" onclick="mstEdit(\'__new__\')">＋ 새 장비 추가</button></div>'
       +'<div class="filt">'+toggleSheet+toggle+'</div>'
       +catFilterChips(mstCat,'setMstCat')
-      +'<div class="panel"><table><thead><tr><th>EQ_NO</th><th>카테고리</th><th>브랜드</th><th>품목명</th><th class="n">총보유</th><th class="n">실재고</th><th class="n">시리얼</th><th>위치</th></tr></thead><tbody>'+gbody+(mstCat?'':matMasterRows())+'</tbody></table></div>'
+      +'<div class="panel"><table><thead><tr><th>EQ_NO</th><th>카테고리</th><th>브랜드</th><th>품목명</th><th class="n">총보유</th><th class="n">실재고</th><th class="n">시리얼</th><th>위치</th></tr></thead><tbody>'+gbody+((mstCat && mstCat!=='11. LEE FILTER · SAVAGE')?'':matMasterRows())+'</tbody></table></div>'
       +unitsModal()+mstModal()+matModal();
   }
   const rows=eqRows().filter(e=>{ if(!_catf(e))return false; if(!q)return true; const h=(ev(e,E.name)+' '+ev(e,E.cat)+' '+ev(e,E.brand)+' '+e[E.id]).toLowerCase(); return h.includes(q.toLowerCase()); });
@@ -1405,7 +1405,7 @@ function matEqIds(k){
   return _matEqCache[k]||[];
 }
 function matEqAll(){ return matEqIds('cf').concat(matEqIds('bg')); }
-function isMatEq(id){ return matEqAll().indexOf(id)>=0; }
+function isMatEq(id){ return false; }   // LEE FILTER·SAVAGE 장비(롤·패키지 등)도 정상 표시(카테고리 11)
 function matCodeTxt(k){
   var d=auxGet()[k];
   if(d&&d.records.length){ var f=matCode(k,0);
@@ -1421,7 +1421,7 @@ function matMasterRows(){
     var m=MAT[k];
     return '<tr class="rowck" style="background:#fbfaf5" onclick="openMat(\''+k+'\')">'
       +'<td style="font-family:ui-monospace,monospace;font-size:11.5px">'+matCodeTxt(k)+'</td>'
-      +'<td>9.CONSUMABLE</td>'
+      +'<td>11. LEE FILTER · SAVAGE</td>'
       +'<td>'+(k==='cf'?'LEE':'SAVAGE')+'</td>'
       +'<td><b>'+m.label+'</b> <span class="pill" style="background:#eaf1f9;color:#2f6db0">'+d.records.length+'종</span>'
       +(need?' <span class="pill p-warn">구매필요 '+need+'</span>':'')+'</td>'
@@ -1635,7 +1635,7 @@ async function npCheckout(){
     const row=new Array(SRC.headers.length).fill('');
     row[S.line]=npProj+'-'+String(n).padStart(2,'0');
     row[S.proj]=npProj; row[S.reqQ]=qy; row[S.reqItem]=npMatLabel(k,ri); row[S.asgQ]=qy;
-    row[S.item]=npMatLabel(k,ri); row[S.cat]='9.CONSUMABLE'; row[S.out]=out; row[S.due]=due;
+    row[S.item]=npMatLabel(k,ri); row[S.cat]='11. LEE FILTER · SAVAGE'; row[S.out]=out; row[S.due]=due;
     row[S.eqnote]=npNoteGet(key,'eq');
     if(qy>av){ var _vd2=npVendorGet(key,[]); if(_vd2) row[S.source]=_vd2.trim(); }
     var _in2=npNoteGet(key,'in');
@@ -1759,9 +1759,9 @@ function npMatRows(){
       if(q && lab.toLowerCase().indexOf(q.toLowerCase())<0) return;
       var av=Math.max(0,num(matQty(k,ri))); var key=npMatKey(k,ri); var sel=npMat[key]||0;
       var cls=av<=0?'p-zero':(av<=1?'p-warn':'p-ok');
-      out.push({ code:String(matCode(k,ri)||''), cr:900, html:'<tr style="background:#fbfaf5">'
+      out.push({ code:String(matCode(k,ri)||''), cr:catRank('11. LEE FILTER · SAVAGE'), html:'<tr style="background:#fbfaf5">'
         +'<td class="n" style="font-family:ui-monospace,monospace;font-size:11px">'+Q(matCode(k,ri))+(matNo(k,ri)?'<br><span style="color:#aaa;font-size:10px">구매넘버 '+Q(matNo(k,ri))+'</span>':'')+'</td>'
-        +'<td style="font-size:11.5px;color:#777;white-space:nowrap">9.CONSUMABLE<br><span style="font-size:10px;color:#aaa">'+MAT[k].label+'</span></td>'
+        +'<td style="font-size:11.5px;color:#777;white-space:nowrap">11. LEE FILTER · SAVAGE<br><span style="font-size:10px;color:#aaa">'+MAT[k].label+'</span></td>'
         +'<td>'+Q(nm)
         +(matNeed(k,ri)?' <span class="pill p-warn">구매필요</span>':'')+'</td>'
         +'<td class="n"><span class="pill '+cls+'">'+av+'</span></td>'
@@ -1777,12 +1777,9 @@ function vPrepNew(){
   const opts='<option value="">프로젝트 선택…</option>'+projs.map(p=>`<option ${p===npProj?'selected':''}>${Q(p)}</option>`).join('');
   const curLines=npProj?allSrc().filter(r=>r[S.proj]===npProj).length:0;
   const catChips=['<span class="chip '+(npCat===''?'on':'')+'" onclick="npCat=\'\';render()">전체</span>'].concat(
-    npCats().map(c=>`<span class="chip ${npCat===c?'on':''}" onclick="npCat='${QJ(c)}';render()">${Q(c)}</span>`),
-    ['<span class="chip '+(npCat==='__MAT__'?'on':'')+'" onclick="npCat=\'__MAT__\';render()">11. LEE FILTER · SAVAGE</span>']).join('');
+    npCats().map(c=>`<span class="chip ${npCat===c?'on':''}" onclick="npCat='${QJ(c)}';render()">${Q(c)}</span>`)).join('');
   var _g={};
   eqRows().forEach(function(e){
-    if(npCat==='__MAT__') return;
-    if(isMatEq(e[E.id])) return;   // LEE FILTER·SAVAGE 낱개로 대체
     if(npCat && ev(e,E.cat)!==npCat) return;
     var nm=ev(e,E.name)||'(이름없음)';
     if(q && !((nm+' '+ev(e,E.brand)+' '+e[E.id]).toLowerCase().includes(q.toLowerCase()))) return;
@@ -1804,7 +1801,7 @@ function vPrepNew(){
       +'<input id="npq_'+QJ(nm)+'" type="number" min="0" value="'+sel+'" style="width:52px;text-align:center" onchange="npModelSet(\''+QJ(nm)+'\',this.value)">'
       +'<button class="mini" onclick="npModelAdd(\''+QJ(nm)+'\',1)">＋</button></td></tr>' };
   });
-  const matItems = (!npCat || npCat==='__MAT__' || npCat==='9.CONSUMABLE') ? npMatRows() : [];
+  const matItems = (!npCat || npCat==='11. LEE FILTER · SAVAGE') ? npMatRows() : [];
   // LEE·SAVAGE와 일반 장비를 한 목록으로 합쳐 EQ_NO 순으로 정렬 (다른 탭과 통일)
   const invRows = invItems.concat(matItems)
     .sort(function(a,b){ if(a.cr!==b.cr) return a.cr-b.cr; return String(a.code||'').localeCompare(String(b.code||''),undefined,{numeric:true}); })
