@@ -3,7 +3,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>PA 장비관리 — 관리자 사이트 (3번) · v260725e</title>
+<title>PA 장비관리 — 관리자 사이트 (3번) · v260725f</title>
 <style>
 :root{--bg:#f7f5f0;--card:#fff;--ink:#222;--sub:#666;--line:#e6e1d8;--accent:#2f6db0;
  --ok:#1f7a52;--okbg:#e7f4ec;--warn:#b1442f;--warnbg:#fbeae5;--rent:#8a5a1a;--rentbg:#f7efe0}
@@ -1740,7 +1740,7 @@ function npMatSet(k,ri,v){ var key=npMatKey(k,ri); var n=Math.max(0,parseInt(v,1
 function npMatClear(key){ delete npMat[key]; render(); }
 function npMatLabel(k,ri){ var no=matNo(k,ri); return MAT[k].label.replace(' (배경지)','')+' '+matName(k,ri)+(no?' (구매넘버 '+no+')':''); }
 function npMatRows(){
-  var out='';
+  var out=[];
   ['cf','bg'].forEach(function(k){
     var d=auxGet()[k]; if(!d) return;
     d.records.forEach(function(r,ri){
@@ -1749,7 +1749,7 @@ function npMatRows(){
       if(q && lab.toLowerCase().indexOf(q.toLowerCase())<0) return;
       var av=Math.max(0,num(matQty(k,ri))); var key=npMatKey(k,ri); var sel=npMat[key]||0;
       var cls=av<=0?'p-zero':(av<=1?'p-warn':'p-ok');
-      out+='<tr style="background:#fbfaf5">'
+      out.push({ code:String(matCode(k,ri)||''), html:'<tr style="background:#fbfaf5">'
         +'<td class="n" style="font-family:ui-monospace,monospace;font-size:11px">'+Q(matCode(k,ri))+(matNo(k,ri)?'<br><span style="color:#aaa;font-size:10px">구매넘버 '+Q(matNo(k,ri))+'</span>':'')+'</td>'
         +'<td style="font-size:11.5px;color:#777;white-space:nowrap">9.CONSUMABLE<br><span style="font-size:10px;color:#aaa">'+MAT[k].label+'</span></td>'
         +'<td>'+Q(nm)
@@ -1757,7 +1757,7 @@ function npMatRows(){
         +'<td class="n"><span class="pill '+cls+'">'+av+'</span></td>'
         +'<td class="n" style="white-space:nowrap"><button class="mini" onclick="npMatAdd(\''+k+'\','+ri+',-1)">−</button>'
         +'<input id="npm_'+k+'_'+ri+'" type="number" min="0" value="'+sel+'" style="width:52px;text-align:center" onchange="npMatSet(\''+k+'\','+ri+',this.value)">'
-        +'<button class="mini" onclick="npMatAdd(\''+k+'\','+ri+',1)">＋</button></td></tr>';
+        +'<button class="mini" onclick="npMatAdd(\''+k+'\','+ri+',1)">＋</button></td></tr>' });
     });
   });
   return out;
@@ -1778,7 +1778,7 @@ function vPrepNew(){
     if(q && !((nm+' '+ev(e,E.brand)+' '+e[E.id]).toLowerCase().includes(q.toLowerCase()))) return;
     (_g[nm]=_g[nm]||[]).push(e);
   });
-  const invRows=Object.keys(_g).sort(function(a,b){ return String(_g[a][0][E.id]||'').localeCompare(String(_g[b][0][E.id]||''),undefined,{numeric:true}); }).map(function(nm){
+  const invItems=Object.keys(_g).map(function(nm){
     var us=_g[nm]; var e0=us[0];
     var av=npModelAvail(nm); var sel=npModelQty(nm);
     var raw=npAvailRaw(nm);
@@ -1786,15 +1786,19 @@ function vPrepNew(){
     var minus=(raw<0)?' <span style="color:#b1442f;font-size:10px" title="파손·분실이 보유수량보다 많습니다">(장부 '+raw+')</span>':'';
     var codes=us.map(function(e){return e[E.id];});
     var codeTxt = codes.length>1 ? (Q(codes[0])+' <span style="color:#aaa;font-size:10.5px">외 '+(codes.length-1)+'</span>') : Q(codes[0]);
-    return '<tr><td class="n" style="font-family:ui-monospace,monospace;font-size:11px">'+codeTxt+'</td>'
+    return { code:String(e0[E.id]||''), html:'<tr><td class="n" style="font-family:ui-monospace,monospace;font-size:11px">'+codeTxt+'</td>'
       +'<td style="font-size:11.5px;color:#777;white-space:nowrap">'+Q(ev(e0,E.cat))+'</td>'
       +'<td>'+Q(nm)+(us.length>1?' <span class="pill" style="background:#eaf1f9;color:#2f6db0">'+us.length+'대</span>':'')+'</td>'
       +'<td class="n"><span class="pill '+cls+'">'+av+'</span>'+minus+'</td>'
       +'<td class="n" style="white-space:nowrap"><button class="mini" onclick="npModelAdd(\''+QJ(nm)+'\',-1)">−</button>'
       +'<input id="npq_'+QJ(nm)+'" type="number" min="0" value="'+sel+'" style="width:52px;text-align:center" onchange="npModelSet(\''+QJ(nm)+'\',this.value)">'
-      +'<button class="mini" onclick="npModelAdd(\''+QJ(nm)+'\',1)">＋</button></td></tr>';
-  }).join('');
-  const matPick = (!npCat || npCat==='__MAT__' || npCat==='9.CONSUMABLE') ? npMatRows() : '';
+      +'<button class="mini" onclick="npModelAdd(\''+QJ(nm)+'\',1)">＋</button></td></tr>' };
+  });
+  const matItems = (!npCat || npCat==='__MAT__' || npCat==='9.CONSUMABLE') ? npMatRows() : [];
+  // LEE·SAVAGE와 일반 장비를 한 목록으로 합쳐 EQ_NO 순으로 정렬 (다른 탭과 통일)
+  const invRows = invItems.concat(matItems)
+    .sort(function(a,b){ return String(a.code||'').localeCompare(String(b.code||''),undefined,{numeric:true}); })
+    .map(function(x){return x.html;}).join('');
   var _sg={};
   Object.keys(npSel).forEach(function(id){
     var e=eqRows().find(function(r){return r[E.id]===id;}); if(!e)return;
@@ -1836,7 +1840,7 @@ function vPrepNew(){
       <div class="filt">${catChips}</div>
       <div class="filt"><input type="text" value="${Q(q)}" id="srch10" oninput="q=this.value;renderKeep(this,event)" oncompositionend="q=this.value;renderKeepDone(this)" placeholder="🔍 장비 검색"></div>
       <div data-scrollbox style="max-height:44vh;overflow:auto;border:1px solid #eee;border-radius:8px;position:relative">
-      <table><thead><tr><th class="n">EQ_NO</th><th>카테고리</th><th>장비</th><th class="n">가용</th><th class="n">선택 수량</th></tr></thead><tbody>${matPick}${invRows}</tbody></table></div></div>
+      <table><thead><tr><th class="n">EQ_NO</th><th>카테고리</th><th>장비</th><th class="n">가용</th><th class="n">선택 수량</th></tr></thead><tbody>${invRows}</tbody></table></div></div>
     <div class="panel"><div style="font-weight:800;margin-bottom:8px">② 준비 리스트 (고른 것 + 렌탈)</div>
       ${listPanel}
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px">
