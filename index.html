@@ -3,7 +3,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>PA 장비관리 — 관리자 사이트 (3번) · v260725c</title>
+<title>PA 장비관리 — 관리자 사이트 (3번) · v260725d</title>
 <style>
 :root{--bg:#f7f5f0;--card:#fff;--ink:#222;--sub:#666;--line:#e6e1d8;--accent:#2f6db0;
  --ok:#1f7a52;--okbg:#e7f4ec;--warn:#b1442f;--warnbg:#fbeae5;--rent:#8a5a1a;--rentbg:#f7efe0}
@@ -86,7 +86,7 @@ input.cell{width:64px;font-size:12px;padding:2px 5px;text-align:center}
 </style><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
-<div class="stickytop"><div class="top"><span class="logo">📦 PA 장비관리</span><span class="tag">✅ v7.0 · 서버공유</span><span class="sp"></span>
+<div class="stickytop"><div class="top"><span class="logo">📦 PA 장비관리</span><span id="verbadge" title="현재 화면 버전" style="font-size:10px;opacity:.6;font-family:ui-monospace,monospace;margin-left:1px"></span><span class="tag">✅ 서버공유</span><span class="sp"></span>
 <span id="who" style="font-size:12.5px;color:#dbe4ee;font-weight:700"></span><a href="./free.html" target="_blank" id="freebtn" style="background:#1f7a52;color:#fff;border-radius:7px;padding:6px 12px;font-weight:800;font-size:12px;text-decoration:none;white-space:nowrap;margin-right:6px">🎬 프리랜서 화면 ↗</a><a href="https://docs.google.com/spreadsheets/d/1mqoHrlbsLYHe_LEe4i5cwt8GVUPbxxin5gNKaYLrDNA/edit" target="_blank" id="sheetbtn" title="아직 자동 백업이 연결되지 않았습니다. 시트를 열기만 합니다." style="background:#eceae3;color:#7a7566;border:1px dashed #c4bda9;border-radius:7px;padding:6px 12px;font-weight:700;font-size:12px;text-decoration:none;white-space:nowrap;margin-right:6px">📗 백업 0번시트 <span style="font-weight:600;color:#b0764a">(연결 전)</span> ↗</a><button onclick="sbLoadAll()" style="background:#e7edf3;color:#2f4a66;border:none;border-radius:7px;padding:6px 11px;font-weight:700;font-size:12px;cursor:pointer;margin-right:6px">🔄 서버에서 새로고침</button><button onclick="resetAll()" style="background:#e7edf3;color:#2f4a66;border:none;border-radius:7px;padding:6px 11px;font-weight:700;font-size:12px;cursor:pointer">입력 초기화</button><button onclick="logout()" id="lgoutbtn" style="display:none;background:#b1442f;color:#fff;border:none;border-radius:7px;padding:6px 11px;font-weight:700;font-size:12px;cursor:pointer">로그아웃</button></div>
 <nav id="nav"></nav></div>
 <main id="main"></main>
@@ -2185,6 +2185,30 @@ function _render(){
   main.innerHTML=sbBanner()+(view!=='mem'?waitBadge():'')+({prepNew:vPrepNew,proj:vProj,cal:vCal,inv:vInv,rep:vRep,lost:vLost,mst:vMst,bg:vBg,buy:vBuy,src:vSrc,mem:vMem})[view]();
 }
 render();
+// ===== 버전 표시 + 새 버전 자동 감지 =====
+var APP_VER=((document.title||'').match(/v\d{6}[a-z]?/)||[''])[0];
+(function(){ var b=document.getElementById('verbadge'); if(b) b.textContent=APP_VER||''; })();
+var _updShown=false;
+async function checkNewVersion(){
+  try{
+    var r=await fetch(location.pathname+'?_v='+Date.now(),{cache:'no-store',headers:{Range:'bytes=0-1279'}});
+    if(!r.ok) return;
+    var t=await r.text();
+    var m=((t.match(/v\d{6}[a-z]?/))||[''])[0];
+    if(m && APP_VER && m!==APP_VER && !_updShown){ _updShown=true; _showUpdateBar(m); }
+  }catch(e){}
+}
+function _showUpdateBar(nv){
+  if(document.getElementById('updbar')) return;
+  var d=document.createElement('div'); d.id='updbar';
+  d.style.cssText='position:fixed;left:0;right:0;bottom:0;z-index:99999;background:#2f6db0;color:#fff;padding:11px 16px;display:flex;align-items:center;justify-content:center;gap:12px;font-size:14px;flex-wrap:wrap;box-shadow:0 -2px 12px rgba(0,0,0,.18)';
+  d.innerHTML='🔄 새 버전('+nv+')이 나왔습니다. 최신으로 새로고침하세요.'
+    +' <button onclick="location.href=location.pathname+\'?v=\'+Date.now()" style="background:#fff;color:#2f6db0;border:0;border-radius:8px;padding:6px 14px;font-weight:800;cursor:pointer">지금 새로고침</button>'
+    +' <button onclick="var u=document.getElementById(\'updbar\');if(u)u.remove()" style="background:transparent;color:#cfe0f2;border:1px solid #7fb0dd;border-radius:8px;padding:6px 10px;cursor:pointer">나중에</button>';
+  document.body.appendChild(d);
+}
+setTimeout(checkNewVersion, 30000);      // 첫 접속 30초 뒤 1회
+setInterval(checkNewVersion, 180000);    // 이후 3분마다 새 버전 확인
 (function(){
   var c=sbClient(); if(!c) return;
   c.auth.getSession().then(function(r){
