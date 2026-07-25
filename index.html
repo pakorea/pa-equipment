@@ -3,7 +3,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>PA 장비관리 — 관리자 사이트 (3번) · v260725a</title>
+<title>PA 장비관리 — 관리자 사이트 (3번) · v260725b</title>
 <style>
 :root{--bg:#f7f5f0;--card:#fff;--ink:#222;--sub:#666;--line:#e6e1d8;--accent:#2f6db0;
  --ok:#1f7a52;--okbg:#e7f4ec;--warn:#b1442f;--warnbg:#fbeae5;--rent:#8a5a1a;--rentbg:#f7efe0}
@@ -1463,6 +1463,48 @@ function vBuy(){
     <div class="panel" style="max-height:70vh;overflow:auto"><table><thead><tr>${H}</tr></thead><tbody>${body}</tbody></table></div>`;
 }
 
+// ===== 🚩 분실 관리 =====
+// 찾음 처리 — 분실 개수를 줄여 재고로 되돌린다. (설재고 = 보유 − 분실 − 파손 + 수리완료)
+function lostFound(line,all){
+  var r=allSrc().find(function(x){return x[S.line]===line;}); if(!r) return;
+  var cur=num(val(r,S.lost)); if(cur<=0) return;
+  var next= all? 0 : Math.max(0,cur-1);
+  if(!confirm('찾음 처리할까요?\n분실 '+cur+' → '+next+' (재고로 복귀됩니다)')) return;
+  setVal(line,S.lost,String(next));   // save()가 _dmg·__invUse 비워 재고 즉시 반영 + 서버 저장
+  sbMsg='분실 '+(all?('전체('+cur+'개)'):'1개')+' 찾음 — 재고 복귀';
+}
+function vLost(){
+  var all=allSrc().filter(function(r){ return num(val(r,S.lost))>0; });
+  var totLines=all.length;
+  var totQty=all.reduce(function(a,r){ return a+num(val(r,S.lost)); },0);
+  var rows=all.filter(function(r){ if(!q)return true; var h=(r[S.proj]+' '+val(r,S.item)+' '+val(r,S.reqItem)+' '+r[S.itemId]).toLowerCase(); return h.includes(q.toLowerCase()); });
+  var body=rows.map(function(r){
+    var line=r[S.line];
+    var nm=Q(val(r,S.item)||val(r,S.reqItem)||'(이름없음)');
+    var lost=num(val(r,S.lost));
+    var by=Q(nameOf(val(r,S.retBy))||'');
+    var date=Q(val(r,S.due)||val(r,S.out)||'');
+    return '<tr>'
+      +'<td style="font-family:ui-monospace,monospace;font-size:11.5px">'+Q(r[S.itemId]||'-')+'</td>'
+      +'<td><b>'+nm+'</b></td>'
+      +'<td><a style="cursor:pointer;color:var(--accent)" onclick="goProject(\''+QJ(r[S.proj])+'\')">'+Q(r[S.proj])+'</a></td>'
+      +'<td class="n"><span class="pill p-zero">'+lost+'</span></td>'
+      +'<td>'+(by||'<span style="color:#ccc">-</span>')+'</td>'
+      +'<td>'+(date||'<span style="color:#ccc">-</span>')+'</td>'
+      +'<td style="white-space:nowrap"><button class="mini" onclick="lostFound(\''+QJ(line)+'\',false)">✓ 찾음 −1</button>'
+        +(lost>1?' <button class="mini" onclick="lostFound(\''+QJ(line)+'\',true)">전체 찾음</button>':'')+'</td>'
+      +'</tr>';
+  }).join('');
+  return '<h2>🚩 분실 관리 <span style="font-size:12px;color:var(--sub)">('+totLines+'건 · 총 '+totQty+'개 분실)</span></h2>'
+    +'<div class="lead"><b>분실된 장비 목록</b>입니다. 반납할 때 \'분실\'로 적힌 것이 여기에 모입니다. <b>다시 찾으면 "찾음"</b>을 눌러 재고로 되돌립니다.</div>'
+    +'<div class="kpis"><div class="kpi"><div class="v" style="color:var(--warn)">'+totLines+'</div><div class="l">분실 건수</div></div>'
+      +'<div class="kpi"><div class="v" style="color:var(--warn)">'+totQty+'</div><div class="l">총 분실 수량</div></div></div>'
+    +'<div class="filt"><input type="text" value="'+Q(q)+'" id="srchlost" oninput="q=this.value;renderKeep(this,event)" oncompositionend="q=this.value;renderKeepDone(this)" placeholder="🔍 프로젝트·품목·EQ_NO 검색"></div>'
+    +(totLines===0
+       ? '<div class="note-box" style="background:#eef7f1;border-color:#cbe6d5;color:#2f8a58">✅ 현재 분실로 기록된 장비가 없습니다.</div>'
+       : '<div class="panel" style="max-height:70vh;overflow:auto"><table><thead><tr><th>EQ_NO</th><th>품목</th><th>프로젝트</th><th class="n">분실</th><th>반납자</th><th>날짜</th><th>처리</th></tr></thead><tbody>'+body+'</tbody></table></div>');
+}
+
 // ===== 📋 소싱시트 =====
 function vSrc(){
   var all=allSrc();
@@ -1826,7 +1868,7 @@ function vPrepAll(){
   return `<h2>📦 준비 (전체 프로젝트)</h2><div class="lead">모든 프로젝트의 준비를 한 화면에서. 품목의 <b>🔗 연관장비</b>를 누르면 챙길 목록이 뜹니다.</div>${stageFilter()}${body||'<div class="panel">라인 없음</div>'}${relModal()}`;
 }
 
-const ALLTABS=[['src','📋 소싱시트'],['prepNew','📦 프로젝트 준비'],['proj','📁 프로젝트'],['cal','📅 캘린더'],['inv','📊 재고 현황'],['rep','🔧 파손·이력'],['mst','🗂 장비 마스터'],['bg','🎨 LEE FILTER · SAVAGE'],['buy','🧾 매입내역'],['mem','👥 명단']];
+const ALLTABS=[['src','📋 소싱시트'],['prepNew','📦 프로젝트 준비'],['proj','📁 프로젝트'],['cal','📅 캘린더'],['inv','📊 재고 현황'],['rep','🔧 파손·이력'],['lost','🚩 분실'],['mst','🗂 장비 마스터'],['bg','🎨 LEE FILTER · SAVAGE'],['buy','🧾 매입내역'],['mem','👥 명단']];
 const FREE_TABS=['proj','cal'];
 const MEMBERS_DEFAULT=[
  {email:'parklife992@gmail.com',name:'박성준',pw:'2023',role:'관리자'},
@@ -2138,7 +2180,7 @@ function _render(){
   if(!tabs.some(t=>t[0]===view)) view=tabs[0][0];
   nav.innerHTML=tabs.map(t=>`<button class="${view===t[0]?'on':''}" onclick="go('${t[0]}')">${t[1]}</button>`).join('');
   if(view==='hold') view='prepNew';
-  main.innerHTML=sbBanner()+(view!=='mem'?waitBadge():'')+({prepNew:vPrepNew,proj:vProj,cal:vCal,inv:vInv,rep:vRep,mst:vMst,bg:vBg,buy:vBuy,src:vSrc,mem:vMem})[view]();
+  main.innerHTML=sbBanner()+(view!=='mem'?waitBadge():'')+({prepNew:vPrepNew,proj:vProj,cal:vCal,inv:vInv,rep:vRep,lost:vLost,mst:vMst,bg:vBg,buy:vBuy,src:vSrc,mem:vMem})[view]();
 }
 render();
 (function(){
