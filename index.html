@@ -3,7 +3,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>PA 장비관리 — 관리자 사이트 (3번) · v260726d</title>
+<title>PA 장비관리 — 관리자 사이트 (3번) · v260726e</title>
 <style>
 :root{--bg:#f7f5f0;--card:#fff;--ink:#222;--sub:#666;--line:#e6e1d8;--accent:#2f6db0;
  --ok:#1f7a52;--okbg:#e7f4ec;--warn:#b1442f;--warnbg:#fbeae5;--rent:#8a5a1a;--rentbg:#f7efe0}
@@ -517,6 +517,13 @@ function setStage(sg){stage=sg;render();}
 function vProj(){
   if(curProj)return vProjDetail();
   const lines=activeLines(); const g=groupByProj(lines);
+  // 프리랜서 사이트: 로그인한 사람이 배정(crew)된 프로젝트만 (관리자가 봐도 본인 배정만)
+  if(IS_FREE_SITE){
+    var _myEm=String((session&&session.email)||ME||'').toLowerCase();
+    var _mine={};
+    Object.keys(crew||{}).forEach(function(pj){ (crew[pj]||[]).forEach(function(c){ if(String(c.email||'').toLowerCase()===_myEm) _mine[pj]=1; }); });
+    Object.keys(g).forEach(function(pj){ if(!_mine[pj]) delete g[pj]; });
+  }
   const _key=function(p){ var rs=allSrc().filter(function(r){return r[S.proj]===p;});
     var ds=rs.map(function(r){return val(r,S.out)||'';}).filter(Boolean).sort(); return ds.length?ds[ds.length-1]:''; };
   const cards=Object.keys(g).sort(function(a,b){ var ka=_key(a),kb=_key(b); if(ka===kb) return a<b?1:-1; return ka<kb?1:-1; }).map(pj=>{
