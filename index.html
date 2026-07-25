@@ -3,7 +3,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>PA 장비관리 — 관리자 사이트 (3번) · v260726c</title>
+<title>PA 장비관리 — 관리자 사이트 (3번) · v260726d</title>
 <style>
 :root{--bg:#f7f5f0;--card:#fff;--ink:#222;--sub:#666;--line:#e6e1d8;--accent:#2f6db0;
  --ok:#1f7a52;--okbg:#e7f4ec;--warn:#b1442f;--warnbg:#fbeae5;--rent:#8a5a1a;--rentbg:#f7efe0}
@@ -530,8 +530,8 @@ function vProj(){
       <div class="pd">${Q(projDates(pj))} · ${rs.length}개 라인 · ${Q(st)}</div>
       <div class="pb"><span class="badge">📦 준비 ${pd}/${rs.length}</span><span class="badge">🎬 랩업 ${wd}/${rs.length}</span><span class="badge">↩️ 반납 ${rd}/${rs.length}</span></div></div>`;
   }).join('');
-  return `<h2>📁 프로젝트</h2><div class="lead">프로젝트를 클릭하면 <b>준비 → 랩업 → 반납</b> 페이지가 열립니다.</div>
-    ${projEditModal()}${stageFilter()}<div class="plist">${cards||'<div class="panel">프로젝트 없음</div>'}</div>`;
+  return `<h2>📁 ${IS_FREE_SITE?'내 프로젝트 <span style="font-size:12px;color:var(--sub)">(나에게 배정된 것만)</span>':'프로젝트'}</h2><div class="lead">${IS_FREE_SITE?'관리자가 <b>나를 배정한 프로젝트</b>만 보입니다. ':''}프로젝트를 클릭하면 <b>준비 → 랩업 → 반납</b> 페이지가 열립니다.</div>
+    ${projEditModal()}${stageFilter()}<div class="plist">${cards||('<div class="panel">'+(IS_FREE_SITE?'아직 <b>배정된 프로젝트가 없습니다.</b><br><span style="font-size:13px;color:#888">관리자가 배정하면 여기 나타납니다.</span>':'프로젝트 없음')+'</div>')}</div>`;
 }
 function vProjDetail(){
   const rows=allSrc().filter(r=>r[S.proj]===curProj && (val(r,S.status)||'').toString().toLowerCase()!=='remove');
@@ -546,13 +546,15 @@ function vProjDetail(){
         : '반납 체크 + 파손·분실 개수를 적으면 반납상태 자동 계산, 재고에 즉시 반영됩니다.';
   return `<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:4px">
       <button class="backbtn" onclick="backProj()">← 프로젝트 목록</button>
-      <button class="backbtn" onclick="openProjEdit('${QJ(curProj)}')">✏️ 정보 수정</button>
-      <button class="backbtn" style="color:var(--accent);border-color:#a9c4e0;font-weight:800" onclick="openAddEq()">＋ 장비 추가</button>
+      ${IS_FREE_SITE?'':`<button class="backbtn" onclick="openProjEdit('${QJ(curProj)}')">✏️ 정보 수정</button>
+      <button class="backbtn" style="color:var(--accent);border-color:#a9c4e0;font-weight:800" onclick="openAddEq()">＋ 장비 추가</button>`}
       <h2 style="margin:0">📁 ${Q(curProj)}</h2>
       <span style="color:var(--sub);font-size:13px">${Q(projDates(curProj))}</span>
-      ${projStatus(curProj)==='완료'
-        ?`<span class="pill p-ok">✔ 완료됨</span><button class="backbtn" onclick="setProjDone('${QJ(curProj)}',false)">↩ 완료 취소</button>`
-        :`<button class="backbtn" style="color:var(--ok);border-color:#9fd4b4;font-weight:800" onclick="if(confirm('[${Q(curProj)}] 프로젝트를 완료 처리할까요? (활성 목록에서 숨겨지고, 완료 포함을 누르면 보입니다)'))setProjDone('${QJ(curProj)}',true)">✔ 프로젝트 완료 처리</button>`}</div>
+      ${IS_FREE_SITE
+        ? (projStatus(curProj)==='완료'?'<span class="pill p-ok">✔ 완료됨</span>':'')
+        : (projStatus(curProj)==='완료'
+            ?`<span class="pill p-ok">✔ 완료됨</span><button class="backbtn" onclick="setProjDone('${QJ(curProj)}',false)">↩ 완료 취소</button>`
+            :`<button class="backbtn" style="color:var(--ok);border-color:#9fd4b4;font-weight:800" onclick="if(confirm('[${Q(curProj)}] 프로젝트를 완료 처리할까요? (활성 목록에서 숨겨지고, 완료 포함을 누르면 보입니다)'))setProjDone('${QJ(curProj)}',true)">✔ 프로젝트 완료 처리</button>`)}</div>
     <div class="stgbar">${tabs}</div><div class="lead">${lead}</div>${body}${relModal()}${projEditModal()}${addEqModal()}`;
 }
 
@@ -1443,11 +1445,14 @@ function matModal(){
    +'<div class="mbtns"><button class="primary" onclick="closeMat()">닫기</button></div></div></div>';
 }
 function vBg(){
+  var ed = !IS_FREE_SITE;   // 프리랜서 사이트면 읽기전용(확인만)
   return '<h2>🎨 LEE FILTER · SAVAGE</h2>'
-    +'<div class="lead"><b>여기가 LEE FILTER · SAVAGE의 유일한 수정 창구입니다.</b> 여기서 고치거나 추가하면 장비 마스터·재고 현황·프로젝트 준비에 자동으로 같이 반영됩니다.<br>품목마다 <b>수량</b>과 <b>구매 여부</b>를 관리합니다. 랩업/반납 때 <b>50% 이하</b>면 체크 → <b>구매 필요</b>로 표시됩니다.</div>'
+    +'<div class="lead">'+(ed
+       ? '<b>여기가 LEE FILTER · SAVAGE의 유일한 수정 창구입니다.</b> 여기서 고치거나 추가하면 장비 마스터·재고 현황·프로젝트 준비에 자동으로 같이 반영됩니다.<br>품목마다 <b>수량</b>과 <b>구매 여부</b>를 관리합니다. 랩업/반납 때 <b>50% 이하</b>면 체크 → <b>구매 필요</b>로 표시됩니다.'
+       : 'LEE FILTER · SAVAGE <b>보유 현황(확인용)</b>입니다. 관리자 화면과 <b>자동으로 같은 내용</b>이며, 여기서는 <b>보기만</b> 합니다.')+'</div>'
     +'<div style="display:flex;flex-direction:column;gap:14px">'
-    +'<div class="panel" style="width:100%"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><div style="font-weight:800">LEE FILTER</div><button class="addbtn" onclick="matAddItem(\'cf\')">＋ 품목 추가</button></div>'+matListHTML('cf',true)+'</div>'
-    +'<div class="panel" style="width:100%"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><div style="font-weight:800">SAVAGE (배경지)</div><button class="addbtn" onclick="matAddItem(\'bg\')">＋ 품목 추가</button></div>'+matListHTML('bg',true)+'</div>'
+    +'<div class="panel" style="width:100%"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><div style="font-weight:800">LEE FILTER</div>'+(ed?'<button class="addbtn" onclick="matAddItem(\'cf\')">＋ 품목 추가</button>':'')+'</div>'+matListHTML('cf',ed)+'</div>'
+    +'<div class="panel" style="width:100%"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><div style="font-weight:800">SAVAGE (배경지)</div>'+(ed?'<button class="addbtn" onclick="matAddItem(\'bg\')">＋ 품목 추가</button>':'')+'</div>'+matListHTML('bg',ed)+'</div>'
     +'</div>';
 }
 
