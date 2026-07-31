@@ -3,7 +3,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>PA 장비관리 — 프리랜서 사이트 · v260727b</title>
+<title>PA 장비관리 — 프리랜서 사이트 · v260731a</title>
 <style>
 :root{--bg:#f7f5f0;--card:#fff;--ink:#222;--sub:#666;--line:#e6e1d8;--accent:#2f6db0;
  --ok:#1f7a52;--okbg:#e7f4ec;--warn:#b1442f;--warnbg:#fbeae5;--rent:#8a5a1a;--rentbg:#f7efe0}
@@ -1824,6 +1824,78 @@ function npMatRows(){
   });
   return out;
 }
+// ===== ⓪ 포토 리스트 붙여넣기 → 자동 매칭(브랜드·모델명·다른명칭 가중치) → 고른 장비/외부 렌탈 자동 채움 =====
+let srcPasteTxt=LS('pa_v3_srcpaste','')||'';
+function _spNorm(s){ return (s==null?'':s).toString().toLowerCase().replace(/[^a-z0-9가-힣]/g,''); }
+function _spToks(s){ return (s==null?'':s).toString().toLowerCase().split(/[^a-z0-9가-힣]+/).filter(function(x){return x.length>=2;}); }
+let _spIdf=null, _spN=0, _spCache=null;
+function _spBuild(){
+  var rows=eqRows(); _spN=rows.length; _spIdf={};
+  _spCache=rows.map(function(e){
+    var et=_spToks(ev(e,E.name)+' '+ev(e,E.brand)+' '+ev(e,E.altname));
+    new Set(et).forEach(function(t){ _spIdf[t]=(_spIdf[t]||0)+1; });
+    return { e:e, et:et, en:_spNorm(ev(e,E.name)), bt:_spToks(ev(e,E.brand)) };
+  });
+}
+function _spW(t){ return Math.log((_spN+1)/((_spIdf[t]||0)+1))+0.5; }
+function _spScore(rs,c){
+  var rset=rs.set, rn=rs.n, et=c.et; if(!et.length||!rset.size) return 0;
+  var mW=0,tW=0;
+  for(var i=0;i<et.length;i++){ var t=et[i], w=_spW(t); tW+=w;
+    if(rset.has(t)) mW+=w; else if(t.length>=4 && rn.indexOf(t)>=0) mW+=w*0.85; }
+  var s=100*(tW?mW/tW:0);
+  if(c.bt.length && c.bt.every(function(b){return rset.has(b)||rn.indexOf(b)>=0;})) s+=10;
+  if(c.en.length>=5 && rn.indexOf(c.en)>=0) s+=15;
+  return Math.round(Math.min(120,s));
+}
+function _spBest(name){
+  var rs={set:new Set(_spToks(name)), n:_spNorm(name)}, b=null, bs=-1;
+  for(var i=0;i<_spCache.length;i++){ var s=_spScore(rs,_spCache[i]); if(s>bs){ bs=s; b=_spCache[i].e; } }
+  return { e:b, s:bs };
+}
+var _SP_SKIP=/^(photo references|end of list|please notify|.*v\d+\s*list\s*$|\(\s*\d+\s*\)|_{3,}|jack day|.*-\s*burberry)/i;
+var _SP_SECT=/^(LIGHTS( ?\+ ?PACKS)?|PACKS|DISTRO|GRIP|MODIFIERS?|STANDS( ?\+ ?BASES)?|BASES|CONSUMABLES?|EXPENDABLES?|CAMERA|LENS(ES)?|LIGHTING|ELECTRIC(AL)?|ACCESSORIES|MISC(ELLANEOUS)?|OTHER|TEXTILES?)\b/i;
+function _spParse(text){
+  var lines=(text||'').split('\n').map(function(l){ return l.replace(/\t/g,' ').replace(/\s+/g,' ').trim(); });
+  var out=[];
+  lines.forEach(function(l){
+    if(!l||_SP_SKIP.test(l)) return;
+    if(l.length<=30 && l===l.toUpperCase() && !/^\d/.test(l) && !/\d\s*[xX]\s/.test(l) && _SP_SECT.test(l)) return; // 섹션 헤더 무시
+    var qty='', name=l, m;
+    if(m=l.match(/^(\d+)\s*[xX]\s+(.+)$/)){ qty=m[1]; name=m[2]; }
+    else if(m=l.match(/^(\d+)\s*M\b\s*(.+)$/i)){ qty=m[1]+'M'; name=m[2]; }
+    else if(m=l.match(/^(\d+)\s+(.+)$/)){ qty=m[1]; name=m[2]; }
+    else if(m=l.match(/^(.+?)\s+[xX]\s*(\d+)$/)){ name=m[1]; qty=m[2]; }
+    var matchName=name.replace(/\([^)]*\)/g,' ').replace(/\bWITH\b.*/i,'').replace(/\s*-\s*ONLY.*/i,'').replace(/\bOR\b.*/i,'').replace(/\s+/g,' ').trim();
+    out.push({ req:name.trim(), qty:qty, matchName:matchName });
+  });
+  return out;
+}
+function srcPasteRun(){
+  var ta=document.getElementById('spPaste'); var txt=ta?ta.value:srcPasteTxt;
+  var items=_spParse(txt);
+  if(!items.length){ alert('붙여넣은 내용을 못 읽었습니다.\n포토 리스트를 붙여넣고 다시 눌러주세요.'); return; }
+  _spBuild();
+  var picked=0, rented=0; var lowList=[];
+  items.forEach(function(it){
+    var q=parseInt(it.qty)||1;
+    var bm=_spBest(it.matchName||it.req);
+    if(bm.e && bm.s>=45){
+      var id=ev(bm.e,E.id);
+      npSel[id]=(npSel[id]||0)+q; picked++;
+      if(bm.s<72) lowList.push(it.req+'  →  '+ev(bm.e,E.name));
+    } else {
+      npRent.push({ name:it.req, qty:q }); rented++;
+    }
+  });
+  srcPasteTxt=txt; try{ LSs('pa_v3_srcpaste',txt); }catch(e){}
+  render();
+  var msg='✅ 붙여넣기 반영 완료\n\n· 고른 장비(자동 매칭): '+picked+'개\n· 외부 렌탈(PA에 없음): '+rented+'개';
+  if(lowList.length) msg+='\n\n⚠️ 확인 필요 '+lowList.length+'개 — 자동 추측이 애매합니다. ①②에서 확인·수정하세요:\n- '+lowList.slice(0,8).join('\n- ')+(lowList.length>8?'\n  …외 '+(lowList.length-8)+'개':'');
+  msg+='\n\n※ ①②에서 수량·장비를 확인·수정한 뒤, ③에서 「이 구성으로 라인 만들기」를 누르세요.';
+  alert(msg);
+}
+function srcPasteClear(){ var ta=document.getElementById('spPaste'); if(ta) ta.value=''; srcPasteTxt=''; try{ LSs('pa_v3_srcpaste',''); }catch(e){} }
 function vPrepNew(){
   const projs=npProjects();
   const opts='<option value="">프로젝트 선택…</option>'+projs.map(p=>`<option ${p===npProj?'selected':''}>${Q(p)}</option>`).join('');
@@ -1894,7 +1966,15 @@ function vPrepNew(){
   const listPanel=(selRows||rentRows)?`<table><thead><tr><th>준비 품목</th><th class="n">수량</th><th class="n">가용</th><th>판정</th><th>조달처<br><span style="font-weight:400;font-size:10px;color:#999">부족분 렌탈·구매</span></th><th>EQ NOTE<br><span style="font-weight:400;font-size:10px;color:#8a7a5c">포토 공유</span></th><th>내부 노트<br><span style="font-weight:400;font-size:10px;color:#5c7a9a">팀·프리랜서 공유</span></th><th class="n">빼기</th></tr></thead><tbody>${selRows}${rentRows}</tbody></table>`
     :'<div style="color:#bbb;padding:10px">아직 고른 장비가 없습니다. 위에서 고르세요.</div>';
   return `<h2>📦 프로젝트 준비 <span style="font-size:12px;color:var(--sub)">⭐ 장비 구성 + 프로젝트 생성</span></h2>
-    <div class="lead">① 장비를 고르고 → ② 준비 리스트를 확인한 뒤 → ③ 어느 프로젝트인지 정해 <b>소싱 라인으로 만듭니다.</b></div>
+    <div class="lead"><b style="color:var(--ok)">⓪ 포토 리스트 붙여넣기(선택)</b> → ① 장비를 고르고 → ② 준비 리스트를 확인한 뒤 → ③ 어느 프로젝트인지 정해 <b>소싱 라인으로 만듭니다.</b></div>
+    <div class="panel" style="border:2px solid var(--ok);background:#f2faf5">
+      <div style="font-weight:800;color:var(--ok);margin-bottom:6px">⓪ 📋 포토 리스트 붙여넣기 <span style="font-weight:500;font-size:12px;color:var(--sub)">— 받은 그대로 붙여넣고 「반영」을 누르면 아래 ①②가 자동으로 채워집니다</span></div>
+      <textarea id="spPaste" placeholder="예)  3 X PROFOTO PRO 11 (2000W) PACK&#10;6 X SUPER CLAMPS WITH J HOOKS&#10;2M FULL DIFF" style="width:100%;min-height:74px;border:1px solid var(--line);border-radius:8px;padding:8px;font-family:inherit;font-size:13px;line-height:1.55;background:#fff">${(srcPasteTxt||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px">
+        <button class="addbtn" style="background:var(--ok);color:#fff;border:none;font-weight:800" onclick="srcPasteRun()">↓ 붙여넣기 반영 (자동 매칭)</button>
+        <button class="mini" onclick="srcPasteClear()">지우기</button>
+        <span style="font-size:11.5px;color:var(--sub)">수량 앞(3 X)·미터(2M)·섹션·괄호 노트까지 인식 · PA에 없는 건 외부 렌탈로 · 애매하면 ①②에서 확인</span>
+      </div></div>
     <div class="panel"><div style="font-weight:800;margin-bottom:8px">① 카테고리 → 보유 장비 고르기 <span style="font-weight:500;font-size:12px;color:var(--sub)">(품목별로 묶어서 수량만 정하면, 어느 개체가 나갈지는 출고 때 정해집니다)</span></div>
       <div class="filt">${catChips}</div>
       <div class="filt"><input type="text" value="${Q(q)}" id="srch10" oninput="q=this.value;renderKeep(this,event)" oncompositionend="q=this.value;renderKeepDone(this)" placeholder="🔍 장비 검색"></div>
