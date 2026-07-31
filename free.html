@@ -3,7 +3,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>PA 장비관리 — 프리랜서 사이트 · v260731c</title>
+<title>PA 장비관리 — 프리랜서 사이트 · v260731d</title>
 <style>
 :root{--bg:#f7f5f0;--card:#fff;--ink:#222;--sub:#666;--line:#e6e1d8;--accent:#2f6db0;
  --ok:#1f7a52;--okbg:#e7f4ec;--warn:#b1442f;--warnbg:#fbeae5;--rent:#8a5a1a;--rentbg:#f7efe0}
@@ -1503,6 +1503,16 @@ function lostFound(line,all){
   setVal(line,S.lost,String(next));   // save()가 _dmg·__invUse 비워 재고 즉시 반영 + 서버 저장
   sbMsg='분실 '+(all?('전체('+cur+'개)'):'1개')+' 찾음 — 재고 복귀';
 }
+// 🔧 파손·이력 + 🚩 분실 = 한 탭에 내부 토글로 합침
+let repSub='rep';
+function vRepLost(){
+  var isL=repSub==='lost';
+  var bar='<div class="stgbar">'
+    +'<button class="stg '+(!isL?'on':'')+'" onclick="repSub=\'rep\';render()">🔧 파손·이력</button>'
+    +'<button class="stg '+(isL?'on':'')+'" onclick="repSub=\'lost\';render()">🚩 분실</button>'
+    +'</div>';
+  return bar+(isL?vLost():vRep());
+}
 function vLost(){
   var all=allSrc().filter(function(r){ return num(val(r,S.lost))>0; });
   var totLines=all.length;
@@ -2064,7 +2074,7 @@ function vPrepAll(){
   return `<h2>📦 준비 (전체 프로젝트)</h2><div class="lead">모든 프로젝트의 준비를 한 화면에서. 품목의 <b>🔗 연관장비</b>를 누르면 챙길 목록이 뜹니다.</div>${stageFilter()}${body||'<div class="panel">라인 없음</div>'}${relModal()}`;
 }
 
-const ALLTABS=[['prepNew','📦 프로젝트 준비'],['proj','📁 프로젝트'],['cal','📅 캘린더'],['inv','📊 재고 현황'],['rep','🔧 파손·이력'],['lost','🚩 분실'],['mst','🗂 장비 마스터'],['bg','🎨 LEE FILTER · SAVAGE'],['buy','🧾 매입내역'],['mem','👥 명단'],['src','📋 소싱시트']];
+const ALLTABS=[['prepNew','📦 프로젝트 준비'],['proj','📁 프로젝트'],['cal','📅 캘린더'],['inv','📊 재고 현황'],['rep','🔧 파손·분실'],['mst','🗂 장비 마스터'],['bg','🎨 LEE FILTER · SAVAGE'],['buy','🧾 매입내역'],['mem','👥 명단'],['src','📋 소싱시트']];
 const FREE_TABS=['proj','cal'];
 const MEMBERS_DEFAULT=[
  {email:'parklife992@gmail.com',name:'박성준',pw:'2023',role:'관리자'},
@@ -2400,7 +2410,8 @@ function _render(){
   if(!tabs.some(t=>t[0]===view)) view=tabs[0][0];
   nav.innerHTML=tabs.map(t=>`<button class="${view===t[0]?'on':''}" onclick="go('${t[0]}')">${t[1]}</button>`).join('');
   if(view==='hold') view='prepNew';
-  main.innerHTML=sbBanner()+(view!=='mem'?waitBadge():'')+({prepNew:vPrepNew,proj:vProj,cal:vCal,inv:vInv,rep:vRep,lost:vLost,mst:vMst,bg:vBg,buy:vBuy,src:vSrc,mem:vMem})[view]();
+  if(view==='lost'){ view='rep'; repSub='lost'; }
+  main.innerHTML=sbBanner()+(view!=='mem'?waitBadge():'')+({prepNew:vPrepNew,proj:vProj,cal:vCal,inv:vInv,rep:vRepLost,lost:vLost,mst:vMst,bg:vBg,buy:vBuy,src:vSrc,mem:vMem})[view]();
 }
 render();
 // ===== 버전 표시 + 새 버전 자동 감지 =====
