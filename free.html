@@ -3,7 +3,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>PA 장비관리 — 프리랜서 사이트 · v260801a</title>
+<title>PA 장비관리 — 프리랜서 사이트 · v260801b</title>
 <style>
 :root{--bg:#f7f5f0;--card:#fff;--ink:#222;--sub:#666;--line:#e6e1d8;--accent:#2f6db0;
  --ok:#1f7a52;--okbg:#e7f4ec;--warn:#b1442f;--warnbg:#fbeae5;--rent:#8a5a1a;--rentbg:#f7efe0}
@@ -150,7 +150,7 @@ function eqRows(){
   var sig=eqAdd.length+'|'+eqDel.join(',');
   if(_eqRowsCache && _eqRowsRef===EQ.rows && _eqRowsSig===sig) return _eqRowsCache;
   var r=EQ.rows.concat(eqAdd).filter(function(x){return eqDel.indexOf(x[E.id])<0;})
-    .sort(function(a,b){ return cmpCatEq(a[E.cat],a[E.id],b[E.cat],b[E.id]); });   // 카테고리 순 → EQ_NO 순
+    .sort(function(a,b){ return cmpCatEq(ev(a,E.cat),a[E.id],ev(b,E.cat),b[E.id]); });   // 카테고리 순(수정값 반영) → EQ_NO 순
   _eqRowsCache=r; _eqRowsRef=EQ.rows; _eqRowsSig=sig; return r;
 }
 function ev(r,idx){ const o=eqOv[r[E.id]]; return (o&&o[idx]!==undefined)?o[idx]:r[idx]; }
@@ -1058,6 +1058,7 @@ function mstSave(){
     MF.forEach(f=>{ if(E[f[0]]>=0) eqOv[mstSel][E[f[0]]]=gv(f[0]); });
     var __o={}; MF.forEach(function(f){ if(E[f[0]]>=0){ var hh=DB.equip.headers[E[f[0]]]; if(hh)__o[hh]=gv(f[0]); } }); srvEqUpdate(mstSel,__o);
   }
+  _eqRowsCache=null; __catOrder=null;   // 카테고리 수정 시 정렬 캐시 무효화 → 즉시 재정렬
   save(); mstSel=null; render();
 }
 function mstDelete(){
@@ -1200,11 +1201,11 @@ function vMst(){
     // 열별 드롭다운(항목 40개 이하인 열만)
     function _distinct(cd){ var seen={},arr=[]; for(var k=0;k<base.length;k++){ var v=String(cd.get(base[k])||'').trim(); if(v&&!seen[v]){ seen[v]=1; arr.push(v); if(arr.length>40) return null; } } return arr.sort(); }
     var colgroup='<colgroup>'+colDefs.map(function(cd){ var w=mstColW[cd.key]||_defW(cd); return '<col id="mcol_'+cd.key+'" style="width:'+w+'px">'; }).join('')+'</colgroup>';
-    var sths=colDefs.map(function(cd){ return '<th style="position:relative;background:#f4f0e6">'+Q(cd.name)
+    var sths=colDefs.map(function(cd){ return '<th style="position:sticky;top:0;z-index:2;background:#f4f0e6">'+Q(cd.name)
       +'<span title="드래그해서 열 너비 조절" onmousedown="_mstColResize(event,\''+cd.key+'\','+_defW(cd)+')" style="position:absolute;top:0;right:0;width:8px;height:100%;cursor:col-resize;user-select:none"></span></th>'; }).join('');
     var sfilt=colDefs.map(function(cd){ var dist=_distinct(cd);
       var dl=dist?('<datalist id="mfl_'+cd.key+'">'+dist.map(function(v){return '<option value="'+Q(v)+'"></option>';}).join('')+'</datalist>'):'';
-      return '<th style="padding:2px 3px;background:#faf8f2">'
+      return '<th style="position:static;padding:2px 3px;background:#faf8f2">'
         +'<input class="cell" style="width:100%;min-width:38px;font-weight:400;font-size:11px;padding:2px 4px" value="'+Q(mstColF[cd.key]||'')+'" '
         +(dist?'list="mfl_'+cd.key+'" ':'')+'placeholder="검색" id="mfi_'+cd.key+'" '
         +'oninput="mstColF[\''+cd.key+'\']=this.value;renderKeep(this,event)" oncompositionend="mstColF[\''+cd.key+'\']=this.value;renderKeepDone(this)">'+dl+'</th>'; }).join('');
@@ -1584,8 +1585,8 @@ function vSrc(){
   });
   var LIM=300, shown=rows.slice(0,LIM);
   var colgroup='<colgroup>'+vis.map(function(c){var w=srcColW[c.i]||_srcDefW(c.name);return '<col id="scol_'+c.i+'" style="width:'+w+'px">';}).join('')+'</colgroup>';
-  var ths=vis.map(function(c){return '<th style="position:relative;background:#f4f0e6">'+Q(c.name)+'<span title="드래그해서 너비 조절" onmousedown="_srcResize(event,'+c.i+','+_srcDefW(c.name)+')" style="position:absolute;top:0;right:0;width:8px;height:100%;cursor:col-resize;user-select:none"></span></th>';}).join('');
-  var sf=vis.map(function(c){return '<th style="padding:2px 3px;background:#faf8f2"><input class="cell" style="width:100%;min-width:38px;font-size:11px;padding:2px 4px;font-weight:400" value="'+Q(srcColF[c.i]||'')+'" placeholder="검색" id="sfi_'+c.i+'" oninput="srcColF['+c.i+']=this.value;renderKeep(this,event)" oncompositionend="srcColF['+c.i+']=this.value;renderKeepDone(this)"></th>';}).join('');
+  var ths=vis.map(function(c){return '<th style="position:sticky;top:0;z-index:2;background:#f4f0e6">'+Q(c.name)+'<span title="드래그해서 너비 조절" onmousedown="_srcResize(event,'+c.i+','+_srcDefW(c.name)+')" style="position:absolute;top:0;right:0;width:8px;height:100%;cursor:col-resize;user-select:none"></span></th>';}).join('');
+  var sf=vis.map(function(c){return '<th style="position:static;padding:2px 3px;background:#faf8f2"><input class="cell" style="width:100%;min-width:38px;font-size:11px;padding:2px 4px;font-weight:400" value="'+Q(srcColF[c.i]||'')+'" placeholder="검색" id="sfi_'+c.i+'" oninput="srcColF['+c.i+']=this.value;renderKeep(this,event)" oncompositionend="srcColF['+c.i+']=this.value;renderKeepDone(this)"></th>';}).join('');
   var body=shown.map(function(r){ return '<tr>'+vis.map(function(c){ return '<td style="overflow:hidden;text-overflow:ellipsis">'+Q(_srcVal(r,c.si))+'</td>'; }).join('')+'</tr>'; }).join('');
   var chips=cols.map(function(c){return '<span class="chip '+(srcOn[c.i]!==false?'on':'')+'" onclick="toggleSrcCol('+c.i+')">'+(srcOn[c.i]!==false?'✓ ':'')+Q(c.name)+'</span>';}).join('');
   var more=rows.length>LIM?('<div class="note-box">전체 '+rows.length+'줄 중 처음 '+LIM+'줄만. 위/열별 검색으로 좁혀 보세요.</div>'):'';
