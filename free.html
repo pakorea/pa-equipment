@@ -3,7 +3,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>PA 장비관리 — 프리랜서 사이트 · v260731d</title>
+<title>PA 장비관리 — 프리랜서 사이트 · v260801a</title>
 <style>
 :root{--bg:#f7f5f0;--card:#fff;--ink:#222;--sub:#666;--line:#e6e1d8;--accent:#2f6db0;
  --ok:#1f7a52;--okbg:#e7f4ec;--warn:#b1442f;--warnbg:#fbeae5;--rent:#8a5a1a;--rentbg:#f7efe0}
@@ -124,7 +124,7 @@ function load(){ edits=LS('pa_v3_edits',{}); eqOv=LS('pa_v3_eq',{}); eqDel=LS('p
 function save(){ _dmg=null; _pdmax=null; window.__invUse=null; LSs('pa_v3_edits',edits); LSs('pa_v3_eq',eqOv); LSs('pa_v3_eqdel',eqDel); LSs('pa_v3_eqadd',eqAdd); LSs('pa_v3_people',people); }
 function resetAll(){ if(confirm('입력한 값(준비/반납/장비수정/인원 등)을 모두 지우고 원본 데이터로 되돌릴까요?')){['pa_v3_edits','pa_v3_eq','pa_v3_eqdel','pa_v3_eqadd','pa_v3_people','pa_v3_crew','pa_v3_aux','pa_v3_projst','pa_v3_srcadd','pa_v3_invcols'].forEach(k=>localStorage.removeItem(k));srcAdd=[];projOv={};eqOv={};eqDel=[];eqAdd=[];_dmg=null;_pdmax=null;_matEqCache=null;window.__invUse=null;load();render();} }
 load();
-function Q(s){return (s==null?'':s).toString().replace(/"/g,'&quot;');}
+function Q(s){return (s==null?'':s).toString().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 function QJ(s){ return (s==null?'':s).toString().replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;').replace(/[\r\n]+/g,' '); }
 function num(v){const n=parseFloat(v);return isNaN(n)?0:n;}
 function nameOf(email){ if(!email)return ''; const m=(typeof members!=='undefined')?members.find(x=>x.email===email):null; if(m)return m.name; const r=STAFF.rows.find(x=>x[0]===email); return (r&&r[1])?r[1]:email; }
@@ -547,6 +547,10 @@ function vProj(){
     ${projEditModal()}${stageFilter()}<div class="plist">${cards||('<div class="panel">'+(IS_FREE_SITE?'아직 <b>배정된 프로젝트가 없습니다.</b><br><span style="font-size:13px;color:#888">관리자가 배정하면 여기 나타납니다.</span>':'프로젝트 없음')+'</div>')}</div>`;
 }
 function vProjDetail(){
+  // 프리랜서 격리: 나에게 배정되지 않은 프로젝트는 열람·수정 차단
+  if(IS_FREE_SITE){ var _mp=_freeMyProjs(); if(_mp && !_mp[curProj]){
+    return '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px"><button class="backbtn" onclick="backProj()">← 프로젝트 목록</button><h2 style="margin:0">🔒 '+Q(curProj)+'</h2></div>'
+      +'<div class="panel" style="color:var(--sub)">이 프로젝트는 <b>나에게 배정되지 않았습니다.</b><br>내 프로젝트만 준비·반납할 수 있습니다.</div>'; } }
   const rows=allSrc().filter(r=>r[S.proj]===curProj && (val(r,S.status)||'').toString().toLowerCase()!=='remove');
   const pd=rows.filter(r=>val(r,S.prepSt)==='준비완료').length;
   const wd=rows.filter(r=>val(r,S.wrapSt)==='랩업완료').length;
@@ -1946,8 +1950,14 @@ function srcPasteApply(){
   if(!spRows.length) return;
   var picked=0, rented=0;
   spRows.forEach(function(r){
-    if(r.eq){ var id=ev(r.eq,E.id); npSel[id]=(npSel[id]||0)+(r.qty||1); picked++; }
-    else { npRent.push({ name:r.req, qty:(r.qty||1) }); rented++; }
+    var q=r.qty||1;
+    if(r.eq){
+      var us=npUnits(ev(r.eq,E.name));   // 같은 모델의 모든 개체
+      if(us.length){ for(var k=0;k<q;k++) npPlusOne(us); }   // 정상 ＋버튼과 동일: 개체별 재고 한도로 분산, 초과분은 렌탈 판정
+      else { var id=ev(r.eq,E.id); npSel[id]=(npSel[id]||0)+q; }  // 안전망
+      picked++;
+    }
+    else { npRent.push({ name:r.req, qty:q }); rented++; }
   });
   spRows=[]; render();
   alert('✅ ①② 준비 리스트에 담았습니다.\n\n· 고른 장비: '+picked+'개\n· 외부 렌탈: '+rented+'개\n\n①②에서 수량·장비를 다시 확인·수정한 뒤, ③에서 「이 구성으로 라인 만들기」를 누르세요.');
