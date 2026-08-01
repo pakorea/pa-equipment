@@ -3,7 +3,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>PA 장비관리 — 관리자 사이트 (3번) · v260801d</title>
+<title>PA 장비관리 — 관리자 사이트 (3번) · v260801e</title>
 <style>
 :root{--bg:#f7f5f0;--card:#fff;--ink:#222;--sub:#666;--line:#e6e1d8;--accent:#2f6db0;
  --ok:#1f7a52;--okbg:#e7f4ec;--warn:#b1442f;--warnbg:#fbeae5;--rent:#8a5a1a;--rentbg:#f7efe0}
@@ -840,8 +840,17 @@ function invMatRows(){
   }).join('');
 }
 
+// LEE·SAVAGE를 재고현황(플랫/묶어보기 무관) 맨 아래 독립 패널로 항상 표시
+function invMatPanel(){
+  if(invCat && invCat!=='11. LEE FILTER · SAVAGE') return '';   // 다른 카테고리 필터 중이면 숨김
+  if(invMode!=='all') return '';                                 // '지금 나간'·'겹침' 모드엔 소모자재 미해당
+  var rows=invMatRows();
+  if(!rows) return '';
+  return '<div class="panel" style="margin-top:12px"><div style="font-weight:800;margin-bottom:6px">🎨 LEE FILTER · SAVAGE <span style="font-weight:500;font-size:12px;color:var(--sub)">— 줄을 클릭하면 개별 품목이 펼쳐집니다</span></div>'
+    +'<table><thead><tr><th>코드</th><th>카테고리</th><th>구분</th><th>품목</th><th class="n">수량</th><th class="n">재고</th><th>구매필요</th><th>비고</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
+}
 function vInvGrouped(){
-  var body=invGroupRows()+((invCat && invCat!=='11. LEE FILTER · SAVAGE')?'':invMatRows());
+  var body=invGroupRows();   // LEE·SAVAGE는 아래 invMatPanel()로 분리(모드 무관 항상 표시)
   var all=eqRows(); var zero=all.filter(function(e){var v=realStock(e[E.id]);return v!=null&&v<=0;}).length;
   var kinds={}; all.forEach(function(e){ kinds[ev(e,E.name)||'?']=1; });
   var toggle='<span class="chip on" onclick="toggleInvGroup()">✓ 품목(모델)별 묶어보기 (총수량)</span>';
@@ -859,7 +868,7 @@ function vInvGrouped(){
      +'<div class="kpi"><div class="v">'+all.length+'</div><div class="l">개체 수</div></div>'
      +'<div class="kpi"><div class="v" style="color:var(--warn)">'+zero+'</div><div class="l">재고 0(대여불가)</div></div></div>'
    +'<div class="panel"><table><thead><tr><th>EQ_NO</th><th>카테고리</th><th>브랜드</th><th>품목명</th><th class="n">총보유</th><th class="n">실재고</th><th>사용현황(프로젝트)</th><th>위치</th></tr></thead><tbody>'+body+'</tbody></table></div>'
-   +unitsModal()+mstModal()+matModal()+invUseModal();
+   +invMatPanel()+unitsModal()+mstModal()+matModal()+invUseModal();
 }
 function vInv(){
   if(invGroup) return vInvGrouped();
@@ -903,7 +912,7 @@ function vInv(){
     ${catFilterChips(invCat,'setInvCat')}
     <div class="filt">${chips}</div>
     <div class="kpis"><div class="kpi"><div class="v">${eqRows().length}</div><div class="l">전체 품목</div></div><div class="kpi"><div class="v" style="color:var(--warn)">${zero}</div><div class="l">재고 0(대여불가)</div></div><div class="kpi"><div class="v">${rows.length}</div><div class="l">검색 결과</div></div></div>
-    <div class="panel"><table><thead><tr>${thead}</tr></thead><tbody>${body}</tbody></table></div>`;
+    <div class="panel"><table><thead><tr>${thead}</tr></thead><tbody>${body}</tbody></table></div>${invMatPanel()}${matModal()}`;
 }
 
 // ===== 🔧 파손·이력 =====
