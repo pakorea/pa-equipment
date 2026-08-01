@@ -3,7 +3,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>PA 장비관리 — 관리자 사이트 (3번) · v260801e</title>
+<title>PA 장비관리 — 관리자 사이트 (3번) · v260801f</title>
 <style>
 :root{--bg:#f7f5f0;--card:#fff;--ink:#222;--sub:#666;--line:#e6e1d8;--accent:#2f6db0;
  --ok:#1f7a52;--okbg:#e7f4ec;--warn:#b1442f;--warnbg:#fbeae5;--rent:#8a5a1a;--rentbg:#f7efe0}
@@ -540,7 +540,7 @@ function vProj(){
     const st=projStatus(pj)||'진행';
     return `<div class="pcard" onclick="openProj('${QJ(pj)}')">
       <div class="pn">📁 ${Q(pj)}</div>
-      <div class="pd">${Q(projDates(pj))} · ${rs.length}개 라인 · ${Q(st)}</div>
+      <div class="pd">${projDates(pj)} · ${rs.length}개 라인 · ${Q(st)}</div>
       <div class="pb"><span class="badge">📦 준비 ${pd}/${rs.length}</span><span class="badge">🎬 랩업 ${wd}/${rs.length}</span><span class="badge">↩️ 반납 ${rd}/${rs.length}</span></div></div>`;
   }).join('');
   return `<h2>📁 ${IS_FREE_SITE?'내 프로젝트 <span style="font-size:12px;color:var(--sub)">(나에게 배정된 것만)</span>':'프로젝트'}</h2><div class="lead">${IS_FREE_SITE?'관리자가 <b>나를 배정한 프로젝트</b>만 보입니다. ':''}프로젝트를 클릭하면 <b>준비 → 랩업 → 반납</b> 페이지가 열립니다.</div>
@@ -566,7 +566,7 @@ function vProjDetail(){
       ${IS_FREE_SITE?'':`<button class="backbtn" onclick="openProjEdit('${QJ(curProj)}')">✏️ 정보 수정</button>
       <button class="backbtn" style="color:var(--accent);border-color:#a9c4e0;font-weight:800" onclick="openAddEq()">＋ 장비 추가</button>`}
       <h2 style="margin:0">📁 ${Q(curProj)}</h2>
-      <span style="color:var(--sub);font-size:13px">${Q(projDates(curProj))}</span>
+      <span style="color:var(--sub);font-size:13px">${projDates(curProj)}</span>
       ${IS_FREE_SITE
         ? (projStatus(curProj)==='완료'?'<span class="pill p-ok">✔ 완료됨</span>':'')
         : (projStatus(curProj)==='완료'
@@ -2111,7 +2111,7 @@ function vPrepAll(){
   let body='';
   Object.keys(g).forEach(pj=>{
     const doneN=g[pj].filter(r=>val(r,S.prepSt)==='준비완료').length;
-    body+=`<div class="proj-h">📁 ${Q(pj)} <span class="dt">${Q(projDates(pj))}</span><span class="badge">${doneN}/${g[pj].length} 준비완료</span></div>`+prepTable(g[pj]);
+    body+=`<div class="proj-h">📁 ${Q(pj)} <span class="dt">${projDates(pj)}</span><span class="badge">${doneN}/${g[pj].length} 준비완료</span></div>`+prepTable(g[pj]);
   });
   return `<h2>📦 준비 (전체 프로젝트)</h2><div class="lead">모든 프로젝트의 준비를 한 화면에서. 품목의 <b>🔗 연관장비</b>를 누르면 챙길 목록이 뜹니다.</div>${stageFilter()}${body||'<div class="panel">라인 없음</div>'}${relModal()}`;
 }
