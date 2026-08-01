@@ -3,7 +3,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>PA 장비관리 — 프리랜서 사이트 · v260801f</title>
+<title>PA 장비관리 — 프리랜서 사이트 · v260801g</title>
 <style>
 :root{--bg:#f7f5f0;--card:#fff;--ink:#222;--sub:#666;--line:#e6e1d8;--accent:#2f6db0;
  --ok:#1f7a52;--okbg:#e7f4ec;--warn:#b1442f;--warnbg:#fbeae5;--rent:#8a5a1a;--rentbg:#f7efe0}
@@ -660,7 +660,7 @@ function vCal(){
       <div style="width:160px;min-width:160px;font-size:12px;font-weight:${sel?'800':'600'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${sel?'▾ ':''}${Q(nm)}</div>
       <div style="flex:1;position:relative;height:22px;background:#f2efe8;border-radius:5px">
         <div style="position:absolute;left:${left}%;width:${width}%;top:0;height:100%;background:${sel?'#2f6db0':'#8fb0d4'};border-radius:5px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;overflow:hidden">${crewN?'👥'+crewN:''}</div></div>
-      <div style="width:150px;min-width:150px;font-size:10.5px;color:#888">${Q(x.txt)}</div></div>`;
+      <div style="width:150px;min-width:150px;font-size:10.5px;color:#888">${x.txt}</div></div>`;
     return row+(sel?crewPanelHTML(nm):'');
   }).join('');
   const ticks=`<div style="display:flex;gap:8px;padding:0 6px;margin-bottom:2px"><div style="width:160px;min-width:160px"></div><div style="flex:1;display:flex;border-bottom:1px solid #e5ddcc">${Array.from({length:dim},(_,i)=>`<span style="flex:1;text-align:center;font-size:8.5px;color:#a89b82;border-left:1px solid #eee8da">${i+1}</span>`).join('')}</div><div style="width:150px;min-width:150px"></div></div>`;
