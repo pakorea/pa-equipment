@@ -3,7 +3,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>PA 장비관리 — 프리랜서 사이트 · v260801c</title>
+<title>PA 장비관리 — 프리랜서 사이트 · v260801d</title>
 <style>
 :root{--bg:#f7f5f0;--card:#fff;--ink:#222;--sub:#666;--line:#e6e1d8;--accent:#2f6db0;
  --ok:#1f7a52;--okbg:#e7f4ec;--warn:#b1442f;--warnbg:#fbeae5;--rent:#8a5a1a;--rentbg:#f7efe0}
@@ -800,21 +800,43 @@ function invGroupRows(){
       +'<td>'+use+'</td><td>'+Q(ev(e0,E.loc))+'</td></tr>';
   }).join('');
 }
+let invMatOpen={};   // 재고현황에서 LEE/SAVAGE 요약줄 펼침 상태
+function toggleInvMat(k){ invMatOpen[k]=!invMatOpen[k]; render(); }
 function invMatRows(){
   return ['cf','bg'].map(function(k){
     var d=auxGet()[k]; if(!d) return '';
-    if(q && (MAT[k].label.toLowerCase().indexOf(q.toLowerCase())<0)) return '';
     if(invMode!=='all') return '';   // 소모자재는 '지금 나간 장비'·'일정 겹침' 대상이 아님
+    var pi=matIdx(k,'품목'), ci=matIdx(k,'EQ');
+    var ql=(q||'').toLowerCase();
+    var labelHit = !q || MAT[k].label.toLowerCase().indexOf(ql)>=0;
+    var recs=d.records.map(function(r,ri){return {r:r,ri:ri};});
+    var shownRecs = q ? recs.filter(function(x){ return String(pi>=0?x.r[pi]:'').toLowerCase().indexOf(ql)>=0 || String(ci>=0?x.r[ci]:'').toLowerCase().indexOf(ql)>=0; }) : recs;
+    if(q && !labelHit && !shownRecs.length) return '';   // 검색에 안 걸리면 숨김
+    var open = invMatOpen[k] || !!(q && shownRecs.length);   // 검색 중이면 자동 펼침
     var need=d.records.filter(function(r,ri){return matNeed(k,ri);}).length;
     var qty=d.records.reduce(function(a,r,ri){ return a+num(matQty(k,ri)); },0);
-    return '<tr class="rowck" style="background:#fbfaf5" onclick="openMat(\''+k+'\')">'
-      +'<td style="font-family:ui-monospace,monospace;font-size:11.5px">'+matCodeTxt(k)+'</td><td>11. LEE FILTER · SAVAGE</td><td>'+(k==='cf'?'LEE':'SAVAGE')+'</td>'
+    var summary='<tr class="rowck" style="background:#fbfaf5" onclick="toggleInvMat(\''+k+'\')">'
+      +'<td style="font-family:ui-monospace,monospace;font-size:11.5px">'+(open?'▾ ':'▸ ')+matCodeTxt(k)+'</td><td>11. LEE FILTER · SAVAGE</td><td>'+(k==='cf'?'LEE':'SAVAGE')+'</td>'
       +'<td><b>'+MAT[k].label+'</b> <span class="pill" style="background:#eaf1f9;color:#2f6db0">'+d.records.length+'종</span>'
-      +(need?' <span class="pill p-warn">구매필요 '+need+'</span>':'')+'</td>'
+      +(need?' <span class="pill p-warn">구매필요 '+need+'</span>':'')+' <span style="font-size:11px;color:#888">클릭해 '+(open?'접기':'펼치기')+'</span></td>'
       +'<td class="n"><b>'+qty+'</b></td>'
       +'<td class="n"><span class="pill '+(need?'p-warn':(qty<=0?'p-zero':'p-ok'))+'">'+qty+'</span></td>'
       +'<td>'+(need?'<span style="color:#a8632a;font-size:12px">구매 필요 '+need+'종</span>':'<span style="color:#ccc">-</span>')+'</td>'
       +'<td>소모자재</td></tr>';
+    if(!open) return summary;
+    var items=shownRecs.map(function(x){
+      var r=x.r, ri=x.ri; var iq=num(matQty(k,ri)); var nd=matNeed(k,ri);
+      return '<tr style="background:#fffdf6">'
+        +'<td style="font-family:ui-monospace,monospace;font-size:10.5px;color:#999">'+Q(ci>=0?r[ci]:'')+'</td>'
+        +'<td style="color:#c9beab;font-size:11px">└ 11</td>'
+        +'<td style="color:#888">'+(k==='cf'?'LEE':'SAVAGE')+'</td>'
+        +'<td style="padding-left:20px">'+Q(pi>=0?r[pi]:'')+'</td>'
+        +'<td class="n">'+iq+'</td>'
+        +'<td class="n"><span class="pill '+(nd?'p-warn':(iq<=0?'p-zero':'p-ok'))+'">'+iq+'</span></td>'
+        +'<td>'+(nd?'<span style="color:#a8632a;font-size:11.5px">구매 필요</span>':'<span style="color:#ccc">-</span>')+'</td>'
+        +'<td style="color:#bbb;font-size:11px">소모자재</td></tr>';
+    }).join('');
+    return summary+items;
   }).join('');
 }
 
@@ -2096,7 +2118,7 @@ let ME=session?session.email:'';
 function isAdmin(){ return session&&session.role==='관리자'; }
 // ===== 2사이트 구조: 관리자 사이트(index.html) ↔ 프리랜서 사이트(free.html) =====
 var IS_FREE_SITE = /free\.html/i.test((typeof location!=='undefined'&&location.pathname)||'');
-function _freeTabs(){ return ALLTABS.filter(function(t){return ['proj','inv','bg'].indexOf(t[0])>=0;}); }  // 담당 프로젝트·재고현황·LEE FILTER·SAVAGE
+function _freeTabs(){ return ALLTABS.filter(function(t){return ['proj','inv'].indexOf(t[0])>=0;}); }  // 담당 프로젝트·재고현황 (LEE·SAVAGE는 재고현황에 포함되어 별도 탭 제거)
 function myTabs(){ return IS_FREE_SITE ? _freeTabs() : ALLTABS; }
 function _freeRedirectHTML(){ return '<div style="max-width:520px;margin:56px auto;background:#fff;border:1px solid var(--line);border-radius:16px;padding:34px 30px;text-align:center;box-shadow:0 6px 24px rgba(0,0,0,.07)">'
   +'<div style="font-size:42px">🔒</div>'
