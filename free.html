@@ -3,7 +3,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>PA 장비관리 — 프리랜서 사이트 · v260801g</title>
+<title>PA 장비관리 — 프리랜서 사이트 · v260801h</title>
 <style>
 :root{--bg:#f7f5f0;--card:#fff;--ink:#222;--sub:#666;--line:#e6e1d8;--accent:#2f6db0;
  --ok:#1f7a52;--okbg:#e7f4ec;--warn:#b1442f;--warnbg:#fbeae5;--rent:#8a5a1a;--rentbg:#f7efe0}
@@ -306,6 +306,7 @@ async function addEqToProj(id){
   sbBusy=false; render();
 }
 async function delLine(line){
+  if(IS_FREE_SITE){ alert('프리랜서 화면에서는 라인을 삭제할 수 없습니다. (준비·반납만)'); return; }
   if(!confirm('이 장비를 프로젝트에서 뺄까요?\n(라인 '+line+' 삭제 — 되돌릴 수 없습니다)')) return;
   if(!serverOn){ alert('서버 연결이 필요합니다.'); return; }
   sbBusy=true; sbMsg='삭제 중…'; render();
@@ -355,7 +356,7 @@ function prepTable(rows){
       <td>${done?('<span class="pill p-ok">✔ '+Q(nameOf(val(r,S.prepBy)))+'</span>'):'<span class="pill p-zero">-</span>'}</td>
       <td><input class="note" value="${Q(val(r,S.prepNote))}" onchange="setValNoRender('${QJ(l)}',${S.prepNote},this.value)" placeholder="준비노트"></td>
       <td><input class="note note-in" value="${Q(val(r,S.innote))}" onchange="setValNoRender('${QJ(l)}',${S.innote},this.value)" placeholder="팀·프리랜서 공유 비고"></td>
-      <td class="n"><button onclick="delLine('${QJ(l)}')" title="이 장비를 프로젝트에서 빼기" style="border:none;background:none;color:#b23b25;cursor:pointer;font-size:15px">🗑</button></td></tr>`;
+      <td class="n">${IS_FREE_SITE?'':`<button onclick="delLine('${QJ(l)}')" title="이 장비를 프로젝트에서 빼기" style="border:none;background:none;color:#b23b25;cursor:pointer;font-size:15px">🗑</button>`}</td></tr>`;
   }).join('');
   return `<div class="panel"><table><thead><tr><th>품목</th><th class="n">배정</th><th>카테고리</th><th>연관장비</th><th>EQ NOTE<br><span style="font-weight:400;font-size:10px;color:#8a7a5c">포토 공유</span></th><th>준비상태</th><th>담당</th><th>준비노트</th><th>내부 노트<br><span style="font-weight:400;font-size:10px;color:#5c7a9a">팀·프리랜서 공유</span></th><th class="n">빼기</th></tr></thead><tbody>${body}</tbody></table></div>`;
 }
@@ -1892,6 +1893,8 @@ function _spScore(rs,c){
   var s=100*(tW?mW/tW:0);
   if(c.bt.length && c.bt.every(function(b){return rset.has(b)||rn.indexOf(b)>=0;})) s+=10;
   if(c.en.length>=5 && rn.indexOf(c.en)>=0) s+=15;
+  // 요청 단어가 1개뿐이면(예: "Filter") 후보가 여럿이라 확신 낮음 → 상한을 걸어 △확인으로
+  if(rset.size<=1 && !(c.en && rn===c.en)) s=Math.min(s,64);
   return Math.round(Math.min(120,s));
 }
 function _spBest(name){
@@ -1899,7 +1902,7 @@ function _spBest(name){
   for(var i=0;i<_spCache.length;i++){ var s=_spScore(rs,_spCache[i]); if(s>bs){ bs=s; b=_spCache[i].e; } }
   return { e:b, s:bs };
 }
-var _SP_SKIP=/^(photo references|end of list|please notify|.*v\d+\s*list\s*$|\(\s*\d+\s*\)|_{3,}|jack day|.*-\s*burberry)/i;
+var _SP_SKIP=/^(photo references|end of list|please notify|.*v\d+\s*list\s*$|\(\s*\d+\s*\)\s*$|_{3,}|jack day|.*-\s*burberry)/i;
 var _SP_SECT=/^(LIGHTS( ?\+ ?PACKS)?|PACKS|DISTRO|GRIP|MODIFIERS?|STANDS( ?\+ ?BASES)?|BASES|CONSUMABLES?|EXPENDABLES?|CAMERA|LENS(ES)?|LIGHTING|ELECTRIC(AL)?|ACCESSORIES|MISC(ELLANEOUS)?|OTHER|TEXTILES?)\b/i;
 function _spParse(text){
   var lines=(text||'').split('\n').map(function(l){ return l.replace(/\t/g,' ').replace(/\s+/g,' ').trim(); });
@@ -1910,7 +1913,7 @@ function _spParse(text){
     var qty='', name=l, m;
     if(m=l.match(/^(\d+)\s*[xX]\s+(.+)$/)){ qty=m[1]; name=m[2]; }
     else if(m=l.match(/^(\d+)\s*M\b\s*(.+)$/i)){ qty=m[1]+'M'; name=m[2]; }
-    else if(m=l.match(/^(\d+)\s+(.+)$/)){ qty=m[1]; name=m[2]; }
+    else if(m=l.match(/^(\d{1,2})\s+(?![\d.])(.+)$/)){ qty=m[1]; name=m[2]; }   // 앞 숫자=수량, 단 뒤가 숫자/규격(85 1.4)이면 제외
     else if(m=l.match(/^(.+?)\s+[xX]\s*(\d+)$/)){ name=m[1]; qty=m[2]; }
     var matchName=name.replace(/\([^)]*\)/g,' ').replace(/\bWITH\b.*/i,'').replace(/\s*-\s*ONLY.*/i,'').replace(/\bOR\b.*/i,'').replace(/\s+/g,' ').trim();
     out.push({ req:name.trim(), qty:qty, matchName:matchName });
@@ -1980,6 +1983,9 @@ function spFilt(i,q){
 function spPick(i,id){ var e=eqRows().find(function(x){return ev(x,E.id)===id;}); if(e&&spRows[i]){ spRows[i].eq=e; spRows[i].score=100; } render(); }
 function srcPasteApply(){
   if(!spRows.length) return;
+  // 확인필요(못찾음·낮은신뢰) 남아 있으면 먼저 물어봄
+  var chk=spRows.filter(function(r){return !r.eq||r.score<72;}).length;
+  if(chk && !confirm('아직 확인이 필요한 항목이 '+chk+'개 있습니다(✗ 못 찾음 / △ 확인).\n그대로 담을까요?\n\n(취소를 누르고 그 줄을 클릭해 검색·교체할 수 있습니다.)')) return;
   var picked=0, rented=0;
   spRows.forEach(function(r){
     var q=r.qty||1;
@@ -1991,7 +1997,10 @@ function srcPasteApply(){
     }
     else { npRent.push({ name:r.req, qty:q }); rented++; }
   });
-  spRows=[]; render();
+  spRows=[];
+  // 재적용 중복 방지: 붙여넣기 칸·저장값 비움
+  var _ta=document.getElementById('spPaste'); if(_ta) _ta.value=''; srcPasteTxt=''; try{ LSs('pa_v3_srcpaste',''); }catch(e){}
+  render();
   alert('✅ ①② 준비 리스트에 담았습니다.\n\n· 고른 장비: '+picked+'개\n· 외부 렌탈: '+rented+'개\n\n①②에서 수량·장비를 다시 확인·수정한 뒤, ③에서 「이 구성으로 라인 만들기」를 누르세요.');
 }
 function srcPasteClear(){ var ta=document.getElementById('spPaste'); if(ta) ta.value=''; srcPasteTxt=''; spRows=[]; try{ LSs('pa_v3_srcpaste',''); }catch(e){} render(); }
@@ -2118,8 +2127,8 @@ function vPrepAll(){
 
 const ALLTABS=[['prepNew','📦 프로젝트 준비'],['proj','📁 프로젝트'],['cal','📅 캘린더'],['inv','📊 재고 현황'],['rep','🔧 파손·분실'],['mst','🗂 장비 마스터'],['bg','🎨 LEE FILTER · SAVAGE'],['buy','🧾 매입내역'],['mem','👥 명단'],['src','📋 소싱시트']];
 const MEMBERS_DEFAULT=[
- {email:'parklife992@gmail.com',name:'박성준',pw:'2023',role:'관리자'},
- {email:'pakr.work@gmail.com',name:'김명진',pw:'2023',role:'관리자'}];
+ {email:'parklife992@gmail.com',name:'박성준',role:'관리자'},
+ {email:'pakr.work@gmail.com',name:'김명진',role:'관리자'}];
 let members=LS('pa_v3_members',null)||JSON.parse(JSON.stringify(MEMBERS_DEFAULT));
 function membersSave(){ LSs('pa_v3_members',members); }
 let session=LS('pa_v3_session',null);
