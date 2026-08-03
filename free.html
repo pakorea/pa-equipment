@@ -3,7 +3,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>PA 장비관리 — 프리랜서 사이트 · v260801l</title>
+<title>PA 장비관리 — 프리랜서 사이트 · v260801m</title>
 <style>
 :root{--bg:#f7f5f0;--card:#fff;--ink:#222;--sub:#666;--line:#e6e1d8;--accent:#2f6db0;
  --ok:#1f7a52;--okbg:#e7f4ec;--warn:#b1442f;--warnbg:#fbeae5;--rent:#8a5a1a;--rentbg:#f7efe0}
@@ -1744,7 +1744,8 @@ async function npCheckout(){
     srcAdd.push(row);
   });
   Object.keys(npMat).forEach(function(key){
-    var p=key.split('|'), k=p[0], ri=parseInt(p[1],10);
+    var _r=npMatResolve(key); if(!_r) return;   // 담아둔 자재가 사라졌으면 엉뚱한 것 담지 않고 건너뜀
+    var k=_r.k, ri=_r.ri;
     var qy=npMat[key]; var av=Math.max(0,num(matQty(k,ri)));
     n++; made++;
     const row=new Array(SRC.headers.length).fill('');
@@ -1859,7 +1860,16 @@ function matHdrIdx(k,name){ var d=auxGet()[k]; if(!d)return -1; for(var i=0;i<d.
 function matCode(k,ri){ var d=auxGet()[k]; if(!d||!d.records[ri])return ''; var i=matHdrIdx(k,'EQ코드'); return i<0?'':(d.records[ri][i]||''); }
 function matName(k,ri){ var d=auxGet()[k]; if(!d||!d.records[ri])return ''; var i=matHdrIdx(k,'품목'); return i<0?'':(d.records[ri][i]||''); }
 function matNo(k,ri){ var d=auxGet()[k]; if(!d||!d.records[ri])return ''; var i=matHdrIdx(k,'구매넘버'); return i<0?'':(d.records[ri][i]||''); }
-function npMatKey(k,ri){ return k+'|'+ri; }
+function npMatKey(k,ri){ var c=String(matCode(k,ri)||'').trim(); return k+'|'+(c||('#'+ri)); }  // 순서(ri) 대신 EQ코드로 기억 → 순서 바뀌어도 그 품목 유지(코드 없으면 #번호로 폴백)
+function npMatResolve(key){  // 담기 키(k|EQ코드 또는 k|#번호) → 현재 자재의 {k,ri}. 사라졌으면 null(엉뚱한 것 담기지 않게)
+  var bar=key.indexOf('|'); if(bar<0) return null;
+  var k=key.slice(0,bar), tag=key.slice(bar+1);
+  var recs=(auxGet()[k]||{records:[]}).records, ri=-1;
+  if(tag.charAt(0)==='#'){ ri=parseInt(tag.slice(1),10); }
+  else { for(var i=0;i<recs.length;i++){ if(String(matCode(k,i)).trim()===tag){ ri=i; break; } } }
+  if(ri<0 || ri>=recs.length || !matName(k,ri)) return null;
+  return {k:k, ri:ri};
+}
 function npMatAdd(k,ri,d){ var key=npMatKey(k,ri); var v=Math.max(0,(npMat[key]||0)+d); if(v)npMat[key]=v; else delete npMat[key]; render(); }
 function npMatSet(k,ri,v){ var key=npMatKey(k,ri); var n=Math.max(0,parseInt(v,10)||0); if(n)npMat[key]=n; else delete npMat[key]; render(); }
 function npMatClear(key){ delete npMat[key]; render(); }
@@ -2075,7 +2085,8 @@ function vPrepNew(){
       +'<td><input class="note note-in" value="'+Q(npNoteGet(nm,'in'))+'" placeholder="팀·프리랜서 공유 비고" onchange="npNoteSet(\''+QJ(nm)+'\',\'in\',this.value)"></td>'
       +'<td class="n"><button class="mini" onclick="npModelClear(\''+QJ(nm)+'\')">×</button></td></tr>';
   }).join('') + Object.keys(npMat).map(function(key){
-    var p=key.split('|'), k=p[0], ri=parseInt(p[1],10);
+    var _r=npMatResolve(key); if(!_r) return '';   // 사라진 자재는 표시 안 함
+    var k=_r.k, ri=_r.ri;
     var qy=npMat[key], av=Math.max(0,num(matQty(k,ri)));
     var short2 = qy>av;
     var j = !short2 ? '<span class="j-ok">보유 충당 ✔</span>' : ('<span class="j-rent">'+(qy-av)+'개 부족 → 구매</span>');
