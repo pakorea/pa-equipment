@@ -3,7 +3,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>PA 장비관리 — 관리자 사이트 (3번) · v260801h</title>
+<title>PA 장비관리 — 관리자 사이트 (3번) · v260801i</title>
 <style>
 :root{--bg:#f7f5f0;--card:#fff;--ink:#222;--sub:#666;--line:#e6e1d8;--accent:#2f6db0;
  --ok:#1f7a52;--okbg:#e7f4ec;--warn:#b1442f;--warnbg:#fbeae5;--rent:#8a5a1a;--rentbg:#f7efe0}
@@ -2350,13 +2350,28 @@ async function srvEqDelete(id){ if(!serverOn)return; await srvRun('장비 삭제
 async function srvProjStatus(name,st){ if(!serverOn)return; await srvRun('프로젝트 상태', sbT('projects').update({'상태':st}).eq('프로젝트',name)); }
 // --- 캘린더 인원배치 ---
 async function srvCrewSet(proj,list){ if(!serverOn)return;
+  var newRows=(list||[]).map(function(c){return {project:proj,name:c.name,kind:c.kind,email:c.email||''};});
+  // 삭제 전 기존 서버자료 백업 (넣기 실패 시 원래대로 복원 → 통째 유실 방지)
+  var bk=null; try{ var b=await sbT('crew').select('project,name,kind,email').eq('project',proj); if(b&&!b.error) bk=b.data; }catch(e){}
   if(!await srvRun('인원배치 정리', sbT('crew').delete().eq('project',proj))) return;
-  if(list&&list.length) await srvRun('인원배치', sbT('crew').insert(list.map(function(c){return {project:proj,name:c.name,kind:c.kind,email:c.email||''};}))); }
+  if(newRows.length){
+    var r=await sbT('crew').insert(newRows);
+    if(r&&r.error){ if(bk&&bk.length){ try{ await sbT('crew').insert(bk); }catch(e){} } srvErr('인원배치', r.error); return; }
+  } }
 // --- LEE FILTER · SAVAGE · 매입 ---
 async function srvAuxSave(kind,records,headers){ if(!serverOn)return;
-  if(!await srvRun('자재 정리', sbT('aux_rows').delete().eq('kind',kind))) return;
   var rows=records.map(function(r,i){ var o={}; headers.forEach(function(h,j){o[h]=r[j]==null?'':String(r[j]);}); return {kind:kind,ord:i,data:o}; });
-  for(var i=0;i<rows.length;i+=200){ if(!await srvRun('자재 저장', sbT('aux_rows').insert(rows.slice(i,i+200)))) return; } }
+  // 삭제 전 기존 서버자료 백업 (넣기 실패 시 원래대로 복원 → 통째 유실 방지)
+  var bk=null; try{ var b=await sbT('aux_rows').select('kind,ord,data').eq('kind',kind); if(b&&!b.error) bk=b.data; }catch(e){}
+  if(!await srvRun('자재 정리', sbT('aux_rows').delete().eq('kind',kind))) return;
+  for(var i=0;i<rows.length;i+=200){
+    var rr=await sbT('aux_rows').insert(rows.slice(i,i+200));
+    if(rr&&rr.error){
+      // 넣기 실패 → 넣던 것 지우고 백업 복원(원래대로)
+      try{ await sbT('aux_rows').delete().eq('kind',kind); if(bk&&bk.length){ for(var j=0;j<bk.length;j+=200) await sbT('aux_rows').insert(bk.slice(j,j+200)); } }catch(e){}
+      srvErr('자재 저장', rr.error); return;
+    }
+  } }
 // --- 사진 (소싱) ---
 async function srvSrcExtra(line,obj){ if(!serverOn)return; await srvRun('사진 저장', sbT('sourcing').update(obj).eq('라인ID',line)); }
 // --- 서버에서 부가데이터 불러오기 ---
