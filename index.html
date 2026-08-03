@@ -3,7 +3,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>PA 장비관리 — 관리자 사이트 (3번) · v260801i</title>
+<title>PA 장비관리 — 관리자 사이트 (3번) · v260801j</title>
 <style>
 :root{--bg:#f7f5f0;--card:#fff;--ink:#222;--sub:#666;--line:#e6e1d8;--accent:#2f6db0;
  --ok:#1f7a52;--okbg:#e7f4ec;--warn:#b1442f;--warnbg:#fbeae5;--rent:#8a5a1a;--rentbg:#f7efe0}
@@ -160,6 +160,10 @@ function buildDmg(){
     var id=r[S.itemId];
     if(id){ if(!m[id])m[id]={l:0,b:0,f:0}; m[id].l+=l; m[id].b+=b; m[id].f+=f; }
     else if(l||b){ orphan+=(l+b); } });
+  // 폐기된 파손 개체는 보유수량에서 이미 −1 됐으므로, 파손 카운트에서도 그만큼 빼서 이중차감 방지.
+  // (반납 파손 기록 자체는 그대로 두고, 재고 계산할 때만 상쇄 → 폐기 취소 시 자동 원복)
+  try{ var _sc=(typeof scrapped==='object'&&scrapped)?scrapped:{};
+    for(var _rid in _sc){ var _it=_sc[_rid]; if(_it&&m[_it]&&m[_it].b>0) m[_it].b=Math.max(0,m[_it].b-1); } }catch(e){}
   _dmg=m; _dmgOrphan=orphan; return m;
 }
 function dmgMap(){ return _dmg||buildDmg(); }
