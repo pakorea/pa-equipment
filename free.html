@@ -3,7 +3,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>PA 장비관리 — 프리랜서 사이트 · v260801j</title>
+<title>PA 장비관리 — 프리랜서 사이트 · v260801k</title>
 <style>
 :root{--bg:#f7f5f0;--card:#fff;--ink:#222;--sub:#666;--line:#e6e1d8;--accent:#2f6db0;
  --ok:#1f7a52;--okbg:#e7f4ec;--warn:#b1442f;--warnbg:#fbeae5;--rent:#8a5a1a;--rentbg:#f7efe0}
@@ -122,14 +122,17 @@ function LS(k,d){ try{const v=localStorage.getItem(k); return v?JSON.parse(v):d;
 function LSs(k,v){ try{localStorage.setItem(k,JSON.stringify(v));}catch(e){} }
 function load(){ edits=LS('pa_v3_edits',{}); eqOv=LS('pa_v3_eq',{}); eqDel=LS('pa_v3_eqdel',[]); eqAdd=LS('pa_v3_eqadd',[]); people=LS('pa_v3_people',{}); }
 function save(){ _dmg=null; _pdmax=null; window.__invUse=null; LSs('pa_v3_edits',edits); LSs('pa_v3_eq',eqOv); LSs('pa_v3_eqdel',eqDel); LSs('pa_v3_eqadd',eqAdd); LSs('pa_v3_people',people); }
-function resetAll(){ if(confirm('입력한 값(준비/반납/장비수정/인원 등)을 모두 지우고 원본 데이터로 되돌릴까요?')){['pa_v3_edits','pa_v3_eq','pa_v3_eqdel','pa_v3_eqadd','pa_v3_people','pa_v3_crew','pa_v3_aux','pa_v3_projst','pa_v3_srcadd','pa_v3_invcols'].forEach(k=>localStorage.removeItem(k));srcAdd=[];projOv={};eqOv={};eqDel=[];eqAdd=[];_dmg=null;_pdmax=null;_matEqCache=null;window.__invUse=null;load();render();} }
+function resetAll(){ if(confirm('입력한 값(준비/반납/장비수정/인원 등)을 모두 지우고 원본 데이터로 되돌릴까요?')){['pa_v3_edits','pa_v3_eq','pa_v3_eqdel','pa_v3_eqadd','pa_v3_people','pa_v3_crew','pa_v3_aux','pa_v3_projst','pa_v3_srcadd','pa_v3_invcols','pa_v3_scrapped','pa_v3_repov','pa_v3_repadd','pa_v3_shoot'].forEach(k=>localStorage.removeItem(k));srcAdd=[];projOv={};eqOv={};eqDel=[];eqAdd=[];scrapped={};repOv={};repAdd=[];shootOv={};_dmg=null;_pdmax=null;_matEqCache=null;window.__invUse=null;load();render();} }
 load();
 function Q(s){return (s==null?'':s).toString().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 function QJ(s){ return (s==null?'':s).toString().replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;').replace(/[\r\n]+/g,' '); }
 function num(v){const n=parseFloat(v);return isNaN(n)?0:n;}
 function nameOf(email){ if(!email)return ''; const m=(typeof members!=='undefined')?members.find(x=>x.email===email):null; if(m)return m.name; const r=STAFF.rows.find(x=>x[0]===email); return (r&&r[1])?r[1]:email; }
 function val(row,idx){ const l=row[S.line]; if(edits[l]&&edits[l][idx]!==undefined)return edits[l][idx]; return row[idx]; }
-function setVal(line,idx,v){ if(!edits[line])edits[line]={}; edits[line][idx]=v; save(); sbSaveCell(line,idx,v); render(); }
+function setVal(line,idx,v){ if(!edits[line])edits[line]={}; edits[line][idx]=v;
+  if(idx===S.broken){ var _b=num(v); var _sr=allSrc().find(function(x){return x[S.line]===line;});
+    var _f=_sr?num(val(_sr,S.fixed)):0; if(_f>_b){ edits[line][S.fixed]=String(_b); sbSaveCell(line,S.fixed,String(_b)); } }  // 파손 내리면 수리완료도 파손 이하로(실재고>보유 방지)
+  save(); sbSaveCell(line,idx,v); render(); }
 function setValNoRender(line,idx,v){ if(!edits[line])edits[line]={}; edits[line][idx]=v; save(); sbSaveCell(line,idx,v); }
 // ==== 장비 오버레이 ====
 function _clearMatCache(){_matEqCache=null;}
@@ -481,7 +484,8 @@ async function saveProjEdit(){
     for(var i=0;i<rows.length;i++){
       var r=rows[i], oldLine=r[S.line], patch={};
       if(renamed){ var seq=String(oldLine).split('-').pop();
-        var newLine=nn+'-'+seq; patch['라인ID']=newLine; patch['프로젝트']=nn; }
+        var newLine=nn+'-'+seq; patch['라인ID']=newLine; patch['프로젝트']=nn;
+        if(edits[oldLine]){ edits[newLine]=edits[oldLine]; delete edits[oldLine]; } }   // 세션 편집값(연관장비 체크 등) 새 라인ID로 이관
       if(no) patch['출고일']=no;
       if(nd) patch['반납일']=nd;
       if(serverOn && Object.keys(patch).length){ await sbT('sourcing').update(patch).eq('라인ID',oldLine); }
@@ -503,6 +507,7 @@ async function saveProjEdit(){
     projOv[finalName]=nst;
     if(renamed && crew[oldName]){ crew[nn]=crew[oldName]; delete crew[oldName]; crewSave(); }
     LSs('pa_v3_projst',projOv);
+    if(renamed) save();   // 이관된 edits 저장
     _dmg=null;_pdmax=null;_matEqCache=null;window.__invUse=null;
     if(curProj===oldName) curProj=(renamed?nn:oldName);
     sbMsg='수정 완료';
@@ -707,17 +712,17 @@ function invOut(id){ // 지금 나가있는(반납 안 된) 건
   var t=TODAYKEY, list=(invUse()[id]||[]);
   return list.filter(function(u){ return !u.returned && u.out && u.out<=t && (!u.due || u.due>=t); });
 }
-function invClash(id){ // 기간 겹치는 예약 쌍이 있고 합계가 보유 초과
-  var list=(invUse()[id]||[]).filter(function(u){return u.out;});
+function invClash(id){ // 같은 시점에 동시에 나가 있는 수량이 보유 초과인지 (반납분 제외, 동시점유 최대치)
+  var list=(invUse()[id]||[]).filter(function(u){return u.out && !u.returned;});   // 반납된 건 제외
   if(list.length<2) return null;
   var e=eqRows().find(function(r){return r[E.id]===id;}); var own=e?num(ev(e,E.own)):0;
   var worst=null;
+  // 동시점유 최대는 어느 예약의 '출고 시점'에서 발생 → 각 출고시점에 그때 점유 중인 예약 수량만 합산
   for(var i=0;i<list.length;i++){
-    var a=list[i], sum=a.qty, projs=[a.proj];
-    for(var j=0;j<list.length;j++){ if(i===j)continue; var b=list[j];
-      var ao=a.out, ad=a.due||a.out, bo=b.out, bd=b.due||b.out;
-      if(bo<=ad && ao<=bd){ sum+=b.qty; projs.push(b.proj); } }
-    if(sum>own && (!worst||sum>worst.sum)) worst={sum:sum,own:own,projs:projs.slice(0,4),date:a.out};
+    var t=list[i].out; var sum=0, projs=[];
+    for(var j=0;j<list.length;j++){ var b=list[j]; var bo=b.out, bd=b.due||b.out;
+      if(bo<=t && t<=bd){ sum+=b.qty; projs.push(b.proj); } }
+    if(sum>own && (!worst||sum>worst.sum)) worst={sum:sum,own:own,projs:projs.slice(0,4),date:t};
   }
   return worst;
 }
@@ -1001,6 +1006,7 @@ async function repIntake(line,proj,item,itemId,n){
 }
 function repDel(id){
   if(!confirm(id+' 이력을 지울까요? 되돌릴 수 없습니다.')) return;
+  if(scrapped[id]) repScrap(id, scrapped[id], false);   // 폐기였으면 삭제 전 보유수량 원복(영구 −1 방지)
   repAdd=repAdd.filter(function(r){return r[RC.id]!==id;});
   DB.repair.rows=DB.repair.rows.filter(function(r){return r[RC.id]!==id;});
   delete repOv[id]; repSave();
@@ -2286,7 +2292,7 @@ async function sbSignIn(email,pw){
   if(r.error){ sbMsg='로그인 실패: '+r.error.message; render(); return; }
   sbUser=r.data.user;
   var m=members.find(function(x){return x.email.toLowerCase()===email.toLowerCase();});
-  session={email:email,name:(m?m.name:email.split('@')[0]),role:(m?m.role:'관리자')};
+  session={email:email,name:(m?m.name:email.split('@')[0]),role:(m?m.role:'대기')};   // 명단에 없으면 기본 관리자 금지 → 최소권한(대기)
   LSs('pa_v3_session',session); ME=email;
   await sbLoadAll();
 }
