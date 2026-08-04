@@ -3,7 +3,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>PA 장비관리 — 관리자 사이트 (3번) · v260801m</title>
+<title>PA 장비관리 — 관리자 사이트 (3번) · v260801n</title>
 <style>
 :root{--bg:#f7f5f0;--card:#fff;--ink:#222;--sub:#666;--line:#e6e1d8;--accent:#2f6db0;
  --ok:#1f7a52;--okbg:#e7f4ec;--warn:#b1442f;--warnbg:#fbeae5;--rent:#8a5a1a;--rentbg:#f7efe0}
@@ -1102,9 +1102,14 @@ function mstSave(){
     MF.forEach(f=>{ if(E[f[0]]>=0) row[E[f[0]]]=gv(f[0]); });
     eqAdd.push(row); _matEqCache=null; srvEqInsert(row);
   } else {
+    var __e=eqRows().find(function(r){return r[E.id]===mstSel;});
     if(!eqOv[mstSel])eqOv[mstSel]={};
-    MF.forEach(f=>{ if(E[f[0]]>=0) eqOv[mstSel][E[f[0]]]=gv(f[0]); });
-    var __o={}; MF.forEach(function(f){ if(E[f[0]]>=0){ var hh=DB.equip.headers[E[f[0]]]; if(hh)__o[hh]=gv(f[0]); } }); srvEqUpdate(mstSel,__o);
+    var __o={};
+    MF.forEach(function(f){ if(E[f[0]]>=0){
+      var nv=gv(f[0]); var ov=__e?String(ev(__e,E[f[0]])==null?'':ev(__e,E[f[0]])):'';
+      if(nv!==ov){ eqOv[mstSel][E[f[0]]]=nv; var hh=DB.equip.headers[E[f[0]]]; if(hh)__o[hh]=nv; }   // 실제 바뀐 칸만 → 동시편집 시 남의 수정 안 덮음
+    }});
+    if(Object.keys(__o).length) srvEqUpdate(mstSel,__o);
   }
   _eqRowsCache=null; __catOrder=null;   // 카테고리 수정 시 정렬 캐시 무효화 → 즉시 재정렬
   save(); mstSel=null; render();
@@ -1775,9 +1780,10 @@ async function npCheckout(){
   var newRows=srcAdd.slice(-made);
   if(serverOn){
     sbBusy=true; sbMsg='서버에 저장 중…'; render();
+    var _okCount=0;
     try{
       var objs=newRows.map(function(rw){ var o={}; SRC.headers.forEach(function(h,i){ o[h]=rw[i]==null?'':String(rw[i]); }); return o; });
-      for(var i=0;i<objs.length;i+=200){ var rr=await sbT('sourcing').insert(objs.slice(i,i+200)); if(rr&&rr.error) throw rr.error; }
+      for(var i=0;i<objs.length;i+=200){ var chunk=objs.slice(i,i+200); var rr=await sbT('sourcing').insert(chunk); if(rr&&rr.error) throw rr.error; _okCount+=chunk.length; }
       // 프로젝트 등록(없으면)
       var pe=await sbT('projects').select('프로젝트').eq('프로젝트',npProj).limit(1);
       if(!pe.error && (!pe.data||!pe.data.length)){ await sbT('projects').insert({'프로젝트':npProj,'상태':'진행'}); DB.projects.rows.push([npProj,'진행','','']); }
@@ -1785,7 +1791,13 @@ async function npCheckout(){
       newRows.forEach(function(rw){ DB.sourcing.rows.push(rw); });
       srcAdd=srcAdd.slice(0,srcAdd.length-made); LSs('pa_v3_srcadd',srcAdd);
       sbMsg='저장 완료 · 모두에게 보입니다';
-    }catch(e){ sbMsg='⚠️ 서버 저장 실패: '+(e.message||e); alert('⚠️ 서버 저장에 실패했습니다.\n\n'+(e.message||e)+'\n\n이 화면에만 남아 다른 사람에게 안 보입니다. 명진에게 알려주세요.'); }
+    }catch(e){
+      // 부분 성공분(_okCount개)은 서버에 이미 들어갔으니 baseline으로 옮기고 임시분에서 제거 → 새로고침 시 중복 방지. 실패분만 화면에 남김.
+      if(_okCount>0){ var _okRows=newRows.slice(0,_okCount);
+        _okRows.forEach(function(rw){ DB.sourcing.rows.push(rw); });
+        srcAdd=srcAdd.slice(0,srcAdd.length-made).concat(newRows.slice(_okCount)); LSs('pa_v3_srcadd',srcAdd); }
+      sbMsg='⚠️ 서버 저장 일부 실패: '+(e.message||e);
+      alert('⚠️ 서버 저장이 도중에 멈췄습니다.\n\n'+(e.message||e)+'\n\n성공한 '+_okCount+'줄은 서버에 저장됐고, 나머지 '+(made-_okCount)+'줄은 이 화면에만 남았습니다.\n(같은 줄이 두 번 생기지 않게 처리했습니다.) 다시 시도하거나 명진에게 알려주세요.'); }
     sbBusy=false;
   } else { sbMsg='⚠️ 오프라인 — 이 컴퓨터에만 저장됨'; }
   _dmg=null;_pdmax=null;_matEqCache=null;window.__invUse=null;
