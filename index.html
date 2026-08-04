@@ -3,7 +3,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>PA 장비관리 — 관리자 사이트 (3번) · v260801n</title>
+<title>PA 장비관리 — 관리자 사이트 (3번) · v260801o</title>
 <style>
 :root{--bg:#f7f5f0;--card:#fff;--ink:#222;--sub:#666;--line:#e6e1d8;--accent:#2f6db0;
  --ok:#1f7a52;--okbg:#e7f4ec;--warn:#b1442f;--warnbg:#fbeae5;--rent:#8a5a1a;--rentbg:#f7efe0}
@@ -120,6 +120,10 @@ const TODAYKEY=(function(){var d=new Date();return d.getFullYear()*10000+(d.getM
 let eqOv={}, eqDel=[], eqAdd=[], mstSel=null, buyView='new', holdKey='', people={};
 function LS(k,d){ try{const v=localStorage.getItem(k); return v?JSON.parse(v):d;}catch(e){return d;} }
 function LSs(k,v){ try{localStorage.setItem(k,JSON.stringify(v));}catch(e){} }
+// 오프라인에서 한 편집(서버 미전송) 표시 — 재접속 후 서버 불러오기 전 경고용
+var _unsynced = LS('pa_v3_unsynced', false);
+function _markUnsynced(){ if(!_unsynced){ _unsynced=true; LSs('pa_v3_unsynced',true); } }
+function _clearUnsynced(){ if(_unsynced){ _unsynced=false; try{localStorage.removeItem('pa_v3_unsynced');}catch(e){} } }
 function load(){ edits=LS('pa_v3_edits',{}); eqOv=LS('pa_v3_eq',{}); eqDel=LS('pa_v3_eqdel',[]); eqAdd=LS('pa_v3_eqadd',[]); people=LS('pa_v3_people',{}); }
 function save(){ _dmg=null; _pdmax=null; window.__invUse=null; LSs('pa_v3_edits',edits); LSs('pa_v3_eq',eqOv); LSs('pa_v3_eqdel',eqDel); LSs('pa_v3_eqadd',eqAdd); LSs('pa_v3_people',people); }
 function resetAll(){ if(confirm('입력한 값(준비/반납/장비수정/인원 등)을 모두 지우고 원본 데이터로 되돌릴까요?')){['pa_v3_edits','pa_v3_eq','pa_v3_eqdel','pa_v3_eqadd','pa_v3_people','pa_v3_crew','pa_v3_aux','pa_v3_projst','pa_v3_srcadd','pa_v3_invcols','pa_v3_scrapped','pa_v3_repov','pa_v3_repadd','pa_v3_shoot'].forEach(k=>localStorage.removeItem(k));srcAdd=[];projOv={};eqOv={};eqDel=[];eqAdd=[];scrapped={};repOv={};repAdd=[];shootOv={};_dmg=null;_pdmax=null;_matEqCache=null;window.__invUse=null;load();render();} }
@@ -2308,8 +2312,16 @@ async function sbLoadAll(){
     DB.equip.rows=eq; DB.sourcing.rows=sortByLine(sr); DB.projects.rows=pj; DB.repair.rows=rp;
     await sbLoadExtras();
     await sbLoadMeta();
+    // 오프라인에서 한 편집(아직 서버로 못 감)이 있으면, 이 기기 편집을 덮기 전에 물어봄
+    if(_unsynced){
+      if(!confirm('이 기기에 아직 서버로 안 올라간 편집이 있습니다.\n(장비 수정·삭제 · 프로젝트 상태 · 인원배치 등)\n\n[확인] 서버 자료로 새로 맞춤 — 안 올라간 편집은 버립니다\n[취소] 이 기기 편집을 유지 — 각 편집을 다시 저장하면 서버에 반영됩니다')){
+        serverOn=true; _dmg=null;_pdmax=null; sbBusy=false;
+        sbMsg='이 기기 편집 유지 — 편집을 다시 저장하면 서버에 반영됩니다'; render(); return;
+      }
+    }
     eqOv={};eqDel=[];eqAdd=[];projOv={};_matEqCache=null;window.__invUse=null;__catOrder=null;
     try{localStorage.removeItem('pa_v3_eq');localStorage.removeItem('pa_v3_eqdel');localStorage.removeItem('pa_v3_eqadd');localStorage.removeItem('pa_v3_projst');localStorage.removeItem('pa_v3_crew');}catch(e){}
+    _clearUnsynced();
     _dmg=null;_pdmax=null; serverOn=true;
     sbMsg='서버 연결됨 · 장비 '+eq.length+' · 소싱 '+sr.length+' · 프로젝트 '+pj.length;
   }catch(e){ serverOn=false; sbMsg='서버 불러오기 실패: '+(e.message||e); }
@@ -2379,16 +2391,16 @@ function sbT(t){ var c=sbClient(); return c?c.from(t):null; }
 function srvErr(what,e){ var msg=(e&&(e.message||e.details||e.hint))||String(e); sbMsg='⚠️ '+what+' 서버 저장 실패: '+msg; try{alert('⚠️ '+what+' 서버 저장 실패\n\n'+msg+'\n\n다른 사람에게 반영되지 않았습니다.');}catch(x){} render(); }
 async function srvRun(what,p){ try{ var r=await p; if(r&&r.error){ srvErr(what,r.error); return false; } return true; }catch(e){ srvErr(what,e); return false; } }
 // --- 장비 마스터 ---
-async function srvEqUpdate(id,obj){ if(!serverOn)return; await srvRun('장비 수정', sbT('equipment').update(obj).eq('Item_ID',id)); }
+async function srvEqUpdate(id,obj){ if(!serverOn){ _markUnsynced(); return; } await srvRun('장비 수정', sbT('equipment').update(obj).eq('Item_ID',id)); }
 async function srvEqInsert(row){ if(!serverOn){ alert('서버에 연결되지 않아 추가할 수 없습니다.'); return; }
   var o={}; DB.equip.headers.forEach(function(h,i){o[h]=row[i]==null?'':String(row[i]);});
   var ok=await srvRun('장비 추가', sbT('equipment').insert(o));
   if(ok){ sbMsg='장비 추가됨 (모두에게 반영)'; render(); } }
-async function srvEqDelete(id){ if(!serverOn)return; await srvRun('장비 삭제', sbT('equipment').delete().eq('Item_ID',id)); }
+async function srvEqDelete(id){ if(!serverOn){ _markUnsynced(); return; } await srvRun('장비 삭제', sbT('equipment').delete().eq('Item_ID',id)); }
 // --- 프로젝트 상태(완료처리) ---
-async function srvProjStatus(name,st){ if(!serverOn)return; await srvRun('프로젝트 상태', sbT('projects').update({'상태':st}).eq('프로젝트',name)); }
+async function srvProjStatus(name,st){ if(!serverOn){ _markUnsynced(); return; } await srvRun('프로젝트 상태', sbT('projects').update({'상태':st}).eq('프로젝트',name)); }
 // --- 캘린더 인원배치 ---
-async function srvCrewSet(proj,list){ if(!serverOn)return;
+async function srvCrewSet(proj,list){ if(!serverOn){ _markUnsynced(); return; }
   var newRows=(list||[]).map(function(c){return {project:proj,name:c.name,kind:c.kind,email:c.email||''};});
   // 삭제 전 기존 서버자료 백업 (넣기 실패 시 원래대로 복원 → 통째 유실 방지)
   var bk=null; try{ var b=await sbT('crew').select('project,name,kind,email').eq('project',proj); if(b&&!b.error) bk=b.data; }catch(e){}
