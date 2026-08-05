@@ -3,7 +3,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>PA 장비관리 — 프리랜서 사이트 · v260804_4.0a</title>
+<title>PA 장비관리 — 프리랜서 사이트 · v260804_4.1a</title>
 <style>
 :root{--bg:#f7f5f0;--card:#fff;--ink:#222;--sub:#666;--line:#e6e1d8;--accent:#2f6db0;
  --ok:#1f7a52;--okbg:#e7f4ec;--warn:#b1442f;--warnbg:#fbeae5;--rent:#8a5a1a;--rentbg:#f7efe0}
@@ -1753,7 +1753,7 @@ function npLocModal(){
     +(pl||'<div style="color:#999;font-size:12.5px;padding:6px 0">나가 있는 프로젝트 없음</div>')
     +'<div class="mbtns"><button class="primary" onclick="npLocClose()">닫기</button></div></div></div>';
 }
-function _npDays(a,b){ if(!a||!b)return 0; var d1=new Date(a),d2=new Date(b); if(isNaN(d1.getTime())||isNaN(d2.getTime()))return 0; var n=Math.round((d2-d1)/86400000)+1; return n>0?n:0; }
+function _npDays(a,b){ if(!a||!b)return 0; var d1=new Date(a),d2=new Date(b); if(isNaN(d1.getTime())||isNaN(d2.getTime()))return 0; var n=Math.round((d2-d1)/86400000); return n<0?0:(n||1); }
 function npRentCols(key,on,qty,av,nm){
   var AUTOBG='background:#eef1f5';   // 자동 계산 칸 표시(연회색)
   var short=Math.max(0,(qty||0)-(av||0));
