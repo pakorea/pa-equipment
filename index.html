@@ -3,7 +3,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>PA 장비관리 — 관리자 사이트 (3번) · v260804_3.3a</title>
+<title>PA 장비관리 — 관리자 사이트 (3번) · v260804_3.4a</title>
 <style>
 :root{--bg:#f7f5f0;--card:#fff;--ink:#222;--sub:#666;--line:#e6e1d8;--accent:#2f6db0;
  --ok:#1f7a52;--okbg:#e7f4ec;--warn:#b1442f;--warnbg:#fbeae5;--rent:#8a5a1a;--rentbg:#f7efe0}
@@ -2277,7 +2277,7 @@ function vPrepNew(){
       <div data-scrollbox style="max-height:44vh;overflow:auto;border:1px solid #eee;border-radius:8px;position:relative">
       <table><thead><tr><th class="n">EQ_NO</th><th>카테고리</th><th>장비</th><th class="n">가용</th><th class="n">선택 수량</th></tr></thead><tbody>${invRows}</tbody></table></div>`:''}</div>
     <div class="panel"><div style="font-weight:800;margin-bottom:8px">② 준비 리스트 (고른 것 + 렌탈)</div>
-      ${listPanel}
+      <div data-scrollbox style="overflow-x:auto">${listPanel}</div>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px">
         <input id="npRentName" placeholder="렌탈 품목 (예: PROFOTO PRO 11)" style="width:220px">
         <input id="npRentQty" type="number" value="1" style="width:60px">
