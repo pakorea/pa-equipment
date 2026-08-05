@@ -3,7 +3,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>PA 장비관리 — 관리자 사이트 (3번) · v260801o</title>
+<title>PA 장비관리 — 관리자 사이트 (3번) · v260804_2.3a</title>
 <style>
 :root{--bg:#f7f5f0;--card:#fff;--ink:#222;--sub:#666;--line:#e6e1d8;--accent:#2f6db0;
  --ok:#1f7a52;--okbg:#e7f4ec;--warn:#b1442f;--warnbg:#fbeae5;--rent:#8a5a1a;--rentbg:#f7efe0}
@@ -1165,6 +1165,29 @@ let mstSheet = LS('pa_v3_mstsheet',1);   // 시트 원본 보기(전체 열) 기
 let mstCat='';   // 장비마스터 카테고리 필터 (''=전체)
 let invCat='';   // 재고현황 카테고리 필터 (''=전체)
 function toggleMstSheet(){ mstSheet=mstSheet?0:1; LSs('pa_v3_mstsheet',mstSheet); render(); }
+// ===== B: 장비마스터 · 추가여부 검토리스트 (붙여넣기에서 '못찾음 + 📋마스터검토' 체크분) =====
+let mstReview=LS('pa_v3_mstreview',[]); let mstReviewView=0;
+function mstReviewSave(){ try{ LSs('pa_v3_mstreview',mstReview); }catch(e){} }
+function mstReviewDel(i){ if(!confirm('이 검토 항목을 목록에서 지울까요?'))return; mstReview.splice(i,1); mstReviewSave(); render(); }
+function mstReviewSetBuy(i,v){ if(mstReview[i]){ mstReview[i].buy=v; mstReviewSave(); } }
+function mstReviewRegister(i){ mstReviewView=0; mstEdit('__new__'); }   // 새 장비 추가창 열기(품목명 참고해 입력)
+function _mstReviewBanner(){ if(!mstReview.length) return '';
+  return '<div onclick="mstReviewView=1;render()" style="cursor:pointer;background:#fef7e0;border:1px solid #f2e0a8;border-radius:10px;padding:10px 14px;margin:8px 0;font-size:13.5px;color:#8a6100;font-weight:700;display:flex;align-items:center;gap:8px;flex-wrap:wrap">📋 붙여넣기에서 「마스터DB 추가 검토」로 보낸 항목 <b style="color:#b06a00">'+mstReview.length+'건</b>이 있습니다 <span style="margin-left:auto;background:#fff;border:1px solid #f2e0a8;border-radius:7px;padding:4px 12px">추가여부 검토리스트 보기 →</span></div>'; }
+function _mstReviewHTML(){
+  var rows=mstReview.map(function(r,i){
+    var buys=['미정','매입함','매입안함','렌탈만'];
+    var sel='<select onchange="mstReviewSetBuy('+i+',this.value)" style="font-size:11.5px;padding:3px 6px;border:1px solid var(--line);border-radius:6px">'+buys.map(function(b){return '<option'+(((r.buy||'미정')===b)?' selected':'')+'>'+b+'</option>';}).join('')+'</select>';
+    var nm=Q(r.req||'')+((r.eqName&&r.eqName!==r.req)?' <span style="color:#888;font-size:10px">→ '+Q(r.eqName)+'</span>':'')+(r.matched?' <span class="pill" style="background:#eef7f0;color:#1d7a43;font-size:9px">이미 매칭</span>':'');
+    return '<tr><td>'+nm+'</td><td class="n">'+(r.qty||'')+'</td><td>'+Q(r.proj||'')+'</td><td style="font-size:11.5px;color:#7a5a2b">'+Q(r.reason||'')+'</td><td class="n">'+sel+'</td><td style="font-size:11px;color:#999">'+Q(r.ts||'')+'</td>'
+      +'<td class="n"><button class="mini" title="새 장비 추가창 열기" onclick="mstReviewRegister('+i+')">＋ 등록</button> <button class="mini" onclick="mstReviewDel('+i+')">×</button></td></tr>';
+  }).join('');
+  return '<h2>🗂 장비 마스터 · 📋 추가여부 검토리스트 <span style="font-size:12px;color:var(--sub)">('+mstReview.length+'건)</span></h2>'
+    +'<div class="lead">붙여넣기에서 「📋 마스터DB 추가 검토」로 체크한 것들입니다(매칭된 장비 포함). 확인 후 「＋ 등록」으로 새 장비를 추가하거나, 필요 없으면 지우세요.</div>'
+    +'<div class="filt"><span class="chip" onclick="mstReviewView=0;render()">← 장비 목록으로</span></div>'
+    +(mstReview.length? '<div class="panel"><table><thead><tr><th>요청품목</th><th class="n">수량</th><th>들어온 프로젝트</th><th>사유</th><th class="n">매입여부</th><th>담은 시각</th><th class="n">등록·삭제</th></tr></thead><tbody>'+rows+'</tbody></table></div>'
+      : '<div class="panel" style="color:#999">검토 대기 항목이 없습니다.</div>')
+    +unitsModal()+mstModal()+matModal();
+}
 function catFilterChips(cur,setter){
   // 목차(카테고리) — 검색되는 드롭다운. 클릭하면 목록, 타이핑하면 걸러짐.
   var cats=catSort([...new Set(eqRows().map(function(r){return ev(r,E.cat);}).filter(Boolean))]);
@@ -1234,8 +1257,10 @@ function unitsModal(){
    +'<div class="mbtns"><button class="primary" onclick="closeUnits()">닫기</button></div></div></div>';
 }
 function vMst(){
+  if(mstReviewView) return _mstReviewHTML();
   var toggle='<span class="chip '+(mstGroup?'on':'')+'" onclick="toggleMstGroup()">'+(mstGroup?'✓ ':'')+'품목(모델)별 묶어보기 (총수량)</span>';
   var toggleSheet='<span class="chip '+(mstSheet?'on':'')+'" onclick="toggleMstSheet()">'+(mstSheet?'✓ ':'')+'시트 원본 보기(전체 열)</span>';
+  var revChip='<span class="chip'+(mstReview.length?' on':'')+'" style="background:#fef7e0;color:#8a6100;border-color:#f2e0a8" onclick="mstReviewView=1;render()">📋 추가여부 검토리스트'+(mstReview.length?' · '+mstReview.length:'')+'</span>';
   var _catf=function(e){ return !mstCat || ev(e,E.cat)===mstCat; };
   // ===== 시트 원본 보기 — 시트 '장비DB' 1행 구조 그대로 (전체 열·헤더행 + 열별 검색 + 열너비 조절) =====
   if(mstSheet){
@@ -1278,9 +1303,10 @@ function vMst(){
     }).join('');
     var anyF=Object.keys(mstColF).some(function(k){return mstColF[k];})||Object.keys(mstColW).length;
     return '<h2>🗂 장비 마스터 <span style="font-size:12px;color:var(--sub)">(시트 원본 보기 · '+srows.length+'개체 · 행 클릭=편집)</span></h2>'
+      +_mstReviewBanner()
       +'<div class="lead"><b>시트 ‘장비DB’와 같은 구조</b> · <b>각 열 아래 칸에 입력하면 그 열에서 검색</b>됩니다 · <b>열 경계를 좌우로 끌면 너비 조절</b>. 행을 클릭하면 수정창이 열립니다.</div>'
       +'<div class="filt"><input type="text" value="'+Q(q)+'" id="srch6" oninput="q=this.value;renderKeep(this,event)" oncompositionend="q=this.value;renderKeepDone(this)" placeholder="🔍 전체 검색(EQ_NO·품목·브랜드)"><button class="addbtn" onclick="mstEdit(\'__new__\')">＋ 새 장비 추가</button>'+(anyF?'<button class="reset" onclick="clearMstCols()">✕ 열 검색·너비 초기화</button>':'')+'</div>'
-      +'<div class="filt">'+toggleSheet+toggle+'</div>'
+      +'<div class="filt">'+toggleSheet+toggle+revChip+'</div>'
       +catFilterChips(mstCat,'setMstCat')
       +more
       +'<div class="panel" style="max-height:68vh;overflow:auto"><table style="font-size:11.5px;white-space:nowrap;table-layout:fixed">'+colgroup+'<thead><tr>'+sths+'</tr><tr>'+sfilt+'</tr></thead><tbody>'+sbody+'</tbody></table></div>'
@@ -1320,7 +1346,7 @@ function vMst(){
     return '<h2>🗂 장비 마스터 <span style="font-size:12px;color:var(--sub)">(품목 '+keys.length+'종 · 개체 '+eqRows().length+'대)</span></h2>'
       +'<div class="lead"><b>품목(모델)로 묶어서</b> 총수량을 봅니다. <b>줄을 클릭하면 개체별 시리얼·현재 위치</b>가 열립니다.</div>'
       +'<div class="filt"><input type="text" value="'+Q(q)+'" id="srch5" oninput="q=this.value;renderKeep(this,event)" oncompositionend="q=this.value;renderKeepDone(this)" placeholder="🔍 품목·브랜드 검색"><button class="addbtn" onclick="mstEdit(\'__new__\')">＋ 새 장비 추가</button></div>'
-      +'<div class="filt">'+toggleSheet+toggle+'</div>'
+      +'<div class="filt">'+toggleSheet+toggle+revChip+'</div>'
       +catFilterChips(mstCat,'setMstCat')
       +'<div class="panel"><table><thead><tr><th>EQ_NO</th><th>카테고리</th><th>브랜드</th><th>품목명</th><th class="n">총보유</th><th class="n">실재고</th><th class="n">시리얼</th><th>위치</th></tr></thead><tbody>'+gbody+((mstCat && mstCat!=='11. LEE FILTER · SAVAGE')?'':matMasterRows())+'</tbody></table></div>'
       +unitsModal()+mstModal()+matModal();
@@ -1334,10 +1360,11 @@ function vMst(){
     return `<tr class="rowck" onclick="mstEdit('${QJ(e[E.id])}')">${cols.map(c=>`<td>${cell[c[0]](e)}${(c[0]==='id'&&edited)?' <span style="font-size:9px;color:#2f6db0">●수정됨</span>':''}</td>`).join('')}</tr>`;
   }).join('');
   return `<h2>🗂 장비 마스터 <span style="font-size:12px;color:var(--sub)">(${eqRows().length}개체 · 행 클릭=편집)</span></h2>
+    ${_mstReviewBanner()}
     <div class="lead"><b>행 클릭=수정창</b> · 아래 칩으로 <b>보고 싶은 열만</b> 켜고 끕니다.</div>
     <div class="filt"><input type="text" value="${Q(q)}" id="srch6" oninput="q=this.value;renderKeep(this,event)" oncompositionend="q=this.value;renderKeepDone(this)" placeholder="🔍 EQ_NO·품목·브랜드 검색">
     <button class="addbtn" onclick="mstEdit('__new__')">＋ 새 장비 추가</button></div>
-    <div class="filt">${toggleSheet}${toggle}</div>
+    <div class="filt">${toggleSheet}${toggle}${revChip}</div>
     ${catFilterChips(mstCat,'setMstCat')}
     <div class="filt">${chips}</div>
     <div class="panel"><table><thead><tr>${cols.map(c=>`<th>${c[1]}</th>`).join('')}</tr></thead><tbody>${body}</tbody></table></div>${unitsModal()}${mstModal()}${matModal()}`;
@@ -1695,7 +1722,7 @@ function relModal(){
     <div class="mbtns"><button class="primary" onclick="relClose()">닫기</button></div></div></div>`;
 }
 // ===== 📦 프로젝트 준비 (프로젝트 생성 + 장비 구성) =====
-let npProj='', npSel={}, npRent=[], npCat='';
+let npProj='', npSel={}, npRent=[], npCat='', npCatOpen=false;   // npCatOpen: ① 카테고리 섹션 토글(기본 접힘)
 function npProjects(){ const a=[...new Set(allSrc().map(r=>r[S.proj]).filter(Boolean))]; PROJ.rows.forEach(p=>{ if(a.indexOf(p[0])<0)a.push(p[0]); }); return a; }
 function setNpProj(v){ npProj=v; render(); }
 function newProject(){ const nm=prompt('새 프로젝트 이름 (예: 260720_클라이언트명_포토그래퍼)'); if(nm&&nm.trim()){ npProj=nm.trim(); render(); } }
@@ -1707,6 +1734,47 @@ function catSort(list){
 function npCats(){ return catSort([...new Set(eqRows().map(r=>ev(r,E.cat)).filter(Boolean))]); }
 function npAdd(id,d){ const v=Math.max(0,(npSel[id]||0)+d); if(v)npSel[id]=v; else delete npSel[id]; render(); }
 function npSet(id,v){ const n=Math.max(0,parseInt(v)||0); if(n)npSel[id]=n; else delete npSel[id]; render(); }
+var npReq={};   // G: 붙여넣기 요청품목(원문) 보존 (모델명 → 원문)
+let npLocName=null;
+function npLocOpen(nm){ npLocName=nm; render(); }
+function npLocClose(){ npLocName=null; render(); }
+function npLocModal(){
+  if(!npLocName) return '';
+  var nm=npLocName; var us=npUnits(nm);
+  var own=us.reduce(function(a,e){return a+num(ev(e,E.own));},0); var avail=npModelAvail(nm);
+  var byProj={};
+  us.forEach(function(e){ (invUse()[e[E.id]]||[]).forEach(function(u){ if(u.out && !u.returned){ byProj[u.proj]=(byProj[u.proj]||0)+(u.qty||1); } }); });
+  var pl=Object.keys(byProj).map(function(p){ return '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #eef2f7;font-size:13px"><span style="font-size:10.5px;font-weight:800;border-radius:6px;padding:2px 8px;background:#fef7e0;color:#b06a00">프로젝트 나감</span> <span style="color:#5f6368">'+Q(p)+'</span> <span style="margin-left:auto;font-weight:800">'+byProj[p]+'개</span></div>'; }).join('');
+  return '<div class="modal-bg" onclick="if(event.target===this)npLocClose()"><div class="modal" style="max-width:460px"><h3>📍 현재 위치 — '+Q(nm)+'</h3><div style="font-size:12px;color:var(--sub);margin-bottom:8px">총 보유 '+own+'개 · 지금 어디에 몇 개</div>'
+    +'<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #eef2f7;font-size:13px"><span style="font-size:10.5px;font-weight:800;border-radius:6px;padding:2px 8px;background:#eef7f0;color:#1d7a43">회사 보유(가용)</span> <span style="margin-left:auto;font-weight:800">'+avail+'개</span></div>'
+    +(pl||'<div style="color:#999;font-size:12.5px;padding:6px 0">나가 있는 프로젝트 없음</div>')
+    +'<div class="mbtns"><button class="primary" onclick="npLocClose()">닫기</button></div></div></div>';
+}
+function _npDays(a,b){ if(!a||!b)return 0; var d1=new Date(a),d2=new Date(b); if(isNaN(d1.getTime())||isNaN(d2.getTime()))return 0; var n=Math.round((d2-d1)/86400000)+1; return n>0?n:0; }
+function npRentCols(key,on,qty,av,nm){
+  var EMPTY='<td class="c" style="color:#ddd">—</td>';
+  if(!on) return EMPTY.repeat(18);
+  var short=Math.max(0,(qty||0)-(av||0));
+  var vends=['PA','SLR','HK','조명','왈랄라','데이페이','프로렌탈','렌탈8'];
+  var sum=0; var vcells=vends.map(function(vn,vi){ var vv=npNoteGet(key,'v'+vi)||''; sum+=parseInt(vv)||0;
+    return '<td class="n"><input value="'+Q(String(vv))+'" onchange="npNoteSet(\''+QJ(key)+'\',\'v'+vi+'\',this.value)" style="width:32px;text-align:center;font-size:10.5px;border:1px solid #d9cbef;border-radius:5px;padding:3px 2px;background:#fbfaff"></td>'; }).join('');
+  var verify=(sum===short)?'<span style="color:#1d7a43;font-weight:800">✔</span>':(sum<short?'<span style="color:#c0392b;font-weight:800">✗ '+(short-sum)+'부족</span>':'<span style="color:#c0392b;font-weight:800">✗ '+(sum-short)+'초과</span>');
+  var canV=nm?Q(vendorListText(nm)||''):''; var proc=Q(npNoteGet(key,'proc')||''), out=Q(npNoteGet(key,'out')||''), due=Q(npNoteGet(key,'due')||''), price=npNoteGet(key,'price')||'';
+  var days=_npDays(out,due); var amt=(parseInt(price)||0)*(days||1)*(short||sum||0);
+  return '<td style="font-size:10.5px;color:#5b6ea8;max-width:110px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="'+canV+'">'+(canV||'-')+'</td>'
+    +'<td><input value="'+proc+'" placeholder="조달처" onchange="npNoteSet(\''+QJ(key)+'\',\'proc\',this.value)" style="width:64px;font-size:10.5px;border:1px solid #c9d3ea;border-radius:5px;padding:3px 5px"></td>'
+    +'<td class="n" style="font-weight:700">'+short+'</td>'
+    +vcells
+    +'<td class="n" style="font-weight:800;color:'+(sum===short?'#1d7a43':'#c0392b')+'">'+sum+'</td>'
+    +'<td class="n">'+verify+'</td>'
+    +'<td><input type="date" value="'+out+'" onchange="npNoteSet(\''+QJ(key)+'\',\'out\',this.value)" style="font-size:10px;border:1px solid var(--line);border-radius:5px;padding:2px 3px"></td>'
+    +'<td><input type="date" value="'+due+'" onchange="npNoteSet(\''+QJ(key)+'\',\'due\',this.value)" style="font-size:10px;border:1px solid var(--line);border-radius:5px;padding:2px 3px"></td>'
+    +'<td class="n">'+(days||'-')+'</td>'
+    +'<td class="n"><input value="'+Q(String(price))+'" placeholder="단가" onchange="npNoteSet(\''+QJ(key)+'\',\'price\',this.value)" style="width:58px;text-align:right;font-size:10.5px;border:1px solid var(--line);border-radius:5px;padding:3px 4px"></td>'
+    +'<td class="n" style="font-weight:700">'+(amt?amt.toLocaleString():'-')+'</td>';
+}
+function npStatusCell(key){ var v=npNoteGet(key,'status')||''; var opts=[['','— 선택 —'],['confirm','confirm'],['alt','alt'],['short','short'],['n/a','n/a'],['remove','remove']];
+  return '<select onchange="npNoteSet(\''+QJ(key)+'\',\'status\',this.value)" style="font-size:11px;padding:3px 4px;border:1px solid var(--line);border-radius:6px;font-family:inherit">'+opts.map(function(o){return '<option value="'+o[0]+'"'+(v===o[0]?' selected':'')+'>'+o[1]+'</option>';}).join('')+'</select>'; }
 function npAddRent(){ const nm=document.getElementById('npRentName').value.trim(); const q=Math.max(1,parseInt(document.getElementById('npRentQty').value)||1); if(!nm){alert('렌탈 품목 이름을 넣어주세요');return;} npRent.push({name:nm,qty:q}); render(); }
 function npRmRent(i){ npRent.splice(i,1); render(); }
 
@@ -1806,7 +1874,7 @@ async function npCheckout(){
   } else { sbMsg='⚠️ 오프라인 — 이 컴퓨터에만 저장됨'; }
   _dmg=null;_pdmax=null;_matEqCache=null;window.__invUse=null;
   const msg='['+npProj+'] 라인 '+made+'개 생성 완료.'+(serverOn?'\n서버에 저장되어 모두에게 보입니다.':'\n⚠️ 오프라인이라 이 컴퓨터에만 저장됐습니다.')+(rentMsg.length?'\n렌탈 필요: '+rentMsg.join(', '):'');
-  npSel={}; npMat={}; npNote={}; npVendor={}; npRent=[];
+  npSel={}; npMat={}; npNote={}; npVendor={}; npRent=[]; npReq={};
   alert(msg);
   curProj=npProj; stage='prep'; view='proj'; render();
 }
@@ -1972,13 +2040,13 @@ function srcPasteParse(){
   spRows=items.map(function(it){
     var q=parseInt(it.qty)||1;
     var bm=_spBest(it.matchName||it.req);
-    return { req:it.req, qty:q, eq:(bm.e&&bm.s>=45?bm.e:null), score:bm.s };
+    return { req:it.req, qty:q, eq:(bm.e&&bm.s>=45?bm.e:null), eqManual:'', score:bm.s, note:'', status:'', masterReview:false, masterReviewReason:'' };
   });
   srcPasteTxt=txt; try{ LSs('pa_v3_srcpaste',txt); }catch(e){}
   _spBindClose(); render();
 }
 function _spConf(r){
-  if(!r.eq) return '<span style="color:#b1442f;font-weight:800;font-size:11px">✗ 못 찾음</span>';
+  if(!r.eq){ if(r.eqManual) return '<span style="color:#8a5a2b;font-weight:800;font-size:11px">✎ 수기</span>'; return '<span style="color:#b1442f;font-weight:800;font-size:11px">✗ 못 찾음</span>'; }
   if(r.score>=72) return '<span style="color:#1f7a52;font-weight:800;font-size:11px">✓ 높음</span>';
   return '<span style="color:#b1442f;font-weight:800;font-size:11px">△ 확인</span>';
 }
@@ -1986,25 +2054,82 @@ function _spReviewHTML(){
   if(!spRows.length) return '';
   var body=spRows.map(function(r,i){
     var e=r.eq;
-    var mapCell = e
-      ? '<b>'+Q(ev(e,E.name))+'</b> <span style="font-family:ui-monospace;font-size:10px;color:#8a8">'+Q(ev(e,E.id))+'</span> '+_spConf(r)
-      : '<span style="color:#bbb">— 장비 선택 —</span> '+_spConf(r);
-    return '<tr>'
-      +'<td>'+Q(r.req)+'</td>'
-      +'<td class="n"><input value="'+r.qty+'" style="width:46px;text-align:center" onchange="spSetQty('+i+',this.value)"></td>'
-      +'<td class="spMapCell" style="position:relative;cursor:pointer;min-width:250px" onclick="spOpenSearch('+i+',event)">'+mapCell
-        +' <span style="color:var(--accent);font-size:10px;white-space:nowrap">'+(e?'✎바꾸기':'🔎검색')+'</span>'
+    var isRel=!!r.rel;
+    var _eqName = e ? Q(ev(e,E.name)) : Q(r.eqManual||'');
+    var mapCell = '<div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap">'
+      +'<input value="'+_eqName+'" title="'+_eqName+'" placeholder="장비명(수기입력)" onclick="event.stopPropagation()" onchange="spSetEqManual('+i+',this.value)" style="flex:1 1 auto;min-width:200px;box-sizing:border-box;border:1px solid '+(e?'#bfe2cd':'#e6ddcf')+';border-radius:6px;padding:4px 7px;font-size:12.5px;font-family:inherit;font-weight:'+(e?'700':'400')+';background:'+(e?'#f2faf5':'#fff')+'">'
+      +'<span style="display:inline-flex;align-items:center;gap:5px;flex-shrink:0">'
+      +(e?'<span style="font-family:ui-monospace;font-size:10px;color:#8a8">'+Q(ev(e,E.id))+'</span>':'')
+      +_spConf(r)+_spChain(r,i)
+      +'<span onclick="spOpenSearch('+i+',event)" style="cursor:pointer;color:var(--accent);font-size:10.5px;white-space:nowrap;font-weight:700">🔎검색</span>'
+      +((e||r.eqManual)?(spClearConfirm===i?'<span style="white-space:nowrap;font-size:10.5px"><span style="color:#b23b25;font-weight:700">지울까요?</span> <span onclick="event.stopPropagation();spClearEq('+i+')" style="cursor:pointer;color:#b23b25;font-weight:800">예</span> <span onclick="event.stopPropagation();spCancelClear()" style="cursor:pointer;color:#888">아니오</span></span>':'<span onclick="event.stopPropagation();spAskClear('+i+')" title="선택한 장비 지우기" style="cursor:pointer;color:#b23b25;font-size:10.5px;white-space:nowrap;font-weight:700">✕지우기</span>'):'')
+      +'</span></div>';
+    var reqCell = isRel
+      ? '<span style="color:#7a5cc0;font-size:12px">↳ '+Q(r.req)+' <span style="color:#aaa;font-size:10px">(연관장비)</span></span>'
+      : '<input value="'+Q(r.req)+'" style="width:100%;min-width:170px;border:1px dashed #cdbfa8;border-radius:5px;padding:4px 6px;background:#fffdf9;font-family:inherit;font-size:12.5px" onchange="spSetReq('+i+',this.value)">';
+    return '<tr'+(isRel?' style="background:#f6f2fb"':'')+'>'
+      +'<td class="n">'+(isRel?'<span style="color:#7a5cc0">↳</span>':'<button class="mini" title="이 행을 복제해 아래에 추가 (한 줄에 두 품목 나눌 때)" onclick="spDupRow('+i+')">＋</button>')+'</td>'
+      +'<td>'+reqCell+'</td>'
+      +'<td class="n"><input value="'+r.qty+'" style="width:44px;text-align:center" onchange="spSetQty('+i+',this.value)"></td>'
+      +'<td class="spMapCell" style="position:relative;min-width:380px">'+mapCell
         +'<div class="spSrch" id="spSrch'+i+'" style="display:none;position:absolute;top:100%;left:0;z-index:30;background:#fff;border:1px solid var(--accent);border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,.15);width:300px;padding:6px"><input id="spSi'+i+'" placeholder="장비명 검색…" style="width:100%;padding:5px;border:1px solid var(--line);border-radius:6px" oninput="spFilt('+i+',this.value)"><div id="spList'+i+'" style="max-height:200px;overflow:auto;margin-top:4px"></div></div>'
       +'</td>'
+      +'<td><input value="'+Q(r.note||'')+'" placeholder="포토 공유 비고" style="width:128px;border:1px solid var(--line);border-radius:6px;padding:4px 6px;font-size:11.5px;font-family:inherit" onchange="spSetNote('+i+',this.value)"></td>'
+      +'<td style="min-width:150px"><div style="display:flex;align-items:center;gap:6px;flex-wrap:nowrap"><label style="font-size:11px;color:#c0392b;font-weight:800;cursor:pointer;display:inline-flex;align-items:center;gap:4px;white-space:nowrap"><input type="checkbox" '+(r.masterReview?'checked':'')+' onchange="spToggleMaster('+i+',this.checked)" style="width:16px;height:16px;accent-color:#c0392b;cursor:pointer;flex-shrink:0"> 📋검토</label>'
+        +(r.masterReview?'<input value="'+Q(r.masterReviewReason||'')+'" placeholder="사유" onchange="spSetMasterReason('+i+',this.value)" style="width:92px;box-sizing:border-box;border:1px solid #f0c4bb;border-radius:5px;padding:3px 6px;font-size:10.5px;background:#fdeeeb;font-family:inherit">':'')+'</div></td>'
       +'<td class="n"><button class="mini" onclick="spDelRow('+i+')">×</button></td></tr>';
   }).join('');
   var mapped=spRows.filter(function(r){return r.eq;}).length;
   var chk=spRows.filter(function(r){return !r.eq||r.score<72;}).length;
   return '<div style="margin-top:12px;border-top:1px dashed #bcd0c0;padding-top:10px">'
     +'<div style="font-weight:700;font-size:13px;margin-bottom:5px">🔎 매칭 확인 <span style="font-weight:500;color:var(--sub);font-size:12px">— 틀린 건 클릭해서 검색·교체하세요 (총 '+spRows.length+' · 매칭 '+mapped+' · 확인필요 <b style="color:#b1442f">'+chk+'</b>)</span></div>'
-    +'<table><thead><tr><th>요청품목(붙여넣음)</th><th class="n">수량</th><th>→ 실제 장비 (자동추측 · 클릭해 변경)</th><th class="n">빼기</th></tr></thead><tbody>'+body+'</tbody></table>'
+    +'<div style="overflow-x:auto"><table><thead><tr><th class="n" style="width:28px">＋</th><th>요청품목(붙여넣음)</th><th class="n">수량</th><th>→ 실제 장비 <span style="font-weight:400;font-size:9.5px;color:#8a7a5c">수기 입력·🔎검색</span></th><th>EQ NOTE<br><span style="font-weight:400;font-size:9.5px;color:#8a7a5c">포토 공유</span></th><th style="color:#c0392b">📋검토</th><th class="n">빼기</th></tr></thead><tbody>'+body+'</tbody></table></div>'
     +'<div style="margin-top:9px;display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button class="addbtn" style="background:var(--ok);color:#fff;border:none;font-weight:800" onclick="srcPasteApply()">✅ 확인 완료 → ①② 준비 리스트에 담기</button><button class="mini" onclick="spRows=[];render()">취소</button><span style="font-size:11.5px;color:var(--sub)">담은 뒤에도 ①②에서 다시 수정할 수 있습니다</span></div>'
     +'</div>';
+}
+function spSetReq(i,v){ if(spRows[i]) spRows[i].req=v; }
+function spSetNote(i,v){ if(spRows[i]) spRows[i].note=v; }
+function spSetStatus(i,v){ if(spRows[i]) spRows[i].status=v; }
+function spSetEqManual(i,v){ if(!spRows[i])return; v=(v||'').trim(); spRows[i].eqManual=v; spRows[i].eq=null; spRows[i].score=0; render(); }   // 실제장비 수기 입력(자동매칭 해제·비우면 못찾음)
+var spClearConfirm=null;
+function spAskClear(i){ spClearConfirm=i; render(); }
+function spCancelClear(){ spClearConfirm=null; render(); }
+function spClearEq(i){ if(spRows[i]){ spRows[i].eq=null; spRows[i].eqManual=''; spRows[i].score=0; } spClearConfirm=null; render(); }   // 잘못 고른 장비 지우기
+function spSetMasterReason(i,v){ if(spRows[i]) spRows[i].masterReviewReason=v; }
+function spToggleMaster(i,c){ if(spRows[i]){ spRows[i].masterReview=!!c; render(); } }   // 렌더: 사유 입력칸 표시/숨김
+function spDupRow(i){ if(!spRows[i])return; var r=spRows[i]; spRows.splice(i+1,0,{req:r.req,qty:r.qty,eq:r.eq,eqManual:r.eqManual||'',score:r.score,note:r.note||'',status:r.status||'',masterReview:!!r.masterReview,masterReviewReason:r.masterReviewReason||''}); render(); }
+function _spStatusCell(r,i){ var v=r.status||''; var opts=[['','— 선택 —'],['confirm','confirm'],['alt','alt'],['short','short'],['n/a','n/a'],['remove','remove']];
+  return '<select onchange="spSetStatus('+i+',this.value)" style="font-size:11px;padding:3px 4px;border:1px solid var(--line);border-radius:6px;font-family:inherit">'+opts.map(function(o){return '<option value="'+o[0]+'"'+(v===o[0]?' selected':'')+'>'+o[1]+'</option>';}).join('')+'</select>'; }
+// ===== D: 붙여넣기 매칭표 연관장비 🔗 (체크 시 그 행 바로 밑에 추가) =====
+let spRelIdx=null;
+function _spRelItems(eq){ if(!eq)return []; var t=(ev(eq,E.related)||'').toString().trim(); if(!t)return []; return t.split(/[,\/\n·;]+/).map(function(x){return x.trim();}).filter(Boolean); }
+function _spRelSubs(i){ var out=[]; for(var j=i+1;j<spRows.length;j++){ if(spRows[j]&&spRows[j].rel) out.push(j); else break; } return out; }
+function _spChain(r,i){
+  if(r.rel) return '';
+  var items=_spRelItems(r.eq); if(!items.length) return '';
+  var subReq=_spRelSubs(i).map(function(j){return spRows[j].req;});
+  var n=items.filter(function(it){return subReq.indexOf(it)>=0;}).length;
+  return ' <span onclick="event.stopPropagation();spRelOpen('+i+')" title="연관장비 체크" style="cursor:pointer;font-size:11px;font-weight:800;color:#7a5cc0;background:#f1ecf9;border:1px solid #d9cbef;border-radius:6px;padding:1px 6px">🔗 '+n+'/'+items.length+'</span>';
+}
+function spRelOpen(i){ spRelIdx=i; render(); }
+function spRelClose(){ spRelIdx=null; render(); }
+function spRelToggle(it){
+  var i=spRelIdx; if(i==null||!spRows[i])return;
+  var subs=_spRelSubs(i); var found=-1;
+  for(var k=0;k<subs.length;k++){ if(spRows[subs[k]].req===it){ found=subs[k]; break; } }
+  if(found>=0){ spRows.splice(found,1); }
+  else { var e=eqRows().find(function(x){ return (ev(x,E.name)||'').toLowerCase()===it.toLowerCase(); });
+    var ins=subs.length? subs[subs.length-1]+1 : i+1;
+    spRows.splice(ins,0,{req:it,qty:(spRows[i].qty||1),eq:e||null,score:e?90:0,rel:true,note:'',status:'',masterReview:false}); }
+  render();
+}
+function spRelModal(){
+  if(spRelIdx==null||!spRows[spRelIdx])return '';
+  var r=spRows[spRelIdx]; var items=_spRelItems(r.eq);
+  var subReq=_spRelSubs(spRelIdx).map(function(j){return spRows[j].req;});
+  var list=items.map(function(it){ var on=subReq.indexOf(it)>=0;
+    return '<label style="display:flex;gap:9px;align-items:center;padding:7px 4px;border-bottom:1px dotted #e5ddcc;cursor:pointer;font-size:14px"><input type="checkbox" '+(on?'checked':'')+' onchange="spRelToggle(\''+QJ(it)+'\')"> '+Q(it)+'</label>'; }).join('');
+  return '<div class="modal-bg" onclick="if(event.target===this)spRelClose()"><div class="modal"><h3>🔗 연관장비 체크 — '+Q(ev(r.eq,E.name))+'</h3><div style="font-size:13px;color:var(--sub);margin-bottom:8px">체크하면 <b>그 품목 행 바로 밑에</b> 하나씩 추가됩니다.</div>'+(list||'<div style="color:#999">연관장비 없음</div>')+'<div class="mbtns"><button class="primary" onclick="spRelClose()">닫기</button></div></div></div>';
 }
 function spSetQty(i,v){ if(spRows[i]) spRows[i].qty=Math.max(1,parseInt(v)||1); }
 function spDelRow(i){ spRows.splice(i,1); render(); }
@@ -2035,15 +2160,20 @@ function srcPasteApply(){
       var us=npUnits(ev(r.eq,E.name));   // 같은 모델의 모든 개체
       if(us.length){ for(var k=0;k<q;k++) npPlusOne(us); }   // 정상 ＋버튼과 동일: 개체별 재고 한도로 분산, 초과분은 렌탈 판정
       else { var id=ev(r.eq,E.id); npSel[id]=(npSel[id]||0)+q; }  // 안전망
-      picked++;
+      picked++; var _mnm=ev(r.eq,E.name); if(_mnm && !npReq[_mnm]) npReq[_mnm]=r.req;
     }
-    else { npRent.push({ name:r.req, qty:q }); rented++; }
+    else { npRent.push({ name:(r.eqManual||r.req), qty:q }); rented++; }   // 수기 입력한 실제장비명이 있으면 그걸로
   });
+  // B: 「📋 마스터DB 추가 검토」 체크분 → 장비마스터 검토리스트에 쌓기 (매칭된 것도 포함, 사유까지)
+  var _now=(function(){ try{ var d=new Date(); var p=function(n){return String(n).padStart(2,'0');}; return String(d.getFullYear()).slice(2)+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes()); }catch(e){ return ''; } })();
+  var _rev=0;
+  spRows.forEach(function(r){ if(r.masterReview){ mstReview.push({req:r.req,eqName:(r.eq?ev(r.eq,E.name):(r.eqManual||'')),matched:!!r.eq,qty:r.qty||1,proj:npProj||'',reason:r.masterReviewReason||'',buy:'미정',ts:_now}); _rev++; } });
+  if(_rev) mstReviewSave();
   spRows=[];
   // 재적용 중복 방지: 붙여넣기 칸·저장값 비움
   var _ta=document.getElementById('spPaste'); if(_ta) _ta.value=''; srcPasteTxt=''; try{ LSs('pa_v3_srcpaste',''); }catch(e){}
   render();
-  alert('✅ ①② 준비 리스트에 담았습니다.\n\n· 고른 장비: '+picked+'개\n· 외부 렌탈: '+rented+'개\n\n①②에서 수량·장비를 다시 확인·수정한 뒤, ③에서 「이 구성으로 라인 만들기」를 누르세요.');
+  alert('✅ ①② 준비 리스트에 담았습니다.\n\n· 고른 장비: '+picked+'개\n· 외부 렌탈: '+rented+'개'+(_rev?'\n· 📋 마스터DB 추가 검토로 보냄: '+_rev+'개 (장비 마스터 탭에서 확인)':'')+'\n\n①②에서 수량·장비를 다시 확인·수정한 뒤, ③에서 「이 구성으로 라인 만들기」를 누르세요.');
 }
 function srcPasteClear(){ var ta=document.getElementById('spPaste'); if(ta) ta.value=''; srcPasteTxt=''; spRows=[]; try{ LSs('pa_v3_srcpaste',''); }catch(e){} render(); }
 function _spBindClose(){ if(window._spClose) return; window._spClose=true;
@@ -2089,15 +2219,15 @@ function vPrepNew(){
     var nm=ev(e,E.name)||'(이름없음)'; _sg[nm]=(_sg[nm]||0)+npSel[id];
   });
   const selRows=Object.keys(_sg).sort().map(function(nm){
-    var qy=_sg[nm]; var av=npModelAvail(nm);
+    var qy=_sg[nm]; var av=npModelAvail(nm); var own=npUnits(nm).reduce(function(a,e){return a+num(ev(e,E.own));},0);
     var short = qy>av;
     var j = !short ? '<span class="j-ok">보유 충당 ✔</span>' : ('<span class="j-rent">'+(qy-av)+'개 부족 → 렌탈</span>');
     var cands=vendorsOf(nm);
     var vcell = short
       ? vendorCell(nm,cands,'렌탈')+(cands.length>1?'<div style="font-size:10px;color:#aaa;margin-top:2px">가능: '+Q(vendorListText(nm))+'</div>':'')
       : '<span style="color:#ccc">-</span>';
-    return '<tr><td>'+Q(nm)+'</td><td class="n">'+qy+'</td><td class="n">'+av+'</td><td>'+j+'</td><td>'+vcell+'</td>'
-      +'<td><input class="note note-eq" value="'+Q(npNoteGet(nm,'eq'))+'" placeholder="포토 공유 비고" onchange="npNoteSet(\''+QJ(nm)+'\',\'eq\',this.value)"></td>'
+    return '<tr><td style="color:#6b6258;font-size:12px">'+Q(npReq[nm]||'')+'</td><td>'+Q(nm)+'</td><td class="n">'+qy+'</td><td class="n"><a onclick="npLocOpen(\''+QJ(nm)+'\')" style="display:inline-flex;align-items:center;gap:3px;background:#f2faf5;border:1px solid #bfe2cd;color:#1d7a43;border-radius:999px;padding:2px 10px;font-weight:800;cursor:pointer">'+own+' ▾</a></td><td class="n"'+(short?' style="background:#fbdcdc;font-weight:800;color:#a83c28"':'')+'>'+(short?(qy-av):0)+'</td><td>'+j+'</td>'
+      +npRentCols(nm,short,qy,av,nm)+'<td>'+npStatusCell(nm)+'</td>'+'<td><input class="note note-eq" value="'+Q(npNoteGet(nm,'eq'))+'" placeholder="포토 공유 비고" onchange="npNoteSet(\''+QJ(nm)+'\',\'eq\',this.value)"></td>'
       +'<td><input class="note note-in" value="'+Q(npNoteGet(nm,'in'))+'" placeholder="팀·프리랜서 공유 비고" onchange="npNoteSet(\''+QJ(nm)+'\',\'in\',this.value)"></td>'
       +'<td class="n"><button class="mini" onclick="npModelClear(\''+QJ(nm)+'\')">×</button></td></tr>';
   }).join('') + Object.keys(npMat).map(function(key){
@@ -2107,17 +2237,16 @@ function vPrepNew(){
     var short2 = qy>av;
     var j = !short2 ? '<span class="j-ok">보유 충당 ✔</span>' : ('<span class="j-rent">'+(qy-av)+'개 부족 → 구매</span>');
     var vcell2 = short2 ? vendorCell(key,[],'구매') : '<span style="color:#ccc">-</span>';
-    return '<tr style="background:#fbfaf5"><td>'+Q(npMatLabel(k,ri))+'</td><td class="n">'+qy+'</td><td class="n">'+av+'</td><td>'+j+'</td><td>'+vcell2+'</td>'
-      +'<td><input class="note note-eq" value="'+Q(npNoteGet(key,'eq'))+'" placeholder="포토 공유 비고" onchange="npNoteSet(\''+QJ(key)+'\',\'eq\',this.value)"></td>'
+    return '<tr style="background:#fbfaf5"><td></td><td>'+Q(npMatLabel(k,ri))+'</td><td class="n">'+qy+'</td><td class="n">'+av+'</td><td class="n"'+(short2?' style="background:#fbdcdc;font-weight:800;color:#a83c28"':'')+'>'+(short2?(qy-av):0)+'</td><td>'+j+'</td>'
+      +npRentCols(key,false,0,av,'')+'<td>'+npStatusCell(key)+'</td>'+'<td><input class="note note-eq" value="'+Q(npNoteGet(key,'eq'))+'" placeholder="포토 공유 비고" onchange="npNoteSet(\''+QJ(key)+'\',\'eq\',this.value)"></td>'
       +'<td><input class="note note-in" value="'+Q(npNoteGet(key,'in'))+'" placeholder="팀·프리랜서 공유 비고" onchange="npNoteSet(\''+QJ(key)+'\',\'in\',this.value)"></td>'
       +'<td class="n"><button class="mini" onclick="npMatClear(\''+QJ(key)+'\')">×</button></td></tr>';
   }).join('');
-  const rentRows=npRent.map((r,i)=>`<tr><td>${Q(r.name)} <span class="pill p-rent">렌탈</span></td><td class="n">${r.qty}</td><td class="n">-</td><td><span class="j-rent">외부 렌탈</span></td>`
-    +`<td>${vendorCell('rent|'+i,[],'렌탈')}</td>`
-    +`<td><input class="note note-eq" value="${Q(npNoteGet('rent|'+i,'eq'))}" placeholder="포토 공유 비고" onchange="npNoteSet('rent|${i}','eq',this.value)"></td>`
+  const rentRows=npRent.map((r,i)=>`<tr><td style="color:#6b6258;font-size:12px">${Q(r.name)}</td><td><span class="pill p-rent">렌탈</span></td><td class="n">${r.qty}</td><td class="n"><span style="background:#fdeeeb;border:1px solid #f0c4bb;color:#c0392b;border-radius:999px;padding:2px 9px;font-weight:800;font-size:11px">✗ 미보유</span></td><td class="n" style="background:#fbdcdc;font-weight:800;color:#a83c28">${r.qty}</td><td><span class="j-rent">외부 렌탈</span></td>`
+    +npRentCols('rent|'+i,true,r.qty,0,r.name)+`<td>${npStatusCell('rent|'+i)}</td>`+`<td><input class="note note-eq" value="${Q(npNoteGet('rent|'+i,'eq'))}" placeholder="포토 공유 비고" onchange="npNoteSet('rent|${i}','eq',this.value)"></td>`
     +`<td><input class="note note-in" value="${Q(npNoteGet('rent|'+i,'in'))}" placeholder="팀·프리랜서 공유 비고" onchange="npNoteSet('rent|${i}','in',this.value)"></td>`
     +`<td class="n"><button class="mini" onclick="npRmRent(${i})">×</button></td></tr>`).join('');
-  const listPanel=(selRows||rentRows)?`<table><thead><tr><th>준비 품목</th><th class="n">수량</th><th class="n">가용</th><th>판정</th><th>조달처<br><span style="font-weight:400;font-size:10px;color:#999">부족분 렌탈·구매</span></th><th>EQ NOTE<br><span style="font-weight:400;font-size:10px;color:#8a7a5c">포토 공유</span></th><th>내부 노트<br><span style="font-weight:400;font-size:10px;color:#5c7a9a">팀·프리랜서 공유</span></th><th class="n">빼기</th></tr></thead><tbody>${selRows}${rentRows}</tbody></table>`
+  const listPanel=(selRows||rentRows)?`<table><thead><tr><th>요청품목<br><span style="font-weight:400;font-size:10px;color:#999">붙여넣기 원문</span></th><th>준비 품목</th><th class="n">수량</th><th class="n">보유수량<br><span style="font-weight:400;font-size:10px;color:#0d652d">클릭=위치</span></th><th class="n">부족<br>수량</th><th>판정</th><th>렌탈가능업체</th><th>조달처<br>(자동)</th><th class="n">조달<br>수량</th><th class="n">PA</th><th class="n">SLR</th><th class="n">HK</th><th class="n">조명</th><th class="n">왈랄라</th><th class="n">데이페이</th><th class="n">프로렌탈</th><th class="n">렌탈8</th><th class="n">분배합</th><th>검증</th><th>출고</th><th>반납</th><th class="n">일수</th><th class="n">단가</th><th class="n">금액</th><th>STATUS</th><th>EQ NOTE<br><span style="font-weight:400;font-size:10px;color:#8a7a5c">포토 공유</span></th><th>내부 노트<br><span style="font-weight:400;font-size:10px;color:#5c7a9a">팀·프리랜서 공유</span></th><th class="n">빼기</th></tr></thead><tbody>${selRows}${rentRows}</tbody></table>`
     :'<div style="color:#bbb;padding:10px">아직 고른 장비가 없습니다. 위에서 고르세요.</div>';
   return `<h2>📦 프로젝트 준비 <span style="font-size:12px;color:var(--sub)">⭐ 장비 구성 + 프로젝트 생성</span></h2>
     <div class="lead"><b style="color:var(--ok)">⓪ 포토 리스트 붙여넣기(선택)</b> → ① 장비를 고르고 → ② 준비 리스트를 확인한 뒤 → ③ 어느 프로젝트인지 정해 <b>소싱 라인으로 만듭니다.</b></div>
@@ -2130,11 +2259,11 @@ function vPrepNew(){
         <span style="font-size:11.5px;color:var(--sub)">수량 앞(3 X)·미터(2M)·섹션·괄호 노트까지 인식 · <b>매칭을 확인·수정한 뒤</b> ①②에 담깁니다</span>
       </div>
       ${_spReviewHTML()}</div>
-    <div class="panel"><div style="font-weight:800;margin-bottom:8px">① 카테고리 → 보유 장비 고르기 <span style="font-weight:500;font-size:12px;color:var(--sub)">(품목별로 묶어서 수량만 정하면, 어느 개체가 나갈지는 출고 때 정해집니다)</span></div>
+    <div class="panel"><div style="font-weight:800;cursor:pointer;display:flex;align-items:center;gap:8px${npCatOpen?';margin-bottom:8px':''}" onclick="npCatOpen=!npCatOpen;render()"><span style="color:var(--ok);display:inline-block;transition:transform .15s${npCatOpen?';transform:rotate(90deg)':''}">▸</span>① 카테고리 → 보유 장비 고르기 <span style="font-weight:500;font-size:12px;color:var(--sub)">(품목별로 묶어 수량만 정하면 됨)</span><span style="margin-left:auto;font-size:11px;color:#a89e8e;font-weight:500">${npCatOpen?'▲ 접기':'▼ 펼치기'}</span></div>${npCatOpen?`
       <div class="filt">${catChips}</div>
       <div class="filt"><input type="text" value="${Q(q)}" id="srch10" oninput="q=this.value;renderKeep(this,event)" oncompositionend="q=this.value;renderKeepDone(this)" placeholder="🔍 장비 검색"></div>
       <div data-scrollbox style="max-height:44vh;overflow:auto;border:1px solid #eee;border-radius:8px;position:relative">
-      <table><thead><tr><th class="n">EQ_NO</th><th>카테고리</th><th>장비</th><th class="n">가용</th><th class="n">선택 수량</th></tr></thead><tbody>${invRows}</tbody></table></div></div>
+      <table><thead><tr><th class="n">EQ_NO</th><th>카테고리</th><th>장비</th><th class="n">가용</th><th class="n">선택 수량</th></tr></thead><tbody>${invRows}</tbody></table></div>`:''}</div>
     <div class="panel"><div style="font-weight:800;margin-bottom:8px">② 준비 리스트 (고른 것 + 렌탈)</div>
       ${listPanel}
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px">
@@ -2154,7 +2283,7 @@ function vPrepNew(){
       <div style="display:flex;align-items:center;flex-wrap:wrap;margin-top:12px">
         <span style="font-size:12px;color:var(--sub)">${npProj?('선택된 프로젝트: <b>'+Q(npProj)+'</b>'):'⚠️ 프로젝트를 먼저 고르거나 만들어주세요'}</span>
         <button onclick="npCheckout()" style="margin-left:auto;background:var(--ok);color:#fff;border:none;border-radius:9px;padding:10px 20px;font-weight:800;font-size:14.5px;cursor:pointer">✅ 이 구성으로 라인 만들기</button>
-      </div></div>`;
+      </div></div>${spRelModal()}${npLocModal()}`;
 }
 
 // ===== 📦 준비 (전체 프로젝트, 상단 탭) =====
@@ -2196,8 +2325,11 @@ function loginHTML(){
    +'Google 계정으로 로그인</button>'
    +'<div id="lg_msg" style="color:#b1442f;font-size:12.5px;min-height:18px;margin-top:12px">'+Q(sbMsg||'')+'</div>'
    +'<div style="font-size:11.5px;color:#aaa;margin-top:8px;line-height:1.7">＊명단에 등록된 계정만 이용할 수 있습니다.<br>＊관리자·프리랜서 화면은 자동으로 구분됩니다.</div>'
+   +(location.protocol==='file:'?'<div style="margin-top:16px;border-top:1px dashed var(--line);padding-top:14px"><button onclick="localPreview()" style="background:#eef7f0;color:#1d7a43;border:1px solid #bfe2cd;border-radius:9px;padding:9px 16px;font-weight:700;cursor:pointer;font-size:13px">🔎 로컬 미리보기 (로그인 없이)</button><div style="font-size:11px;color:#aaa;margin-top:6px;line-height:1.6">＊이 파일(로컬)에서만 보이는 UI 확인용. 배포 사이트에선 안 나옵니다.<br>＊서버 연결 없이 화면만 — 저장·서버 기능은 동작 안 함.</div></div>':'')
    +'</div>';
 }
+function localPreview(){ if(location.protocol!=='file:') return;   // 배포 사이트에선 절대 동작 안 함(로컬 UI 확인 전용)
+  session={email:'local@preview',name:'로컬미리보기',role:'관리자'}; ME='local@preview'; serverOn=false; sbMsg=''; view='prepNew'; render(); }
 function doLogin(){
   var em=(document.getElementById('lg_email').value||'').trim();
   var pw=(document.getElementById('lg_pw').value||'');
@@ -2531,7 +2663,7 @@ function _render(){
 }
 render();
 // ===== 버전 표시 + 새 버전 자동 감지 =====
-var APP_VER=((document.title||'').match(/v\d{6}[a-z]?/)||[''])[0];
+var APP_VER=((document.title||'').match(/v\d{6}(?:_\d+\.\d+)?[a-z]?/)||[''])[0];
 (function(){ var b=document.getElementById('verbadge'); if(b) b.textContent=APP_VER||''; })();
 var _updShown=false;
 async function checkNewVersion(){
@@ -2539,7 +2671,7 @@ async function checkNewVersion(){
     var r=await fetch(location.pathname+'?_v='+Date.now(),{cache:'no-store',headers:{Range:'bytes=0-1279'}});
     if(!r.ok) return;
     var t=await r.text();
-    var m=((t.match(/v\d{6}[a-z]?/))||[''])[0];
+    var m=((t.match(/v\d{6}(?:_\d+\.\d+)?[a-z]?/))||[''])[0];
     if(m && APP_VER && m!==APP_VER && !_updShown){ _updShown=true; _showUpdateBar(m); }
   }catch(e){}
 }
