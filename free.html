@@ -3,7 +3,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>PA 장비관리 — 프리랜서 사이트 · v260804_4.2a</title>
+<title>PA 장비관리 — 프리랜서 사이트 · v260804_4.3a</title>
 <style>
 :root{--bg:#f7f5f0;--card:#fff;--ink:#222;--sub:#666;--line:#e6e1d8;--accent:#2f6db0;
  --ok:#1f7a52;--okbg:#e7f4ec;--warn:#b1442f;--warnbg:#fbeae5;--rent:#8a5a1a;--rentbg:#f7efe0}
@@ -1787,8 +1787,8 @@ function npRentCols(key,on,qty,av,nm){
     +'<td class="n" style="'+AUTOBG+';color:'+(dbPrice?'#26303b':'#bbb')+'" title="자동 · 장비DB 단가">'+(dbPrice?dbPrice.toLocaleString():'-')+'</td>'
     +'<td class="n" style="font-weight:700;'+AUTOBG+'" title="자동 · (수기단가 있으면 그것, 없으면 단가) × 준비수량 × 일수">'+(amt?amt.toLocaleString():'-')+'</td>';
 }
-function npStatusCell(key){ var v=npNoteGet(key,'status')||''; var opts=[['','— 선택 —'],['confirm','confirm'],['alt','alt'],['short','short'],['n/a','n/a'],['remove','remove']];
-  return '<select onchange="npNoteSet(\''+QJ(key)+'\',\'status\',this.value)" style="font-size:11px;padding:3px 4px;border:1px solid var(--line);border-radius:6px;font-family:inherit">'+opts.map(function(o){return '<option value="'+o[0]+'"'+(v===o[0]?' selected':'')+'>'+o[1]+'</option>';}).join('')+'</select>'; }
+function npStatusCell(key){ var v=npNoteGet(key,'status')||''; var _sc={'confirm':['#d9ead3','#38761d'],'alt':['#fce5cd','#b45f06'],'short':['#f4cccc','#cc0000'],'n/a':['#f4cccc','#cc0000'],'remove':['#f4cccc','#cc0000']}; var _c=_sc[v]||['#ffffff','#555']; var opts=[['','— 선택 —'],['confirm','confirm'],['alt','alt'],['short','short'],['n/a','n/a'],['remove','remove']];
+  return '<select onchange="npNoteSet(\''+QJ(key)+'\',\'status\',this.value);render()" style="font-size:11px;padding:3px 4px;border:1px solid var(--line);border-radius:6px;font-family:inherit;font-weight:700;background:'+_c[0]+';color:'+_c[1]+'">'+opts.map(function(o){return '<option value="'+o[0]+'"'+(v===o[0]?' selected':'')+'>'+o[1]+'</option>';}).join('')+'</select>'; }
 function npAddRent(){ const nm=document.getElementById('npRentName').value.trim(); const q=Math.max(1,parseInt(document.getElementById('npRentQty').value)||1); if(!nm){alert('렌탈 품목 이름을 넣어주세요');return;} npRent.push({name:nm,qty:q}); render(); }
 function npRmRent(i){ npRent.splice(i,1); render(); }
 
@@ -2112,8 +2112,8 @@ function spClearEq(i){ if(spRows[i]){ spRows[i].eq=null; spRows[i].eqManual=''; 
 function spSetMasterReason(i,v){ if(spRows[i]) spRows[i].masterReviewReason=v; }
 function spToggleMaster(i,c){ if(spRows[i]){ spRows[i].masterReview=!!c; render(); } }   // 렌더: 사유 입력칸 표시/숨김
 function spDupRow(i){ if(!spRows[i])return; var r=spRows[i]; spRows.splice(i+1,0,{req:r.req,qty:r.qty,eq:r.eq,eqManual:r.eqManual||'',score:r.score,note:r.note||'',status:r.status||'',masterReview:!!r.masterReview,masterReviewReason:r.masterReviewReason||''}); render(); }
-function _spStatusCell(r,i){ var v=r.status||''; var opts=[['','— 선택 —'],['confirm','confirm'],['alt','alt'],['short','short'],['n/a','n/a'],['remove','remove']];
-  return '<select onchange="spSetStatus('+i+',this.value)" style="font-size:11px;padding:3px 4px;border:1px solid var(--line);border-radius:6px;font-family:inherit">'+opts.map(function(o){return '<option value="'+o[0]+'"'+(v===o[0]?' selected':'')+'>'+o[1]+'</option>';}).join('')+'</select>'; }
+function _spStatusCell(r,i){ var v=r.status||''; var _sc={'confirm':['#d9ead3','#38761d'],'alt':['#fce5cd','#b45f06'],'short':['#f4cccc','#cc0000'],'n/a':['#f4cccc','#cc0000'],'remove':['#f4cccc','#cc0000']}; var _c=_sc[v]||['#ffffff','#555']; var opts=[['','— 선택 —'],['confirm','confirm'],['alt','alt'],['short','short'],['n/a','n/a'],['remove','remove']];
+  return '<select onchange="spSetStatus('+i+',this.value);render()" style="font-size:11px;padding:3px 4px;border:1px solid var(--line);border-radius:6px;font-family:inherit;font-weight:700;background:'+_c[0]+';color:'+_c[1]+'">'+opts.map(function(o){return '<option value="'+o[0]+'"'+(v===o[0]?' selected':'')+'>'+o[1]+'</option>';}).join('')+'</select>'; }
 // ===== D: 붙여넣기 매칭표 연관장비 🔗 (체크 시 그 행 바로 밑에 추가) =====
 let spRelIdx=null;
 function _spRelItems(eq){ if(!eq)return []; var t=(ev(eq,E.related)||'').toString().trim(); if(!t)return []; return t.split(/[,\/\n·;]+/).map(function(x){return x.trim();}).filter(Boolean); }
