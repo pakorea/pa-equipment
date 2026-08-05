@@ -3,7 +3,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>PA 장비관리 — 프리랜서 사이트 · v260804_3.2b</title>
+<title>PA 장비관리 — 프리랜서 사이트 · v260804_3.3a</title>
 <style>
 :root{--bg:#f7f5f0;--card:#fff;--ink:#222;--sub:#666;--line:#e6e1d8;--accent:#2f6db0;
  --ok:#1f7a52;--okbg:#e7f4ec;--warn:#b1442f;--warnbg:#fbeae5;--rent:#8a5a1a;--rentbg:#f7efe0}
@@ -1757,24 +1757,33 @@ function _npDays(a,b){ if(!a||!b)return 0; var d1=new Date(a),d2=new Date(b); if
 function npRentCols(key,on,qty,av,nm){
   var EMPTY='<td class="c" style="color:#ddd">—</td>';
   if(!on) return EMPTY.repeat(18);
+  var AUTOBG='background:#eef1f5';   // 자동 계산 칸 표시(연회색)
   var short=Math.max(0,(qty||0)-(av||0));
+  var qn=qty||0;
   var vends=['PA','SLR','HK','조명','왈랄라','데이페이','프로렌탈','렌탈8'];
-  var sum=0; var vcells=vends.map(function(vn,vi){ var vv=npNoteGet(key,'v'+vi)||''; sum+=parseInt(vv)||0;
-    return '<td class="n"><input value="'+Q(String(vv))+'" onchange="npNoteSet(\''+QJ(key)+'\',\'v'+vi+'\',this.value)" style="width:32px;text-align:center;font-size:10.5px;border:1px solid #d9cbef;border-radius:5px;padding:3px 2px;background:#fbfaff"></td>'; }).join('');
-  var verify=(sum===short)?'<span style="color:#1d7a43;font-weight:800">✔</span>':(sum<short?'<span style="color:#c0392b;font-weight:800">✗ '+(short-sum)+'부족</span>':'<span style="color:#c0392b;font-weight:800">✗ '+(sum-short)+'초과</span>');
-  var canV=nm?Q(vendorListText(nm)||''):''; var proc=Q(npNoteGet(key,'proc')||''), out=Q(npNoteGet(key,'out')||''), due=Q(npNoteGet(key,'due')||''), price=npNoteGet(key,'price')||'';
+  var vals=vends.map(function(vn,vi){ return parseInt(npNoteGet(key,'v'+vi))||0; });
+  var sum=vals.reduce(function(a,b){return a+b;},0);         // 분배합(자동)
+  var procQty=Math.max(0,sum-vals[0]);                       // 조달수량(자동)=업체합−PA
+  var procList=[]; vends.forEach(function(vn,vi){ if(vi>0 && vals[vi]>0) procList.push(vn); });
+  var procAuto=procList.join(', ');                          // 조달처(자동)=PA 외 배분 업체
+  var vcells=vends.map(function(vn,vi){ var vv=npNoteGet(key,'v'+vi)||'';
+    return '<td class="n"><input value="'+Q(String(vv))+'" onchange="npNoteSet(\''+QJ(key)+'\',\'v'+vi+'\',this.value);render()" style="width:32px;text-align:center;font-size:10.5px;border:1px solid #d9cbef;border-radius:5px;padding:3px 2px;background:#fbfaff"></td>'; }).join('');
+  var verify=(sum===qn)?'<span style="color:#1d7a43;font-weight:800">✔</span>':(sum<qn?'<span style="color:#c0392b;font-weight:800">✗ '+(qn-sum)+'부족</span>':'<span style="color:#c0392b;font-weight:800">✗ '+(sum-qn)+'초과</span>');
+  var canV=nm?Q(vendorListText(nm)||''):'';
+  var out=Q(npNoteGet(key,'out')||''), due=Q(npNoteGet(key,'due')||''), price=npNoteGet(key,'price')||'';
   var days=_npDays(out,due); var amt=(parseInt(price)||0)*(days||1)*(short||sum||0);
-  return '<td style="font-size:10.5px;color:#5b6ea8;max-width:110px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="'+canV+'">'+(canV||'-')+'</td>'
-    +'<td><input value="'+proc+'" placeholder="조달처" onchange="npNoteSet(\''+QJ(key)+'\',\'proc\',this.value)" style="width:64px;font-size:10.5px;border:1px solid #c9d3ea;border-radius:5px;padding:3px 5px"></td>'
-    +'<td class="n" style="font-weight:700">'+short+'</td>'
+  var procOk=(procQty===short);
+  return '<td style="font-size:10.5px;color:#5b6ea8;max-width:110px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;'+AUTOBG+'" title="자동 · 장비DB 렌탈가능업체&#10;'+canV+'">'+(canV||'-')+'</td>'
+    +'<td style="font-size:10.5px;color:#5b6ea8;max-width:100px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;'+AUTOBG+'" title="자동 · PA 외 배분 업체&#10;'+Q(procAuto)+'">'+(procAuto||'-')+'</td>'
+    +'<td class="n" style="font-weight:800;'+AUTOBG+';color:'+(procOk?'#1d7a43':'#c0392b')+'" title="자동 · 업체합−PA (부족수량 '+short+'과 같아야 정상)">'+procQty+'</td>'
     +vcells
-    +'<td class="n" style="font-weight:800;color:'+(sum===short?'#1d7a43':'#c0392b')+'">'+sum+'</td>'
-    +'<td class="n">'+verify+'</td>'
-    +'<td><input type="date" value="'+out+'" onchange="npNoteSet(\''+QJ(key)+'\',\'out\',this.value)" style="font-size:10px;border:1px solid var(--line);border-radius:5px;padding:2px 3px"></td>'
-    +'<td><input type="date" value="'+due+'" onchange="npNoteSet(\''+QJ(key)+'\',\'due\',this.value)" style="font-size:10px;border:1px solid var(--line);border-radius:5px;padding:2px 3px"></td>'
-    +'<td class="n">'+(days||'-')+'</td>'
-    +'<td class="n"><input value="'+Q(String(price))+'" placeholder="단가" onchange="npNoteSet(\''+QJ(key)+'\',\'price\',this.value)" style="width:58px;text-align:right;font-size:10.5px;border:1px solid var(--line);border-radius:5px;padding:3px 4px"></td>'
-    +'<td class="n" style="font-weight:700">'+(amt?amt.toLocaleString():'-')+'</td>';
+    +'<td class="n" style="font-weight:800;'+AUTOBG+';color:'+(sum===qn?'#1d7a43':'#c0392b')+'" title="자동 · 업체 배분 합">'+sum+'</td>'
+    +'<td class="n" style="'+AUTOBG+'" title="자동 · 분배합=배정수량이면 ✔">'+verify+'</td>'
+    +'<td><input type="date" value="'+out+'" onchange="npNoteSet(\''+QJ(key)+'\',\'out\',this.value);render()" style="font-size:10px;border:1px solid var(--line);border-radius:5px;padding:2px 3px"></td>'
+    +'<td><input type="date" value="'+due+'" onchange="npNoteSet(\''+QJ(key)+'\',\'due\',this.value);render()" style="font-size:10px;border:1px solid var(--line);border-radius:5px;padding:2px 3px"></td>'
+    +'<td class="n" style="'+AUTOBG+'" title="자동 · 반납−출고+1">'+(days||'-')+'</td>'
+    +'<td class="n"><input value="'+Q(String(price))+'" placeholder="단가" onchange="npNoteSet(\''+QJ(key)+'\',\'price\',this.value);render()" style="width:58px;text-align:right;font-size:10.5px;border:1px solid var(--line);border-radius:5px;padding:3px 4px"></td>'
+    +'<td class="n" style="font-weight:700;'+AUTOBG+'" title="자동 · 단가×일수×수량">'+(amt?amt.toLocaleString():'-')+'</td>';
 }
 function npStatusCell(key){ var v=npNoteGet(key,'status')||''; var opts=[['','— 선택 —'],['confirm','confirm'],['alt','alt'],['short','short'],['n/a','n/a'],['remove','remove']];
   return '<select onchange="npNoteSet(\''+QJ(key)+'\',\'status\',this.value)" style="font-size:11px;padding:3px 4px;border:1px solid var(--line);border-radius:6px;font-family:inherit">'+opts.map(function(o){return '<option value="'+o[0]+'"'+(v===o[0]?' selected':'')+'>'+o[1]+'</option>';}).join('')+'</select>'; }
