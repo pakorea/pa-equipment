@@ -3,7 +3,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>PA 장비관리 — 관리자 사이트 (3번) · v260804_3.4a</title>
+<title>PA 장비관리 — 관리자 사이트 (3번) · v260804_4.0a</title>
 <style>
 :root{--bg:#f7f5f0;--card:#fff;--ink:#222;--sub:#666;--line:#e6e1d8;--accent:#2f6db0;
  --ok:#1f7a52;--okbg:#e7f4ec;--warn:#b1442f;--warnbg:#fbeae5;--rent:#8a5a1a;--rentbg:#f7efe0}
@@ -1755,8 +1755,6 @@ function npLocModal(){
 }
 function _npDays(a,b){ if(!a||!b)return 0; var d1=new Date(a),d2=new Date(b); if(isNaN(d1.getTime())||isNaN(d2.getTime()))return 0; var n=Math.round((d2-d1)/86400000)+1; return n>0?n:0; }
 function npRentCols(key,on,qty,av,nm){
-  var EMPTY='<td class="c" style="color:#ddd">—</td>';
-  if(!on) return EMPTY.repeat(18);
   var AUTOBG='background:#eef1f5';   // 자동 계산 칸 표시(연회색)
   var short=Math.max(0,(qty||0)-(av||0));
   var qn=qty||0;
@@ -1770,11 +1768,14 @@ function npRentCols(key,on,qty,av,nm){
     return '<td class="n"><input value="'+Q(String(vv))+'" onchange="npNoteSet(\''+QJ(key)+'\',\'v'+vi+'\',this.value);render()" style="width:32px;text-align:center;font-size:10.5px;border:1px solid #d9cbef;border-radius:5px;padding:3px 2px;background:#fbfaff"></td>'; }).join('');
   var verify=(sum===qn)?'<span style="color:#1d7a43;font-weight:800">✔</span>':(sum<qn?'<span style="color:#c0392b;font-weight:800">✗ '+(qn-sum)+'부족</span>':'<span style="color:#c0392b;font-weight:800">✗ '+(sum-qn)+'초과</span>');
   var canV=nm?Q(vendorListText(nm)||''):'';
-  var out=Q(npNoteGet(key,'out')||''), due=Q(npNoteGet(key,'due')||''), price=npNoteGet(key,'price')||'';
-  var days=_npDays(out,due); var amt=(parseInt(price)||0)*(days||1)*(short||sum||0);
+  var out=Q(npNoteGet(key,'out')||''), due=Q(npNoteGet(key,'due')||'');
+  var manual=npNoteGet(key,'price');                         // 수기단가
+  var dbPrice=0; if(nm){ var _us=npUnits(nm); if(_us.length) dbPrice=num(ev(_us[0],E.price)); }   // 장비DB 단가(자동)
+  var eff=(manual!==''&&manual!=null)?(parseInt(manual)||0):dbPrice;   // 수기단가 우선, 없으면 DB단가
+  var days=_npDays(out,due); var amt=eff*qn*(days||1);       // 금액=단가×준비수량×일수
   var procOk=(procQty===short);
-  return '<td style="font-size:10.5px;color:#5b6ea8;max-width:110px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;'+AUTOBG+'" title="자동 · 장비DB 렌탈가능업체&#10;'+canV+'">'+(canV||'-')+'</td>'
-    +'<td style="font-size:10.5px;color:#5b6ea8;max-width:100px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;'+AUTOBG+'" title="자동 · PA 외 배분 업체&#10;'+Q(procAuto)+'">'+(procAuto||'-')+'</td>'
+  return '<td style="font-size:10.5px;color:#5b6ea8;'+AUTOBG+'"><div style="max-width:96px;overflow-x:auto;white-space:nowrap" title="자동 · 장비DB 렌탈가능업체">'+(canV||'-')+'</div></td>'
+    +'<td style="font-size:10.5px;color:#5b6ea8;'+AUTOBG+'"><div style="max-width:92px;overflow-x:auto;white-space:nowrap" title="자동 · PA 외 배분 업체">'+(procAuto||'-')+'</div></td>'
     +'<td class="n" style="font-weight:800;'+AUTOBG+';color:'+(procOk?'#1d7a43':'#c0392b')+'" title="자동 · 업체합−PA (부족수량 '+short+'과 같아야 정상)">'+procQty+'</td>'
     +vcells
     +'<td class="n" style="font-weight:800;'+AUTOBG+';color:'+(sum===qn?'#1d7a43':'#c0392b')+'" title="자동 · 업체 배분 합">'+sum+'</td>'
@@ -1782,8 +1783,9 @@ function npRentCols(key,on,qty,av,nm){
     +'<td><input type="date" value="'+out+'" onchange="npNoteSet(\''+QJ(key)+'\',\'out\',this.value);render()" style="font-size:10px;border:1px solid var(--line);border-radius:5px;padding:2px 3px"></td>'
     +'<td><input type="date" value="'+due+'" onchange="npNoteSet(\''+QJ(key)+'\',\'due\',this.value);render()" style="font-size:10px;border:1px solid var(--line);border-radius:5px;padding:2px 3px"></td>'
     +'<td class="n" style="'+AUTOBG+'" title="자동 · 반납−출고+1">'+(days||'-')+'</td>'
-    +'<td class="n"><input value="'+Q(String(price))+'" placeholder="단가" onchange="npNoteSet(\''+QJ(key)+'\',\'price\',this.value);render()" style="width:58px;text-align:right;font-size:10.5px;border:1px solid var(--line);border-radius:5px;padding:3px 4px"></td>'
-    +'<td class="n" style="font-weight:700;'+AUTOBG+'" title="자동 · 단가×일수×수량">'+(amt?amt.toLocaleString():'-')+'</td>';
+    +'<td class="n"><input value="'+Q(String(manual))+'" placeholder="수기" onchange="npNoteSet(\''+QJ(key)+'\',\'price\',this.value);render()" title="수기단가 · 입력하면 이 값으로 금액 계산(장비DB 단가 무시). 비우면 옆 [단가] 사용" style="width:56px;text-align:right;font-size:10.5px;border:1px solid #e5cf8f;border-radius:5px;padding:3px 4px;background:#fffdf5"></td>'
+    +'<td class="n" style="'+AUTOBG+';color:'+(dbPrice?'#26303b':'#bbb')+'" title="자동 · 장비DB 단가">'+(dbPrice?dbPrice.toLocaleString():'-')+'</td>'
+    +'<td class="n" style="font-weight:700;'+AUTOBG+'" title="자동 · (수기단가 있으면 그것, 없으면 단가) × 준비수량 × 일수">'+(amt?amt.toLocaleString():'-')+'</td>';
 }
 function npStatusCell(key){ var v=npNoteGet(key,'status')||''; var opts=[['','— 선택 —'],['confirm','confirm'],['alt','alt'],['short','short'],['n/a','n/a'],['remove','remove']];
   return '<select onchange="npNoteSet(\''+QJ(key)+'\',\'status\',this.value)" style="font-size:11px;padding:3px 4px;border:1px solid var(--line);border-radius:6px;font-family:inherit">'+opts.map(function(o){return '<option value="'+o[0]+'"'+(v===o[0]?' selected':'')+'>'+o[1]+'</option>';}).join('')+'</select>'; }
@@ -2172,7 +2174,7 @@ function srcPasteApply(){
       var us=npUnits(ev(r.eq,E.name));   // 같은 모델의 모든 개체
       if(us.length){ for(var k=0;k<q;k++) npPlusOne(us); }   // 정상 ＋버튼과 동일: 개체별 재고 한도로 분산, 초과분은 렌탈 판정
       else { var id=ev(r.eq,E.id); npSel[id]=(npSel[id]||0)+q; }  // 안전망
-      picked++; var _mnm=ev(r.eq,E.name); if(_mnm && !npReq[_mnm]) npReq[_mnm]=r.req;
+      picked++; var _mnm=ev(r.eq,E.name); if(_mnm && !npReq[_mnm]) npReq[_mnm]=r.req; if(_mnm) npNoteSet(_mnm,'reqq', String((parseInt(npNoteGet(_mnm,'reqq'))||0)+q));
     }
     else { npRent.push({ name:(r.eqManual||r.req), qty:q }); rented++; }   // 수기 입력한 실제장비명이 있으면 그걸로
   });
@@ -2234,31 +2236,40 @@ function vPrepNew(){
     var qy=_sg[nm]; var av=npModelAvail(nm); var own=npUnits(nm).reduce(function(a,e){return a+num(ev(e,E.own));},0);
     var short = qy>av;
     var j = !short ? '<span class="j-ok">보유 충당 ✔</span>' : ('<span class="j-rent">'+(qy-av)+'개 부족 → 렌탈</span>');
-    var cands=vendorsOf(nm);
-    var vcell = short
-      ? vendorCell(nm,cands,'렌탈')+(cands.length>1?'<div style="font-size:10px;color:#aaa;margin-top:2px">가능: '+Q(vendorListText(nm))+'</div>':'')
-      : '<span style="color:#ccc">-</span>';
-    return '<tr><td style="color:#6b6258;font-size:12px">'+Q(npReq[nm]||'')+'</td><td>'+Q(nm)+'</td><td class="n">'+qy+'</td><td class="n"><a onclick="npLocOpen(\''+QJ(nm)+'\')" style="display:inline-flex;align-items:center;gap:3px;background:#f2faf5;border:1px solid #bfe2cd;color:#1d7a43;border-radius:999px;padding:2px 10px;font-weight:800;cursor:pointer">'+own+' ▾</a></td><td class="n"'+(short?' style="background:#fbdcdc;font-weight:800;color:#a83c28"':'')+'>'+(short?(qy-av):0)+'</td><td>'+j+'</td>'
-      +npRentCols(nm,short,qy,av,nm)+'<td>'+npStatusCell(nm)+'</td>'+'<td><input class="note note-eq" value="'+Q(npNoteGet(nm,'eq'))+'" placeholder="포토 공유 비고" onchange="npNoteSet(\''+QJ(nm)+'\',\'eq\',this.value)"></td>'
+    return '<tr><td style="color:#6b6258;font-size:12px">'+Q(npReq[nm]||'')+'</td>'
+      +'<td class="n"><input value="'+Q(String(npNoteGet(nm,'reqq')||qy))+'" onchange="npNoteSet(\''+QJ(nm)+'\',\'reqq\',this.value)" style="width:44px;text-align:center;font-size:11px;border:1px solid var(--line);border-radius:5px;padding:3px 2px"></td>'
+      +'<td>'+npStatusCell(nm)+'</td>'
+      +'<td>'+Q(nm)+'</td>'
+      +'<td class="n" style="font-weight:700">'+qy+'</td>'
+      +'<td><input class="note note-eq" value="'+Q(npNoteGet(nm,'eq'))+'" placeholder="포토 공유 비고" onchange="npNoteSet(\''+QJ(nm)+'\',\'eq\',this.value)"></td>'
       +'<td><input class="note note-in" value="'+Q(npNoteGet(nm,'in'))+'" placeholder="팀·프리랜서 공유 비고" onchange="npNoteSet(\''+QJ(nm)+'\',\'in\',this.value)"></td>'
+      +'<td class="n"><a onclick="npLocOpen(\''+QJ(nm)+'\')" style="display:inline-flex;align-items:center;gap:3px;background:#f2faf5;border:1px solid #bfe2cd;color:#1d7a43;border-radius:999px;padding:2px 10px;font-weight:800;cursor:pointer">'+own+' ▾</a></td>'
+      +'<td class="n"'+(short?' style="background:#fbdcdc;font-weight:800;color:#a83c28"':'')+'>'+(short?(qy-av):0)+'</td>'
+      +'<td>'+j+'</td>'
+      +npRentCols(nm,true,qy,av,nm)
       +'<td class="n"><button class="mini" onclick="npModelClear(\''+QJ(nm)+'\')">×</button></td></tr>';
   }).join('') + Object.keys(npMat).map(function(key){
-    var _r=npMatResolve(key); if(!_r) return '';   // 사라진 자재는 표시 안 함
+    var _r=npMatResolve(key); if(!_r) return '';
     var k=_r.k, ri=_r.ri;
     var qy=npMat[key], av=Math.max(0,num(matQty(k,ri)));
     var short2 = qy>av;
     var j = !short2 ? '<span class="j-ok">보유 충당 ✔</span>' : ('<span class="j-rent">'+(qy-av)+'개 부족 → 구매</span>');
-    var vcell2 = short2 ? vendorCell(key,[],'구매') : '<span style="color:#ccc">-</span>';
-    return '<tr style="background:#fbfaf5"><td></td><td>'+Q(npMatLabel(k,ri))+'</td><td class="n">'+qy+'</td><td class="n">'+av+'</td><td class="n"'+(short2?' style="background:#fbdcdc;font-weight:800;color:#a83c28"':'')+'>'+(short2?(qy-av):0)+'</td><td>'+j+'</td>'
-      +npRentCols(key,false,0,av,'')+'<td>'+npStatusCell(key)+'</td>'+'<td><input class="note note-eq" value="'+Q(npNoteGet(key,'eq'))+'" placeholder="포토 공유 비고" onchange="npNoteSet(\''+QJ(key)+'\',\'eq\',this.value)"></td>'
+    return '<tr style="background:#fbfaf5"><td></td>'
+      +'<td class="n"><input value="'+Q(String(npNoteGet(key,'reqq')||qy))+'" onchange="npNoteSet(\''+QJ(key)+'\',\'reqq\',this.value)" style="width:44px;text-align:center;font-size:11px;border:1px solid var(--line);border-radius:5px;padding:3px 2px"></td>'
+      +'<td>'+npStatusCell(key)+'</td>'
+      +'<td>'+Q(npMatLabel(k,ri))+'</td>'
+      +'<td class="n" style="font-weight:700">'+qy+'</td>'
+      +'<td><input class="note note-eq" value="'+Q(npNoteGet(key,'eq'))+'" placeholder="포토 공유 비고" onchange="npNoteSet(\''+QJ(key)+'\',\'eq\',this.value)"></td>'
       +'<td><input class="note note-in" value="'+Q(npNoteGet(key,'in'))+'" placeholder="팀·프리랜서 공유 비고" onchange="npNoteSet(\''+QJ(key)+'\',\'in\',this.value)"></td>'
+      +'<td class="n">'+av+'</td>'
+      +'<td class="n"'+(short2?' style="background:#fbdcdc;font-weight:800;color:#a83c28"':'')+'>'+(short2?(qy-av):0)+'</td>'
+      +'<td>'+j+'</td>'
+      +npRentCols(key,true,qy,av,'')
       +'<td class="n"><button class="mini" onclick="npMatClear(\''+QJ(key)+'\')">×</button></td></tr>';
   }).join('');
-  const rentRows=npRent.map((r,i)=>`<tr><td style="color:#6b6258;font-size:12px">${Q(r.name)}</td><td><span class="pill p-rent">렌탈</span></td><td class="n">${r.qty}</td><td class="n"><span style="background:#fdeeeb;border:1px solid #f0c4bb;color:#c0392b;border-radius:999px;padding:2px 9px;font-weight:800;font-size:11px">✗ 미보유</span></td><td class="n" style="background:#fbdcdc;font-weight:800;color:#a83c28">${r.qty}</td><td><span class="j-rent">외부 렌탈</span></td>`
-    +npRentCols('rent|'+i,true,r.qty,0,r.name)+`<td>${npStatusCell('rent|'+i)}</td>`+`<td><input class="note note-eq" value="${Q(npNoteGet('rent|'+i,'eq'))}" placeholder="포토 공유 비고" onchange="npNoteSet('rent|${i}','eq',this.value)"></td>`
-    +`<td><input class="note note-in" value="${Q(npNoteGet('rent|'+i,'in'))}" placeholder="팀·프리랜서 공유 비고" onchange="npNoteSet('rent|${i}','in',this.value)"></td>`
-    +`<td class="n"><button class="mini" onclick="npRmRent(${i})">×</button></td></tr>`).join('');
-  const listPanel=(selRows||rentRows)?`<table><thead><tr><th>요청품목<br><span style="font-weight:400;font-size:10px;color:#999">붙여넣기 원문</span></th><th>준비 품목</th><th class="n">수량</th><th class="n">보유수량<br><span style="font-weight:400;font-size:10px;color:#0d652d">클릭=위치</span></th><th class="n">부족<br>수량</th><th>판정</th><th>렌탈가능업체</th><th>조달처<br>(자동)</th><th class="n">조달<br>수량</th><th class="n">PA</th><th class="n">SLR</th><th class="n">HK</th><th class="n">조명</th><th class="n">왈랄라</th><th class="n">데이페이</th><th class="n">프로렌탈</th><th class="n">렌탈8</th><th class="n">분배합</th><th>검증</th><th>출고</th><th>반납</th><th class="n">일수</th><th class="n">단가</th><th class="n">금액</th><th>STATUS</th><th>EQ NOTE<br><span style="font-weight:400;font-size:10px;color:#8a7a5c">포토 공유</span></th><th>내부 노트<br><span style="font-weight:400;font-size:10px;color:#5c7a9a">팀·프리랜서 공유</span></th><th class="n">빼기</th></tr></thead><tbody>${selRows}${rentRows}</tbody></table>`
+  const rentRows=npRent.map((r,i)=>`<tr><td style="color:#6b6258;font-size:12px">${Q(r.name)}</td><td class="n"><input value="${Q(String(npNoteGet('rent|'+i,'reqq')||r.qty))}" onchange="npNoteSet('rent|${i}','reqq',this.value)" style="width:44px;text-align:center;font-size:11px;border:1px solid var(--line);border-radius:5px;padding:3px 2px"></td><td>${npStatusCell('rent|'+i)}</td><td><span class="pill p-rent">렌탈</span></td><td class="n" style="font-weight:700">${r.qty}</td><td><input class="note note-eq" value="${Q(npNoteGet('rent|'+i,'eq'))}" placeholder="포토 공유 비고" onchange="npNoteSet('rent|${i}','eq',this.value)"></td><td><input class="note note-in" value="${Q(npNoteGet('rent|'+i,'in'))}" placeholder="팀·프리랜서 공유 비고" onchange="npNoteSet('rent|${i}','in',this.value)"></td><td class="n"><span style="background:#fdeeeb;border:1px solid #f0c4bb;color:#c0392b;border-radius:999px;padding:2px 9px;font-weight:800;font-size:11px">✗ 미보유</span></td><td class="n" style="background:#fbdcdc;font-weight:800;color:#a83c28">${r.qty}</td><td><span class="j-rent">외부 렌탈</span></td>`
+    +npRentCols('rent|'+i,true,r.qty,0,r.name)+`<td class="n"><button class="mini" onclick="npRmRent(${i})">×</button></td></tr>`).join('');
+  const listPanel=(selRows||rentRows)?`<table><thead><tr><th>요청품목<br><span style="font-weight:400;font-size:10px;color:#999">붙여넣기 원문</span></th><th class="n">요청<br>수량</th><th>STATUS</th><th>준비 품목</th><th class="n">준비<br>수량</th><th>EQ NOTE<br><span style="font-weight:400;font-size:10px;color:#8a7a5c">포토 공유</span></th><th>내부 노트<br><span style="font-weight:400;font-size:10px;color:#5c7a9a">팀·프리랜서 공유</span></th><th class="n">보유수량<br><span style="font-weight:400;font-size:10px;color:#0d652d">클릭=위치</span></th><th class="n">부족<br>수량</th><th>판정</th><th>렌탈가능업체</th><th>조달처<br>(자동)</th><th class="n">조달<br>수량</th><th class="n">PA</th><th class="n">SLR</th><th class="n">HK</th><th class="n">조명</th><th class="n">왈랄라</th><th class="n">데이페이</th><th class="n">프로렌탈</th><th class="n">렌탈8</th><th class="n">분배합</th><th>검증</th><th>출고</th><th>반납</th><th class="n">일수</th><th class="n">수기<br>단가</th><th class="n">단가<br><span style="font-weight:400;font-size:10px;color:#8a94a3">자동</span></th><th class="n">금액</th><th class="n">빼기</th></tr></thead><tbody>${selRows}${rentRows}</tbody></table>`
     :'<div style="color:#bbb;padding:10px">아직 고른 장비가 없습니다. 위에서 고르세요.</div>';
   return `<h2>📦 프로젝트 준비 <span style="font-size:12px;color:var(--sub)">⭐ 장비 구성 + 프로젝트 생성</span></h2>
     <div class="lead"><b style="color:var(--ok)">⓪ 포토 리스트 붙여넣기(선택)</b> → ① 장비를 고르고 → ② 준비 리스트를 확인한 뒤 → ③ 어느 프로젝트인지 정해 <b>소싱 라인으로 만듭니다.</b></div>
