@@ -3,7 +3,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>PA 장비관리 — 프리랜서 사이트 · v260806_4.5d</title>
+<title>PA 장비관리 — 프리랜서 사이트 · v260806_5.5b</title>
 <style>
 :root{--bg:#f7f5f0;--card:#fff;--ink:#222;--sub:#666;--line:#e6e1d8;--accent:#2f6db0;
  --ok:#1f7a52;--okbg:#e7f4ec;--warn:#b1442f;--warnbg:#fbeae5;--rent:#8a5a1a;--rentbg:#f7efe0}
@@ -1717,7 +1717,54 @@ function relCell(r){
 }
 function relOpen(l){ relLine=l; render(); }
 function relClose(){ relLine=null; render(); }
-function relToggle(it){ const l=relLine; if(!edits[l])edits[l]={}; if(!edits[l].relck)edits[l].relck={}; edits[l].relck[it]=!edits[l].relck[it]; save(); render(); }
+async function relToggle(it){
+  var l=relLine; var r=allSrc().find(function(x){return x[S.line]===l;}); if(!r)return;
+  if(IS_FREE_SITE){ alert('프리랜서 화면에서는 라인을 추가/제거할 수 없습니다.'); return; }
+  if(!edits[l])edits[l]={}; if(!edits[l].relck)edits[l].relck={};
+  var cur=edits[l].relck[it];
+  if(!cur){
+    // 체크 → 이 프로젝트에 연관장비 라인 추가
+    if(!serverOn){ alert('서버에 연결되지 않아 추가할 수 없습니다.'); return; }
+    var qs=prompt('"'+it+'" 수량을 입력하세요.\n(대표 컨펌 후 기입 — 프로젝트 준비 누락분 추가)', '1');
+    if(qs===null) return;
+    var qy=Math.max(1, parseInt(qs)||1);
+    var e=eqRows().find(function(x){ return (ev(x,E.name)||'')===it; });
+    var proj=r[S.proj]; var n=maxLineSeq(proj)+1;
+    var row=new Array(SRC.headers.length).fill('');
+    row[S.line]=proj+'-'+String(n).padStart(2,'0'); row[S.proj]=proj;
+    row[S.reqItem]=it; row[S.item]=e?ev(e,E.name):it; row[S.asgQ]=qy; row[S.reqQ]=qy;
+    row[S.out]=val(r,S.out); row[S.due]=val(r,S.due);
+    if(e){ row[S.itemId]=e[E.id]; row[S.brand]=ev(e,E.brand); row[S.cat]=ev(e,E.cat); row[S.related]=ev(e,E.related); row[S.loc]=ev(e,E.loc); row[S.comp]=ev(e,E.comp); row[S.special]=ev(e,E.special); row[S.rentVendor]=ev(e,E.vendor); row[S.eqLink]=ev(e,E.link); row[S.own]=num(ev(e,E.own)); row[S.price]=num(ev(e,E.price)); }
+    row[S.innote]='연관장비 추가(누락분 · '+(val(r,S.item)||r[S.reqItem])+')';
+    sbBusy=true; sbMsg='추가 중…'; render();
+    try{
+      var o={}; SRC.headers.forEach(function(h,idx){ o[h]=row[idx]==null?'':String(row[idx]); });
+      var rr=await sbT('sourcing').insert([o]); if(rr&&rr.error) throw rr.error;
+      DB.sourcing.rows.push(row); edits[l].relck[it]=row[S.line]; save();
+      _dmg=null;_pdmax=null;_matEqCache=null;window.__invUse=null;
+      sbMsg='['+proj+'] '+row[S.item]+' '+qy+'개 추가됨';
+    }catch(err){ sbMsg='추가 실패: '+(err.message||err); alert('추가 실패: '+(err.message||err)); }
+    sbBusy=false; render();
+  } else {
+    // 체크 해제 → 추가했던 라인 제거
+    var addedId=(typeof cur==='string')?cur:null;
+    if(addedId){
+      if(!serverOn){ alert('서버에 연결되지 않아 제거할 수 없습니다.'); return; }
+      if(!confirm('추가했던 "'+it+'" 라인을 제거할까요?')) return;
+      sbBusy=true; sbMsg='제거 중…'; render();
+      try{
+        var r2=await sbT('sourcing').delete().eq('라인ID',addedId); if(r2&&r2.error) throw r2.error;
+        DB.sourcing.rows=DB.sourcing.rows.filter(function(x){return x[S.line]!==addedId;});
+        srcAdd=srcAdd.filter(function(x){return x[S.line]!==addedId;}); LSs('pa_v3_srcadd',srcAdd);
+        delete edits[addedId];
+        _dmg=null;_pdmax=null;_matEqCache=null;window.__invUse=null;
+        sbMsg='제거됨';
+      }catch(err){ sbMsg='제거 실패: '+(err.message||err); alert('제거 실패: '+(err.message||err)); sbBusy=false; render(); return; }
+      sbBusy=false;
+    }
+    delete edits[l].relck[it]; save(); render();
+  }
+}
 function relModal(){
   if(!relLine)return '';
   const r=allSrc().find(x=>x[S.line]===relLine); if(!r){relLine=null;return '';}
@@ -1725,7 +1772,7 @@ function relModal(){
   const list=items.map(it=>`<label style="display:flex;gap:9px;align-items:center;padding:7px 4px;border-bottom:1px dotted #e5ddcc;cursor:pointer;font-size:14.5px"><input type="checkbox" ${ck[it]?'checked':''} onchange="relToggle('${QJ(it)}')"> ${Q(it)}</label>`).join('');
   return `<div class="modal-bg" onclick="if(event.target===this)relClose()"><div class="modal">
     <h3>🔗 연관장비 체크 — ${Q(val(r,S.item)||r[S.reqItem])}</h3>
-    <div style="font-size:13px;color:var(--sub);margin-bottom:8px">같이 챙겨야 하는 것들입니다. 챙긴 것에 체크하세요.</div>
+    <div style="font-size:13px;color:var(--sub);margin-bottom:8px">같이 챙겨야 하는 것들입니다. <b>체크하면 이 프로젝트에 그 장비가 추가</b>됩니다(수량 입력). 체크 해제하면 제거.</div>
     ${list||'연관장비 없음'}
     <div class="mbtns"><button class="primary" onclick="relClose()">닫기</button></div></div></div>`;
 }
