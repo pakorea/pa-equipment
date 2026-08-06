@@ -3,7 +3,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>PA 장비관리 — 관리자 사이트 (3번) · v260806_3.5b</title>
+<title>PA 장비관리 — 관리자 사이트 (3번) · v260806_4.5d</title>
 <style>
 :root{--bg:#f7f5f0;--card:#fff;--ink:#222;--sub:#666;--line:#e6e1d8;--accent:#2f6db0;
  --ok:#1f7a52;--okbg:#e7f4ec;--warn:#b1442f;--warnbg:#fbeae5;--rent:#8a5a1a;--rentbg:#f7efe0}
@@ -891,7 +891,7 @@ function vInvGrouped(){
      +'<div class="kpi"><div class="v">'+all.length+'</div><div class="l">개체 수</div></div>'
      +'<div class="kpi"><div class="v" style="color:var(--warn)">'+zero+'</div><div class="l">재고 0(대여불가)</div></div></div>'
    +'<div class="panel"><table><thead><tr><th>EQ_NO</th><th>카테고리</th><th>브랜드</th><th>품목명</th><th class="n">총보유</th><th class="n">실재고</th><th>사용현황(프로젝트)</th><th>위치</th></tr></thead><tbody>'+body+'</tbody></table></div>'
-   +invMatPanel()+unitsModal()+mstModal()+matModal()+invUseModal();
+   +invMatPanel()+unitsModal()+mstModal()+matModal()+invUseModal()+relModalEq();
 }
 function vInv(){
   if(invGroup) return vInvGrouped();
@@ -901,7 +901,7 @@ function vInv(){
   }).filter(x=>{ if(!q)return true; const h=(ev(x.e,E.name)+' '+ev(x.e,E.cat)+' '+ev(x.e,E.brand)+' '+x.id).toLowerCase(); return h.includes(q.toLowerCase()); })
    .filter(x=>!invCat||ev(x.e,E.cat)===invCat)
    .filter(x=>{ if(invMode==='out') return invOut(x.id).length>0; if(invMode==='clash') return !!invClash(x.id); return true; });
-  const cell={id:x=>Q(x.id),cat:x=>Q(ev(x.e,E.cat)),brand:x=>Q(ev(x.e,E.brand)),name:x=>Q(ev(x.e,E.name)),
+  const cell={id:x=>Q(x.id),cat:x=>Q(ev(x.e,E.cat)),brand:x=>Q(ev(x.e,E.brand)),name:x=>relCellEq(x.e),
     own:x=>`<span class="n">${num(ev(x.e,E.own))}</span>`,rs:x=>`<span class="pill ${x.cls}">${x.rs}</span>`,
     use:x=>{ var o=invOut(x.id), c=invClash(x.id);
       var all=(invUse()[x.id]||[]);
@@ -940,7 +940,7 @@ function vInv(){
     ${catFilterChips(invCat,'setInvCat')}
     <div class="filt">${chips}</div>
     <div class="kpis"><div class="kpi"><div class="v">${eqRows().length}</div><div class="l">전체 품목</div></div><div class="kpi"><div class="v" style="color:var(--warn)">${zero}</div><div class="l">재고 0(대여불가)</div></div><div class="kpi"><div class="v">${rows.length}</div><div class="l">검색 결과</div></div></div>
-    <div class="panel"><table><thead><tr>${thead}</tr></thead><tbody>${body}</tbody></table></div>${invMatPanel()}${matModal()}`;
+    <div class="panel"><table><thead><tr>${thead}</tr></thead><tbody>${body}</tbody></table></div>${invMatPanel()}${relModalEq()}${matModal()}`;
 }
 
 // ===== 🔧 파손·이력 =====
@@ -1728,6 +1728,25 @@ function relModal(){
     <div style="font-size:13px;color:var(--sub);margin-bottom:8px">같이 챙겨야 하는 것들입니다. 챙긴 것에 체크하세요.</div>
     ${list||'연관장비 없음'}
     <div class="mbtns"><button class="primary" onclick="relClose()">닫기</button></div></div></div>`;
+}
+// ===== 🔗 연관장비 확인 팝업 (재고현황 — 장비 기준) =====
+let relEqId=null, relckEq={};
+function relItemsEq(e){ var t=(ev(e,E.related)||'').toString().trim(); if(!t)return[]; return t.split(/[,\/\n·;]+/).map(function(x){return x.trim();}).filter(Boolean); }
+function relCellEq(e){
+  var items=relItemsEq(e); var nm=Q(ev(e,E.name));
+  if(!items.length) return nm;
+  var id=e[E.id]; var ck=relckEq[id]||{}; var n=items.filter(function(it){return ck[it];}).length;
+  return '<a style="cursor:pointer;color:var(--accent);font-weight:700" onclick="relOpenEq(\''+QJ(id)+'\')">'+nm+' <span class="badge">🔗'+n+'/'+items.length+'</span></a>';
+}
+function relOpenEq(id){ relEqId=id; render(); }
+function relCloseEq(){ relEqId=null; render(); }
+function relToggleEq(it){ var id=relEqId; if(!relckEq[id])relckEq[id]={}; relckEq[id][it]=!relckEq[id][it]; render(); }
+function relModalEq(){
+  if(!relEqId) return '';
+  var e=eqRows().find(function(x){return x[E.id]===relEqId;}); if(!e){relEqId=null;return '';}
+  var items=relItemsEq(e); var ck=relckEq[relEqId]||{};
+  var list=items.map(function(it){ return '<label style="display:flex;gap:9px;align-items:center;padding:7px 4px;border-bottom:1px dotted #e5ddcc;cursor:pointer;font-size:14.5px"><input type="checkbox" '+(ck[it]?'checked':'')+' onchange="relToggleEq(\''+QJ(it)+'\')"> '+Q(it)+'</label>'; }).join('');
+  return '<div class="modal-bg" onclick="if(event.target===this)relCloseEq()"><div class="modal"><h3>🔗 연관장비 — '+Q(ev(e,E.name))+'</h3><div style="font-size:13px;color:var(--sub);margin-bottom:8px">이 장비와 같이 쓰는 연관장비입니다. 확인한 것에 체크하세요.</div>'+(list||'연관장비 없음')+'<div class="mbtns"><button class="primary" onclick="relCloseEq()">닫기</button></div></div></div>';
 }
 // ===== 📦 프로젝트 준비 (프로젝트 생성 + 장비 구성) =====
 let npProj='', npSel={}, npRent=[], npCat='', npCatOpen=false;   // npCatOpen: ① 카테고리 섹션 토글(기본 접힘)
