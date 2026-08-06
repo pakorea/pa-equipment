@@ -3,7 +3,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>PA 장비관리 — 관리자 사이트 (3번) · v260807_1.0b</title>
+<title>PA 장비관리 — 관리자 사이트 (3번) · v260807_1.1b</title>
 <style>
 :root{--bg:#f7f5f0;--card:#fff;--ink:#222;--sub:#666;--line:#e6e1d8;--accent:#2f6db0;
  --ok:#1f7a52;--okbg:#e7f4ec;--warn:#b1442f;--warnbg:#fbeae5;--rent:#8a5a1a;--rentbg:#f7efe0}
@@ -185,6 +185,13 @@ function retStatus(row){
   if(b>0||l>0)return {t:'확인필요',c:'p-warn'};
   if(by&&by.toString().trim())return {t:'정상',c:'p-ok'};
   return {t:'미완료',c:'p-zero'};
+}
+function _retSave(line){
+  var r=allSrc().find(function(x){return x[S.line]===line;}); if(!r)return;
+  var asg=num(val(r,S.asgQ)), b=num(val(r,S.broken)), ls=num(val(r,S.lost));
+  var normal=asg-b-ls; if(normal<0)normal=0;
+  setValNoRender(line,S.normal,String(normal));
+  setValNoRender(line,S.retSt,retStatus(r).t);
 }
 let projOv=LS('pa_v3_projst',{});
 function projDateMax(name){
@@ -408,8 +415,8 @@ function retTable(rows){
     const lowCell='';
     return `<tr><td>${Q(val(r,S.cat))}</td><td>${Q(val(r,S.item)||r[S.reqItem])}</td><td class="n">${asg}</td><td>${_procCell(r)}</td>
       <td class="n"><input type="checkbox" ${by?'checked':''} onchange="onRetBy('${QJ(l)}',this.checked)"></td>
-      <td class="n"><input class="num" type="number" min="0" value="${Q(val(r,S.broken))||''}" placeholder="0" onchange="setVal('${QJ(l)}',${S.broken},this.value)"></td>
-      <td class="n"><input class="num" type="number" min="0" value="${Q(val(r,S.lost))||''}" placeholder="0" onchange="setVal('${QJ(l)}',${S.lost},this.value)"></td>
+      <td class="n"><input class="num" type="number" min="0" value="${Q(val(r,S.broken))||''}" placeholder="0" onchange="setVal('${QJ(l)}',${S.broken},this.value);_retSave('${QJ(l)}')"></td>
+      <td class="n"><input class="num" type="number" min="0" value="${Q(val(r,S.lost))||''}" placeholder="0" onchange="setVal('${QJ(l)}',${S.lost},this.value);_retSave('${QJ(l)}')"></td>
       <td class="n">${normal>=0?normal:0}</td>
       <td><span class="pill ${rs.c}">${rs.t}</span></td>
       <td>${photoCell}</td>
@@ -426,7 +433,7 @@ function retTable(rows){
         <button class="addbtn" onclick="openMat('bg')">SAVAGE(배경지) 열기</button>
       </div></div>${matModal()}`;
 }
-function onRetBy(line,checked){ setValNoRender(line,S.retBy, checked?ME:''); setValNoRender(line,S.retAt, checked?nowStamp():''); render(); }
+function onRetBy(line,checked){ setValNoRender(line,S.retBy, checked?ME:''); setValNoRender(line,S.retAt, checked?nowStamp():''); _retSave(line); render(); }
 function isConsumable(r){
   // 잔량(50%)으로 관리하는 것 = 배경지·필터·페이퍼·젤·테이프 류만
   var n=((val(r,S.item)||val(r,S.reqItem)||'')+' '+(val(r,S.cat)||'')).toUpperCase();
