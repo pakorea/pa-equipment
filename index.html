@@ -3,7 +3,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>PA 장비관리 — 관리자 사이트 (3번) · v260807_3.6b</title>
+<title>PA 장비관리 — 관리자 사이트 (3번) · v260807_3.7b</title>
 <style>
 :root{--bg:#f7f5f0;--card:#fff;--ink:#222;--sub:#666;--line:#e6e1d8;--accent:#2f6db0;
  --ok:#1f7a52;--okbg:#e7f4ec;--warn:#b1442f;--warnbg:#fbeae5;--rent:#8a5a1a;--rentbg:#f7efe0}
@@ -2638,8 +2638,21 @@ function sbSignOut(){ forceReset(); }
 function sbSaveCell(line,idx,v){
   if(!serverOn) return;
   var h=DB.sourcing.headers[idx]; if(!h) return;
-  var o={}; o[h]=String(v==null?'':v);
-  try{ var c=sbClient(); if(c) c.from('sourcing').update(o).eq('라인ID',line).then(function(r){ if(r&&r.error) srvErr('입력값',r.error); }); }catch(e){ srvErr('입력값',e); }
+  var sv=String(v==null?'':v);
+  var o={}; o[h]=sv;
+  try{ var c=sbClient(); if(c) c.from('sourcing').update(o).eq('라인ID',line).then(function(r){
+    if(r&&r.error){ srvErr('입력값',r.error); return; }
+    // 저장 완료 → 그 칸의 '내 값 우선(로컬 오버라이드)' 해제. 이후 다른 사람이 그 칸을 바꾸면 실시간으로 내 화면에도 반영됨.
+    try{
+      if(edits[line] && String(edits[line][idx])===sv){        // 그 사이 더 새 값으로 안 바뀌었을 때만 해제(더 최신 입력 보존)
+        var row=DB.sourcing.rows.find(function(x){return x[S.line]===line;});
+        if(row) row[idx]=sv;                                    // 정본 행에 반영(실시간 끊겨도 내 값 유지)
+        delete edits[line][idx];
+        if(edits[line] && Object.keys(edits[line]).length===0) delete edits[line];
+        LSs('pa_v3_edits',edits);
+      }
+    }catch(e2){}
+  }); }catch(e){ srvErr('입력값',e); }
 }
 
 // ===== 구글 로그인 =====
