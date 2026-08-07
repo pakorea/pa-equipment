@@ -3,7 +3,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>PA 장비관리 — 관리자 사이트 (3번) · v260807_3.5b</title>
+<title>PA 장비관리 — 관리자 사이트 (3번) · v260807_3.6b</title>
 <style>
 :root{--bg:#f7f5f0;--card:#fff;--ink:#222;--sub:#666;--line:#e6e1d8;--accent:#2f6db0;
  --ok:#1f7a52;--okbg:#e7f4ec;--warn:#b1442f;--warnbg:#fbeae5;--rent:#8a5a1a;--rentbg:#f7efe0}
@@ -1825,8 +1825,8 @@ function relModalEq(){
   if(!relEqId) return '';
   var e=eqRows().find(function(x){return x[E.id]===relEqId;}); if(!e){relEqId=null;return '';}
   var items=relItemsEq(e); var ck=relckEq[relEqId]||{};
-  var list=items.map(function(it){ return '<label style="display:flex;gap:9px;align-items:center;padding:7px 4px;border-bottom:1px dotted #e5ddcc;cursor:pointer;font-size:14.5px"><input type="checkbox" '+(ck[it]?'checked':'')+' onchange="relToggleEq(\''+QJ(it)+'\')"> '+Q(it)+'</label>'; }).join('');
-  return '<div class="modal-bg" onclick="if(event.target===this)relCloseEq()"><div class="modal"><h3>🔗 연관장비 — '+Q(ev(e,E.name))+'</h3><div style="font-size:13px;color:var(--sub);margin-bottom:8px">이 장비와 같이 쓰는 연관장비입니다. 확인한 것에 체크하세요.</div>'+(list||'연관장비 없음')+'<div class="mbtns"><button class="primary" onclick="relCloseEq()">닫기</button></div></div></div>';
+  var list=items.map(function(it){ return '<div style="display:flex;gap:9px;align-items:center;padding:7px 4px;border-bottom:1px dotted #e5ddcc;font-size:14.5px">\u00b7 '+Q(it)+'</div>'; }).join('');
+  return '<div class="modal-bg" onclick="if(event.target===this)relCloseEq()"><div class="modal"><h3>🔗 연관장비 — '+Q(ev(e,E.name))+'</h3><div style="font-size:13px;color:var(--sub);margin-bottom:8px">이 장비와 같이 쓰는 연관장비입니다.</div>'+(list||'연관장비 없음')+'<div class="mbtns"><button class="primary" onclick="relCloseEq()">닫기</button></div></div></div>';
 }
 // ===== 📦 프로젝트 준비 (프로젝트 생성 + 장비 구성) =====
 let npProj='', npSel={}, npRent=[], npCat='', npCatOpen=false;   // npCatOpen: ① 카테고리 섹션 토글(기본 접힘)
