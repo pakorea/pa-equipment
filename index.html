@@ -3,7 +3,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>PA 장비관리 — 관리자 사이트 (3번) · v260807_3.9a</title>
+<title>PA 장비관리 — 관리자 사이트 (3번) · v260807_4.9b</title>
 <style>
 :root{--bg:#f7f5f0;--card:#fff;--ink:#222;--sub:#666;--line:#e6e1d8;--accent:#2f6db0;
  --ok:#1f7a52;--okbg:#e7f4ec;--warn:#b1442f;--warnbg:#fbeae5;--rent:#8a5a1a;--rentbg:#f7efe0}
@@ -83,6 +83,13 @@ input.cell{width:64px;font-size:12px;padding:2px 5px;text-align:center}
 .stickytop nav{position:static;box-shadow:none}
 .note-eq{background:#fdf6ec;border-color:#e6d3b3}
 .note-in{background:#eef4fb;border-color:#cfdcec}
+.cpbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;background:#eef2fb;border:1px solid #c3d0ea;border-radius:10px;padding:8px 12px;margin-bottom:10px;font-size:13px}
+.cpbar button{border:1px solid #c3d0ea;background:#fff;border-radius:7px;padding:5px 11px;font-weight:700;font-size:12.5px;cursor:pointer}
+.cpbar button.on{background:#3f5fa8;color:#fff;border-color:#3f5fa8}
+.cpbar .info{color:#3f5fa8;font-weight:700;font-size:12px}
+.cpmode input,.cpmode select{pointer-events:none;background:#fbfaf7;color:#333}
+.cpmode td[data-cp]{cursor:cell;user-select:none}
+.cpmode td[data-cp].cp-sel{outline:2px solid #3f5fa8;outline-offset:-2px;background:#e6eefb!important}
 </style><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
@@ -369,22 +376,81 @@ function _procCell(r){
   if(!parts.length) return '<span style="color:#ccc">-</span>';
   return '<span style="font-size:11px;white-space:nowrap">'+parts.join(' · ')+' <b>(총 '+sum+')</b></span>';
 }
+// ===== 📋 복붙(스프레드시트식 복사·붙여넣기) 모드 — 데모: 프로젝트 준비/랩업/반납 =====
+var cpMode=false, cpAnchor=null, cpFocus=null, cpClip=null, cpUndo=null, cpSelecting=false;
+function cpToggle(){ cpMode=!cpMode; cpAnchor=cpFocus=null; cpSelecting=false; render(); }
+function cpBar(){
+  if(!cpMode) return '<div class="cpbar"><button onclick="cpToggle()">📋 복붙 모드 켜기</button><span style="color:#7a7566;font-size:12px">여러 칸을 한 번에 복사·붙여넣기(엑셀처럼). 켜면 칸 입력은 잠시 멈춥니다.</span></div>';
+  return '<div class="cpbar"><button class="on" onclick="cpToggle()">📋 복붙 모드 끄기</button>'
+    +'<button onclick="cpCopy()">복사 ⌘C</button><button onclick="cpPaste()">붙여넣기 ⌘V</button><button onclick="cpUndoRun()">↩︎ 되돌리기</button>'
+    +'<span class="info" id="cpInfo">칸 클릭·드래그로 선택 → 복사 → 붙여넣을 칸 선택 → 붙여넣기 (같은 종류 칸끼리만 들어갑니다)</span></div>';
+}
+function _cpCells(){ return [].slice.call(document.querySelectorAll('td[data-cp]')); }
+function _cpAt(dr,dc){ return document.querySelector('td[data-cp][data-dr="'+dr+'"][data-dc="'+dc+'"]'); }
+function _cellVal(td){ var el=td.querySelector('input,select'); if(!el)return ''; if(el.type==='checkbox')return el.checked?'1':''; return el.value; }
+function cpToast(m){ var d=document.getElementById('cpToast'); if(!d){ d=document.createElement('div'); d.id='cpToast'; d.style.cssText='position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:#2b2a26;color:#fff;padding:9px 16px;border-radius:10px;font-size:13px;font-weight:700;z-index:9999;box-shadow:0 4px 16px rgba(0,0,0,.25);transition:opacity .4s'; document.body.appendChild(d); } d.textContent=m; d.style.opacity='1'; clearTimeout(window.__cpTt); window.__cpTt=setTimeout(function(){ d.style.opacity='0'; },2200); }
+function cpPaint(){
+  var cells=_cpCells(); if(!cpAnchor||!cpFocus){ cells.forEach(function(td){td.classList.remove('cp-sel');}); return; }
+  var r1=Math.min(cpAnchor.dr,cpFocus.dr), r2=Math.max(cpAnchor.dr,cpFocus.dr);
+  var c1=Math.min(cpAnchor.dc,cpFocus.dc), c2=Math.max(cpAnchor.dc,cpFocus.dc);
+  cells.forEach(function(td){ var dr=+td.dataset.dr, dc=+td.dataset.dc; td.classList.toggle('cp-sel', dr>=r1&&dr<=r2&&dc>=c1&&dc<=c2); });
+  var inf=document.getElementById('cpInfo'); if(inf){ var n=(r2-r1+1)*(c2-c1+1); inf.textContent=n>1?(n+'칸 선택됨 · 복사(⌘C) 또는 붙여넣기(⌘V)'):'1칸 선택됨 · 복사(⌘C)'; }
+}
+function cpDown(e){ if(!cpMode)return; var td=e.target.closest&&e.target.closest('td[data-cp]'); if(!td)return; e.preventDefault();
+  var cell={dr:+td.dataset.dr, dc:+td.dataset.dc};
+  if(e.shiftKey&&cpAnchor){ cpFocus=cell; } else { cpAnchor=cell; cpFocus=cell; cpSelecting=true; }
+  cpPaint();
+}
+function cpOver(e){ if(!cpMode||!cpSelecting)return; var td=e.target.closest&&e.target.closest('td[data-cp]'); if(!td)return; cpFocus={dr:+td.dataset.dr, dc:+td.dataset.dc}; cpPaint(); }
+function cpUp(){ cpSelecting=false; }
+function _cpRect(){ if(!cpAnchor||!cpFocus)return null; return {r1:Math.min(cpAnchor.dr,cpFocus.dr),r2:Math.max(cpAnchor.dr,cpFocus.dr),c1:Math.min(cpAnchor.dc,cpFocus.dc),c2:Math.max(cpAnchor.dc,cpFocus.dc)}; }
+function cpCopy(){ var R=_cpRect(); if(!R){ cpToast('복사할 칸을 먼저 선택하세요'); return; }
+  var grid=[]; for(var dr=R.r1;dr<=R.r2;dr++){ var row=[]; for(var dc=R.c1;dc<=R.c2;dc++){ var td=_cpAt(dr,dc); row.push(td?_cellVal(td):''); } grid.push(row); }
+  cpClip={grid:grid, h:R.r2-R.r1+1, w:R.c2-R.c1+1};
+  cpToast('복사됨: '+cpClip.h+'×'+cpClip.w+'칸 · 붙여넣을 칸 선택 후 ⌘V');
+}
+function _cpApplyNR(line,colIdx,v){
+  v=String(v==null?'':v);
+  if(colIdx===S.prepSt){ if(['미완료','준비완료','확인필요'].indexOf(v)<0)return false; setValNoRender(line,S.prepSt,v); if(v==='준비완료'){setValNoRender(line,S.prepBy,ME);setValNoRender(line,S.prepAt,nowStamp());}else if(v==='미완료'){setValNoRender(line,S.prepBy,'');setValNoRender(line,S.prepAt,'');} return true; }
+  if(colIdx===S.wrapSt){ if(['미완료','랩업완료','확인필요'].indexOf(v)<0)return false; setValNoRender(line,S.wrapSt,v); if(v==='랩업완료'){setValNoRender(line,S.wrapBy,ME);setValNoRender(line,S.wrapAt,nowStamp());}else if(v==='미완료'){setValNoRender(line,S.wrapBy,'');setValNoRender(line,S.wrapAt,'');} return true; }
+  if(colIdx===S.retBy){ var ck=(v!==''&&v!=='0'&&v!=='false'); setValNoRender(line,S.retBy,ck?ME:''); setValNoRender(line,S.retAt,ck?nowStamp():''); _retSave(line); return true; }
+  if(colIdx===S.broken||colIdx===S.lost){ if(v!==''&&isNaN(+v))return false; setValNoRender(line,colIdx,v===''?'':String(Math.max(0,parseInt(v)||0))); _retSave(line); return true; }
+  setValNoRender(line,colIdx,v); return true;
+}
+function cpPaste(){ if(!cpClip){ cpToast('먼저 복사(⌘C)하세요'); return; } var R=_cpRect(); if(!R){ cpToast('붙여넣을 칸을 선택하세요'); return; }
+  var targets=[];
+  if(cpClip.h===1&&cpClip.w===1){ var v0=cpClip.grid[0][0];
+    for(var dr=R.r1;dr<=R.r2;dr++)for(var dc=R.c1;dc<=R.c2;dc++){ var td=_cpAt(dr,dc); if(td)targets.push({td:td,v:v0}); }
+  } else { for(var i=0;i<cpClip.h;i++)for(var j=0;j<cpClip.w;j++){ var td2=_cpAt(R.r1+i,R.c1+j); if(td2)targets.push({td:td2,v:cpClip.grid[i][j]}); } }
+  if(!targets.length){ cpToast('붙여넣을 칸이 없습니다'); return; }
+  if(targets.length>=15 && !confirm(targets.length+'개 칸에 붙여넣을까요?')) return;
+  cpUndo=[]; var applied=0, skipped=0;
+  targets.forEach(function(t){ var line=t.td.dataset.line, colIdx=+t.td.dataset.col; var old=_cellVal(t.td);
+    var ok=_cpApplyNR(line,colIdx,t.v); if(ok){ cpUndo.push({line:line,colIdx:colIdx,old:old}); applied++; } else skipped++; });
+  save(); cpAnchor=cpFocus=null; render();
+  cpToast('붙여넣기: '+applied+'칸'+(skipped?(' · 종류 안 맞아 건너뜀 '+skipped+'칸'):''));
+}
+function cpUndoRun(){ if(!cpUndo||!cpUndo.length){ cpToast('되돌릴 게 없습니다'); return; } cpUndo.forEach(function(u){ _cpApplyNR(u.line,u.colIdx,u.old); }); save(); var n=cpUndo.length; cpUndo=null; render(); cpToast('되돌림: '+n+'칸'); }
+document.addEventListener('mousedown',cpDown,true);
+document.addEventListener('mouseover',cpOver);
+document.addEventListener('mouseup',cpUp);
+document.addEventListener('keydown',function(e){ if(!cpMode)return; if(e.metaKey||e.ctrlKey){ var k=(e.key||'').toLowerCase(); if(k==='c'){e.preventDefault();cpCopy();} else if(k==='v'){e.preventDefault();cpPaste();} else if(k==='z'){e.preventDefault();cpUndoRun();} } });
 function prepTable(rows){
   // 준비 목록도 다른 탭과 동일하게 카테고리 순(1~11) → EQ_NO 순으로 정렬
   rows=rows.slice().sort(function(a,b){ return cmpCatEq(val(a,S.cat),a[S.itemId],val(b,S.cat),b[S.itemId]); });
   const stOpts=(cur)=>['미완료','준비완료','확인필요'].map(o=>`<option ${cur===o?'selected':''}>${o}</option>`).join('');
-  const body=rows.map(r=>{
+  const body=rows.map((r,i)=>{
     const l=r[S.line]; const st=val(r,S.prepSt)||'미완료'; const done=st==='준비완료';
     return `<tr><td>${Q(val(r,S.cat))}</td><td>${relCell(r)}</td><td class="n">${Q(val(r,S.asgQ))}</td><td>${_procCell(r)}</td>
-      <td><input class="note note-eq" value="${Q(val(r,S.eqnote))}" onchange="setValNoRender('${QJ(l)}',${S.eqnote},this.value)" placeholder="포토 공유 비고"></td>
-      <td><select onchange="onPrepSt('${QJ(l)}',this.value)">${stOpts(st)}</select></td>
-      <td><input class="note" value="${Q(val(r,S.prepNote))}" onchange="setValNoRender('${QJ(l)}',${S.prepNote},this.value)" placeholder="준비노트"></td>
-      <td><input class="note note-in" value="${Q(val(r,S.innote))}" onchange="setValNoRender('${QJ(l)}',${S.innote},this.value)" placeholder="팀·프리랜서 공유 비고"></td>
+      <td data-cp data-line="${Q(l)}" data-col="${S.eqnote}" data-dr="${i}" data-dc="0"><input class="note note-eq" value="${Q(val(r,S.eqnote))}" onchange="setValNoRender('${QJ(l)}',${S.eqnote},this.value)" placeholder="포토 공유 비고"></td>
+      <td data-cp data-line="${Q(l)}" data-col="${S.prepSt}" data-dr="${i}" data-dc="1"><select onchange="onPrepSt('${QJ(l)}',this.value)">${stOpts(st)}</select></td>
+      <td data-cp data-line="${Q(l)}" data-col="${S.prepNote}" data-dr="${i}" data-dc="2"><input class="note" value="${Q(val(r,S.prepNote))}" onchange="setValNoRender('${QJ(l)}',${S.prepNote},this.value)" placeholder="준비노트"></td>
+      <td data-cp data-line="${Q(l)}" data-col="${S.innote}" data-dr="${i}" data-dc="3"><input class="note note-in" value="${Q(val(r,S.innote))}" onchange="setValNoRender('${QJ(l)}',${S.innote},this.value)" placeholder="팀·프리랜서 공유 비고"></td>
       <td class="n">${IS_FREE_SITE?'':`<button onclick="delLine('${QJ(l)}')" title="이 장비를 프로젝트에서 빼기" style="border:none;background:none;color:#b23b25;cursor:pointer;font-size:15px">🗑</button>`}</td>
       <td>${done?('<span class="pill p-ok">✔ '+Q(nameOf(val(r,S.prepBy)))+'</span>'):'<span class="pill p-zero">-</span>'}</td>
       <td class="n" style="white-space:nowrap;font-size:11px;color:#6b7a63">${Q(val(r,S.prepAt))||'-'}</td></tr>`;
   }).join('');
-  return `<div class="panel"><table><thead><tr><th>카테고리</th><th>품목</th><th class="n">배정</th><th>렌탈 내역</th><th>EQ NOTE<br><span style="font-weight:400;font-size:10px;color:#8a7a5c">포토 공유</span></th><th>준비상태</th><th>준비노트</th><th>내부 노트<br><span style="font-weight:400;font-size:10px;color:#5c7a9a">팀·프리랜서 공유</span></th><th class="n">빼기</th><th>담당</th><th class="n">시간</th></tr></thead><tbody>${body}</tbody></table></div>
+  return `${cpBar()}<div class="panel ${cpMode?'cpmode':''}"><table><thead><tr><th>카테고리</th><th>품목</th><th class="n">배정</th><th>렌탈 내역</th><th>EQ NOTE<br><span style="font-weight:400;font-size:10px;color:#8a7a5c">포토 공유</span></th><th>준비상태</th><th>준비노트</th><th>내부 노트<br><span style="font-weight:400;font-size:10px;color:#5c7a9a">팀·프리랜서 공유</span></th><th class="n">빼기</th><th>담당</th><th class="n">시간</th></tr></thead><tbody>${body}</tbody></table></div>
     <div class="panel"><div style="font-weight:800;margin-bottom:6px">🎨 소모자재 잔량 체크 <span style="font-size:12px;color:var(--sub)">(50% 이하만 체크 → 구매 필요)</span></div>
       <div style="display:flex;gap:10px;flex-wrap:wrap">
         <button class="addbtn" onclick="openMat('cf')">LEE FILTER 열기</button>
@@ -394,39 +460,39 @@ function prepTable(rows){
 function onPrepSt(line,v){ setValNoRender(line,S.prepSt,v); if(v==='준비완료'){setValNoRender(line,S.prepBy,ME);setValNoRender(line,S.prepAt,nowStamp());} else if(v==='미완료'){setValNoRender(line,S.prepBy,'');setValNoRender(line,S.prepAt,'');} render(); }
 function wrapTable(rows){
   const stOpts=(cur)=>['미완료','랩업완료','확인필요'].map(o=>`<option ${cur===o?'selected':''}>${o}</option>`).join('');
-  const body=rows.map(r=>{ const l=r[S.line]; const st=val(r,S.wrapSt)||'미완료'; const done=st==='랩업완료';
+  const body=rows.map((r,i)=>{ const l=r[S.line]; const st=val(r,S.wrapSt)||'미완료'; const done=st==='랩업완료';
     return `<tr><td>${Q(val(r,S.cat))}</td><td>${Q(val(r,S.item)||r[S.reqItem])}</td><td class="n">${Q(val(r,S.asgQ))}</td><td>${_procCell(r)}</td>
-      <td><select onchange="onWrapSt('${QJ(l)}',this.value)">${stOpts(st)}</select></td>
-      <td><input class="note" value="${Q(val(r,S.wrapNote))}" onchange="setValNoRender('${QJ(l)}',${S.wrapNote},this.value)" placeholder="랩업노트"></td>
-      <td><input class="note note-eq" value="${Q(val(r,S.eqnote))}" onchange="setValNoRender('${QJ(l)}',${S.eqnote},this.value)" placeholder="포토 공유 비고"></td>
-      <td><input class="note note-in" value="${Q(val(r,S.innote))}" onchange="setValNoRender('${QJ(l)}',${S.innote},this.value)" placeholder="팀·프리랜서 공유 비고"></td>
+      <td data-cp data-line="${Q(l)}" data-col="${S.wrapSt}" data-dr="${i}" data-dc="0"><select onchange="onWrapSt('${QJ(l)}',this.value)">${stOpts(st)}</select></td>
+      <td data-cp data-line="${Q(l)}" data-col="${S.wrapNote}" data-dr="${i}" data-dc="1"><input class="note" value="${Q(val(r,S.wrapNote))}" onchange="setValNoRender('${QJ(l)}',${S.wrapNote},this.value)" placeholder="랩업노트"></td>
+      <td data-cp data-line="${Q(l)}" data-col="${S.eqnote}" data-dr="${i}" data-dc="2"><input class="note note-eq" value="${Q(val(r,S.eqnote))}" onchange="setValNoRender('${QJ(l)}',${S.eqnote},this.value)" placeholder="포토 공유 비고"></td>
+      <td data-cp data-line="${Q(l)}" data-col="${S.innote}" data-dr="${i}" data-dc="3"><input class="note note-in" value="${Q(val(r,S.innote))}" onchange="setValNoRender('${QJ(l)}',${S.innote},this.value)" placeholder="팀·프리랜서 공유 비고"></td>
       <td>${done?('<span class="pill p-ok">✔ '+Q(nameOf(val(r,S.wrapBy)))+'</span>'):'<span class="pill p-zero">-</span>'}</td>
       <td class="n" style="white-space:nowrap;font-size:11px;color:#6b7a63">${Q(val(r,S.wrapAt))||'-'}</td></tr>`;
   }).join('');
-  return `<div class="panel"><table><thead><tr><th>카테고리</th><th>품목</th><th class="n">배정</th><th>렌탈 내역</th><th>랩업상태</th><th>랩업노트</th><th>EQ NOTE<br><span style="font-weight:400;font-size:10px;color:#8a7a5c">포토 공유</span></th><th>내부 노트<br><span style="font-weight:400;font-size:10px;color:#5c7a9a">팀·프리랜서 공유</span></th><th>담당</th><th class="n">시간</th></tr></thead><tbody>${body}</tbody></table></div>`;
+  return `${cpBar()}<div class="panel ${cpMode?'cpmode':''}"><table><thead><tr><th>카테고리</th><th>품목</th><th class="n">배정</th><th>렌탈 내역</th><th>랩업상태</th><th>랩업노트</th><th>EQ NOTE<br><span style="font-weight:400;font-size:10px;color:#8a7a5c">포토 공유</span></th><th>내부 노트<br><span style="font-weight:400;font-size:10px;color:#5c7a9a">팀·프리랜서 공유</span></th><th>담당</th><th class="n">시간</th></tr></thead><tbody>${body}</tbody></table></div>`;
 }
 function onWrapSt(line,v){ setValNoRender(line,S.wrapSt,v); if(v==='랩업완료'){setValNoRender(line,S.wrapBy,ME);setValNoRender(line,S.wrapAt,nowStamp());} else if(v==='미완료'){setValNoRender(line,S.wrapBy,'');setValNoRender(line,S.wrapAt,'');} render(); }
 function retTable(rows){
-  const body=rows.map(r=>{ const l=r[S.line]; const rs=retStatus(r); const asg=num(val(r,S.asgQ));
+  const body=rows.map((r,i)=>{ const l=r[S.line]; const rs=retStatus(r); const asg=num(val(r,S.asgQ));
     const b=num(val(r,S.broken)),ls=num(val(r,S.lost)); const normal=asg-b-ls; const by=val(r,S.retBy);
     const photos=(edits[l]&&edits[l].photos)||[];
     const thumbs=photos.map((p,i)=>`<span style="position:relative;display:inline-block;margin:1px"><img src="${p}" onclick="viewPhoto('${QJ(l)}',${i})" style="width:32px;height:32px;object-fit:cover;border-radius:4px;cursor:pointer;border:1px solid #ccc"><button onclick="delPhoto('${QJ(l)}',${i})" style="position:absolute;top:-6px;right:-6px;background:#b23b25;color:#fff;border:none;border-radius:50%;width:15px;height:15px;font-size:9px;cursor:pointer;line-height:1">×</button></span>`).join('');
     const photoCell=`<label style="cursor:pointer;font-size:11px;border:1px solid #cbb;border-radius:6px;padding:3px 8px;background:#fff;white-space:nowrap">📷<input type="file" accept="image/*" capture="environment" style="display:none" onchange="addPhoto('${QJ(l)}',this)"></label> ${thumbs}`;
     const lowCell='';
     return `<tr><td>${Q(val(r,S.cat))}</td><td>${Q(val(r,S.item)||r[S.reqItem])}</td><td class="n">${asg}</td><td>${_procCell(r)}</td>
-      <td class="n"><input type="checkbox" ${by?'checked':''} onchange="onRetBy('${QJ(l)}',this.checked)"></td>
-      <td class="n"><input class="num" type="number" min="0" value="${Q(val(r,S.broken))||''}" placeholder="0" onchange="setVal('${QJ(l)}',${S.broken},this.value);_retSave('${QJ(l)}')"></td>
-      <td class="n"><input class="num" type="number" min="0" value="${Q(val(r,S.lost))||''}" placeholder="0" onchange="setVal('${QJ(l)}',${S.lost},this.value);_retSave('${QJ(l)}')"></td>
+      <td class="n" data-cp data-line="${Q(l)}" data-col="${S.retBy}" data-dr="${i}" data-dc="0"><input type="checkbox" ${by?'checked':''} onchange="onRetBy('${QJ(l)}',this.checked)"></td>
+      <td class="n" data-cp data-line="${Q(l)}" data-col="${S.broken}" data-dr="${i}" data-dc="1"><input class="num" type="number" min="0" value="${Q(val(r,S.broken))||''}" placeholder="0" onchange="setVal('${QJ(l)}',${S.broken},this.value);_retSave('${QJ(l)}')"></td>
+      <td class="n" data-cp data-line="${Q(l)}" data-col="${S.lost}" data-dr="${i}" data-dc="2"><input class="num" type="number" min="0" value="${Q(val(r,S.lost))||''}" placeholder="0" onchange="setVal('${QJ(l)}',${S.lost},this.value);_retSave('${QJ(l)}')"></td>
       <td class="n">${normal>=0?normal:0}</td>
       <td><span class="pill ${rs.c}">${rs.t}</span></td>
       <td>${photoCell}</td>
-      <td><input class="note" value="${Q(val(r,S.retNote))}" onchange="setValNoRender('${QJ(l)}',${S.retNote},this.value)" placeholder="반납노트"></td>
-      <td><input class="note note-eq" value="${Q(val(r,S.eqnote))}" onchange="setValNoRender('${QJ(l)}',${S.eqnote},this.value)" placeholder="포토 공유 비고"></td>
-      <td><input class="note note-in" value="${Q(val(r,S.innote))}" onchange="setValNoRender('${QJ(l)}',${S.innote},this.value)" placeholder="팀·프리랜서 공유 비고"></td>
+      <td data-cp data-line="${Q(l)}" data-col="${S.retNote}" data-dr="${i}" data-dc="3"><input class="note" value="${Q(val(r,S.retNote))}" onchange="setValNoRender('${QJ(l)}',${S.retNote},this.value)" placeholder="반납노트"></td>
+      <td data-cp data-line="${Q(l)}" data-col="${S.eqnote}" data-dr="${i}" data-dc="4"><input class="note note-eq" value="${Q(val(r,S.eqnote))}" onchange="setValNoRender('${QJ(l)}',${S.eqnote},this.value)" placeholder="포토 공유 비고"></td>
+      <td data-cp data-line="${Q(l)}" data-col="${S.innote}" data-dr="${i}" data-dc="5"><input class="note note-in" value="${Q(val(r,S.innote))}" onchange="setValNoRender('${QJ(l)}',${S.innote},this.value)" placeholder="팀·프리랜서 공유 비고"></td>
       <td>${by?('<span class="pill p-ok">✔ '+Q(nameOf(by))+'</span>'):'<span class="pill p-zero">-</span>'}</td>
       <td class="n" style="white-space:nowrap;font-size:11px;color:#6b7a63">${Q(val(r,S.retAt))||'-'}</td></tr>`;
   }).join('');
-  return `<div class="panel"><table><thead><tr><th>카테고리</th><th>품목</th><th class="n">배정</th><th>렌탈 내역</th><th class="n">반납☑</th><th class="n">파손</th><th class="n">분실</th><th class="n">정상</th><th>반납상태(자동)</th><th>📷 사진</th><th>반납노트</th><th>EQ NOTE<br><span style="font-weight:400;font-size:10px;color:#8a7a5c">포토 공유</span></th><th>내부 노트<br><span style="font-weight:400;font-size:10px;color:#5c7a9a">팀·프리랜서 공유</span></th><th>담당</th><th class="n">시간</th></tr></thead><tbody>${body}</tbody></table></div>
+  return `${cpBar()}<div class="panel ${cpMode?'cpmode':''}"><table><thead><tr><th>카테고리</th><th>품목</th><th class="n">배정</th><th>렌탈 내역</th><th class="n">반납☑</th><th class="n">파손</th><th class="n">분실</th><th class="n">정상</th><th>반납상태(자동)</th><th>📷 사진</th><th>반납노트</th><th>EQ NOTE<br><span style="font-weight:400;font-size:10px;color:#8a7a5c">포토 공유</span></th><th>내부 노트<br><span style="font-weight:400;font-size:10px;color:#5c7a9a">팀·프리랜서 공유</span></th><th>담당</th><th class="n">시간</th></tr></thead><tbody>${body}</tbody></table></div>
     <div class="panel"><div style="font-weight:800;margin-bottom:6px">🎨 소모자재 잔량 체크 <span style="font-size:12px;color:var(--sub)">(50% 이하만 체크 → 구매 필요)</span></div>
       <div style="display:flex;gap:10px;flex-wrap:wrap">
         <button class="addbtn" onclick="openMat('cf')">LEE FILTER 열기</button>
