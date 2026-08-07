@@ -1,0 +1,341 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PA 장비관리 · 직원 매뉴얼</title>
+<style>
+  :root{
+    --bg:#f5f2ea; --card:#ffffff; --ink:#2a2925; --sub:#736d63; --line:#e7e0d2;
+    --green:#1d7a43; --greenbg:#e6f2ea; --blue:#3a5fa4; --bluebg:#e9eef8;
+    --amber:#b3620a; --amberbg:#fbeedd; --red:#c0392b; --redbg:#fbe8e5;
+    --violet:#6b4ea0; --violetbg:#efeaf8; --accent:#1d7a43;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;line-height:1.68;-webkit-font-smoothing:antialiased;font-size:15.5px}
+  .layout{display:flex;gap:26px;max-width:1160px;margin:0 auto;padding:0 20px}
+  .side{flex:none;width:238px}
+  .side .toc{position:sticky;top:14px;max-height:calc(100vh - 28px);overflow:auto;margin-bottom:0}
+  .wrap{flex:1;min-width:0;max-width:none;margin:0;padding:0 0 90px}
+  @media(max-width:860px){ .layout{display:block;padding:0 20px} .side{width:auto;margin-bottom:20px} .side .toc{position:static;max-height:none} }
+  .hero{background:linear-gradient(135deg,#1d7a43,#156034);color:#fff;border-radius:0 0 22px 22px;padding:38px 26px 30px;margin-bottom:24px}
+  .hero .kick{font-size:13px;font-weight:700;letter-spacing:.06em;opacity:.85;text-transform:uppercase}
+  .hero h1{font-size:30px;margin:6px 0 8px;letter-spacing:-.5px;text-wrap:balance}
+  .hero p{margin:0;font-size:15px;opacity:.95;max-width:62ch}
+  .flow{display:flex;gap:8px;align-items:center;margin-top:16px;flex-wrap:wrap}
+  .flow span{background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.28);border-radius:999px;padding:6px 14px;font-weight:800;font-size:14px}
+  .flow b{opacity:.7;font-weight:400}
+  .toc{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 20px;margin-bottom:24px}
+  .toc h2{font-size:14px;margin:0 0 10px;color:var(--sub);letter-spacing:.02em}
+  .toc ol{margin:0;padding-left:0;list-style:none}
+  .toc li{margin:5px 0;font-size:14px}
+  .toc a{color:var(--ink);text-decoration:none;display:flex;gap:8px}
+  .toc a:hover{color:var(--green)}
+  .toc .no{color:var(--green);font-weight:800;min-width:20px}
+  section{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:24px 26px;margin-bottom:20px;scroll-margin-top:16px}
+  .shead{display:flex;align-items:center;gap:13px;margin-bottom:6px}
+  .snum{flex:none;width:34px;height:34px;border-radius:10px;background:var(--greenbg);color:var(--green);font-weight:800;font-size:16px;display:grid;place-items:center}
+  h2.stitle{font-size:21px;margin:0;letter-spacing:-.3px}
+  .lead{color:var(--sub);font-size:14.5px;margin:2px 0 16px}
+  h3{font-size:16.5px;margin:22px 0 8px;padding-top:4px;display:flex;align-items:center;gap:7px}
+  p{margin:9px 0}
+  ul,ol{margin:9px 0;padding-left:22px}
+  li{margin:6px 0}
+  b,strong{font-weight:700}
+  .tag{display:inline-block;border-radius:6px;padding:1px 8px;font-size:13px;font-weight:700;white-space:nowrap}
+  .t-g{background:var(--greenbg);color:var(--green)} .t-b{background:var(--bluebg);color:var(--blue)}
+  .t-a{background:var(--amberbg);color:var(--amber)} .t-r{background:var(--redbg);color:var(--red)}
+  .t-v{background:var(--violetbg);color:var(--violet)}
+  .tw{overflow-x:auto;margin:12px 0}
+  table{border-collapse:collapse;width:100%;font-size:14px;min-width:480px}
+  th,td{border:1px solid var(--line);padding:9px 11px;text-align:left;vertical-align:top}
+  th{background:#f3efe5;font-size:13px;font-weight:700}
+  td b{color:var(--green)}
+  .box{border-radius:10px;padding:12px 15px;margin:14px 0;font-size:14.5px;border-left:4px solid}
+  .tip{background:var(--greenbg);border-color:var(--green)}
+  .warn{background:var(--amberbg);border-color:var(--amber)}
+  .new{background:var(--bluebg);border-color:var(--blue)}
+  .why{background:var(--violetbg);border-color:var(--violet)}
+  .box .h{font-weight:800;display:block;margin-bottom:3px}
+  .stages{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:14px 0}
+  .stage{border:1px solid var(--line);border-radius:12px;padding:14px;text-align:center}
+  .stage.s1{background:var(--greenbg)} .stage.s2{background:var(--bluebg)} .stage.s3{background:var(--amberbg)}
+  .stage .ic{font-size:26px} .stage .nm{font-weight:800;font-size:15px;margin:4px 0 3px}
+  .stage .ds{font-size:12.5px;color:var(--sub)}
+  .kbd{font-family:ui-monospace,monospace;background:#efeadf;border:1px solid #ddd4c4;border-radius:5px;padding:1px 6px;font-size:12.5px;font-weight:700;white-space:nowrap}
+  .step{counter-reset:st;margin:10px 0;padding:0;list-style:none}
+  .step>li{position:relative;padding:2px 0 2px 34px;margin:10px 0}
+  .step>li:before{counter-increment:st;content:counter(st);position:absolute;left:0;top:0;width:24px;height:24px;border-radius:50%;background:var(--green);color:#fff;font-weight:800;font-size:13px;display:grid;place-items:center}
+  /* 데이터 흐름 지도 */
+  .map{margin:16px 0}
+  .mrow{display:flex;align-items:stretch;gap:12px;margin:0}
+  .mbox{flex:1;border:1.5px solid var(--line);border-radius:12px;padding:12px 14px;background:#fbfaf6}
+  .mbox .t{font-weight:800;font-size:14.5px;display:flex;align-items:center;gap:6px}
+  .mbox .d{font-size:12.5px;color:var(--sub);margin-top:2px}
+  .marrow{text-align:center;color:var(--green);font-size:20px;font-weight:800;margin:5px 0;line-height:1}
+  .marrow small{display:block;color:var(--sub);font-size:11.5px;font-weight:400}
+  .foot{text-align:center;color:var(--sub);font-size:13px;margin-top:26px}
+  a.top{color:var(--green);text-decoration:none;font-size:12.5px;float:right;font-weight:600}
+  .chk{color:var(--green);font-weight:800}
+  @media(max-width:640px){ .toc ol{columns:1} .stages{grid-template-columns:1fr} .hero h1{font-size:25px} }
+</style>
+
+<div class="hero" id="top">
+  <div class="kick">PA 장비관리 · 직원 매뉴얼</div>
+  <h1>장비 준비부터 반납까지, 이 앱 하나로</h1>
+  <p>촬영 하나에서 장비가 <b>창고를 나갔다가 돌아올 때까지</b>를 세 번 체크합니다. 이 매뉴얼은 <b>사용법 + "왜 이렇게 되어 있는지" + 전체 구조</b>까지 담았어요.</p>
+  <div class="flow"><span>📦 준비</span><b>→</b><span>🎬 랩업</span><b>→</b><span>↩️ 반납</span></div>
+  <div style="margin-top:13px;font-size:13.5px"><a href="https://pakorea.github.io/pa-equipment/manual.html" target="_blank" style="color:#d7f0e0;font-weight:800;text-decoration:none">📖 모든 버튼·동작이 나온 상세 매뉴얼 보기 →</a></div>
+</div>
+
+<div class="layout">
+  <aside class="side">
+  <nav class="toc">
+    <h2>📑 목차</h2>
+    <ol>
+      <li><a href="#s1"><span class="no">1</span> 이 앱은 뭐예요?</a></li>
+      <li><a href="#s2"><span class="no">2</span> 전체 구조 (데이터 흐름)</a></li>
+      <li><a href="#s3"><span class="no">3</span> 시작하기 · 승인 · 권한</a></li>
+      <li><a href="#s4"><span class="no">4</span> 화면 읽는 법 · 탭 지도</a></li>
+      <li><a href="#s5"><span class="no">5</span> 프로젝트 준비 (리스트 만들기)</a></li>
+      <li><a href="#s6"><span class="no">6</span> 준비 → 랩업 → 반납</a></li>
+      <li><a href="#s7"><span class="no">7</span> 연관장비 챙기기</a></li>
+      <li><a href="#s8"><span class="no">8</span> 복붙 모드 (일괄 입력)</a></li>
+      <li><a href="#s9"><span class="no">9</span> 수량+품명 카톡 복사</a></li>
+      <li><a href="#s10"><span class="no">10</span> 소싱시트 백업 · 견적서</a></li>
+      <li><a href="#s11"><span class="no">11</span> 나머지 탭들</a></li>
+      <li><a href="#s12"><span class="no">12</span> 저장·동시작업 규칙</a></li>
+      <li><a href="#s13"><span class="no">13</span> 문제 해결 · 주의</a></li>
+    </ol>
+  </nav>
+  </aside>
+  <main class="wrap">
+
+  <!-- 1 -->
+  <section id="s1">
+    <div class="shead"><div class="snum">1</div><h2 class="stitle">이 앱은 뭐예요?</h2></div>
+    <p class="lead">한 문장: <b>촬영에 나가는 장비를 준비·랩업·반납 세 단계로 확인하는 디지털 체크리스트</b>예요.</p>
+    <div class="stages">
+      <div class="stage s1"><div class="ic">📦</div><div class="nm">준비</div><div class="ds">창고에서 챙길 때</div></div>
+      <div class="stage s2"><div class="ic">🎬</div><div class="nm">랩업</div><div class="ds">현장에서 철수할 때</div></div>
+      <div class="stage s3"><div class="ic">↩️</div><div class="nm">반납</div><div class="ds">돌아와서 반환할 때</div></div>
+    </div>
+    <p>각 단계에서 <b>누가·무엇을·언제</b> 확인했는지 적으면, 그게 그대로 회사 기록에 남습니다.</p>
+    <div class="box why"><span class="h">🤔 왜 세 번이나 확인하나요?</span> 장비가 나갔다 오는 사이 <b>어디서 빠지거나 깨졌는지</b>를 놓치지 않기 위해서예요. 창고 나갈 때(준비)·현장 뜰 때(랩업)·돌아왔을 때(반납) 각 시점에 한 번씩 확인하면, 문제가 <b>어느 단계에서 생겼는지</b>까지 알 수 있습니다.</div>
+    <div class="box tip"><span class="h">💡 종이 대신인 이유</span> 종이는 잃어버리고, 한 사람만 볼 수 있어요. 이 앱은 <b>2명 이상이 동시에</b> 같은 프로젝트를 봐도 서로 입력이 <b>실시간</b>으로 보입니다.</div>
+  </section>
+
+  <!-- 2 -->
+  <section id="s2">
+    <a href="#top" class="top">↑ 위로</a>
+    <div class="shead"><div class="snum">2</div><h2 class="stitle">전체 구조 — 정보가 어떻게 흐르나</h2></div>
+    <p class="lead">이 앱이 어떻게 짜여 있는지 큰 그림입니다. 이걸 알면 각 화면이 왜 있는지 이해돼요.</p>
+    <div class="map">
+      <div class="mrow"><div class="mbox"><div class="t">🗂 장비 마스터</div><div class="d">회사가 가진 <b>모든 장비의 원본 DB</b> (약 660개). 여기서 장비를 고릅니다.</div></div></div>
+      <div class="marrow">▼ <small>필요한 장비를 골라</small></div>
+      <div class="mrow"><div class="mbox"><div class="t">📦 프로젝트 준비</div><div class="d">① 장비 고르기 → ② 준비 리스트 확인 → ③ <b>「라인 만들기」</b>로 소싱 라인 생성</div></div></div>
+      <div class="marrow">▼ <small>라인마다 고유번호(라인ID)가 붙음</small></div>
+      <div class="mrow"><div class="mbox"><div class="t">📋 소싱시트</div><div class="d">만들어진 <b>모든 라인의 마스터 기록</b> (51열). 대표 스프레드시트와 같은 구조.</div></div></div>
+      <div class="marrow">▼ <small>프로젝트별로 갈라져서</small></div>
+      <div class="mrow"><div class="mbox" style="background:var(--greenbg);border-color:#bfe0cb"><div class="t">📁 준비 · 랩업 · 반납</div><div class="d">현장에서 각 단계 체크·입력. 여기 입력이 소싱시트에 그대로 반영.</div></div></div>
+      <div class="marrow">▼ <small>파손·분실을 적으면</small></div>
+      <div class="mrow"><div class="mbox"><div class="t">📊 재고 현황</div><div class="d"><b>실재고가 자동 계산</b>됩니다 (아래 공식).</div></div>
+        <div class="mbox"><div class="t">📗 백업 0번시트</div><div class="d">필요할 때 복사→붙여넣기. <b>견적서는 여기 시트에서</b> 만듦.</div></div></div>
+    </div>
+    <div class="box why"><span class="h">🤔 왜 "앱이 원본, 시트는 백업"인가요?</span> 앱과 시트 <b>양쪽에서 다 고치면 서로 안 맞고 꼬입니다.</b> 그래서 <b>정답은 앱 하나</b>로 정하고, 시트는 그 값을 받아 <b>백업 + 견적서 만들기</b>에만 씁니다. 견적서는 상황마다 형태가 달라서 시트에서 유연하게 만드는 게 낫거든요.</div>
+    <div class="box tip"><span class="h">💡 "라인ID"가 뭐예요?</span> 같은 장비라도 <b>프로젝트마다 별개의 줄</b>로 관리해야 해요 (A촬영에 나간 카메라 ≠ B촬영에 나간 카메라). 그래서 라인마다 고유번호를 붙여 따로따로 추적합니다.</div>
+  </section>
+
+  <!-- 3 -->
+  <section id="s3">
+    <a href="#top" class="top">↑ 위로</a>
+    <div class="shead"><div class="snum">3</div><h2 class="stitle">시작하기 · 승인 · 권한</h2></div>
+    <p><b>구글 계정으로 로그인</b>합니다. 이 사이트는 <b>승인제</b>예요.</p>
+    <div class="box why"><span class="h">🤔 왜 승인제인가요?</span> 아무나 로그인해서 <b>회사 장비 정보·단가를 보면 안 되니까</b>요. 로그인하면 일단 <b>대기</b>로만 등록되고, 관리자가 <span class="tag t-g">명단</span> 탭에서 승인해야 자료가 보입니다.</div>
+    <div class="tw"><table>
+      <tr><th>권한</th><th>누가</th><th>볼 수 있는 것</th></tr>
+      <tr><td><span class="tag t-g">관리자</span></td><td>대표·관리자</td><td><b>전체 화면</b> (프로젝트 만들기·장비 등록·삭제 등 전부)</td></tr>
+      <tr><td><span class="tag t-b">프리랜서</span></td><td>현장 직원</td><td><b>배정된 프로젝트·재고만</b> (일부 칸은 보기 전용, 삭제·라인추가 불가)</td></tr>
+      <tr><td><span class="tag t-r">대기</span></td><td>승인 전</td><td><b>아무것도 못 봄</b></td></tr>
+    </table></div>
+    <p>관리자 사이트와 프리랜서 사이트는 <b>주소가 다릅니다</b>. 프리랜서는 상단 <b>「프리랜서 사이트」</b> 버튼으로 열거나, 관리자가 준 링크로 들어갑니다.</p>
+    <div class="box new"><span class="h">🧪 연습이 필요하면</span> <b>연습용 데모 앱</b>에서는 눌러봐도 <b>실제 데이터가 바뀌지 않습니다.</b> 부담 없이 익히세요. (링크는 관리자 문의)</div>
+  </section>
+
+  <!-- 4 -->
+  <section id="s4">
+    <a href="#top" class="top">↑ 위로</a>
+    <div class="shead"><div class="snum">4</div><h2 class="stitle">화면 읽는 법 · 탭 지도</h2></div>
+    <h3>🔝 맨 위 줄 (상태·버튼)</h3>
+    <ul>
+      <li><b>🟢 서버 연결됨</b> — 이게 떠 있어야 입력이 저장됩니다. 안 뜨면 저장이 안 되니 새로고침/재로그인.</li>
+      <li><b>⏳ 승인 대기 N명</b> — 새로 로그인한 사람. 눌러서 명단으로.</li>
+      <li><b>📗 백업 0번시트 · 🔄 서버에서 새로고침 · 입력 초기화 · 로그아웃</b></li>
+    </ul>
+    <h3>🗂 탭 지도 (뭐 하는 곳인지)</h3>
+    <div class="tw"><table>
+      <tr><th>탭</th><th>하는 일</th></tr>
+      <tr><td><span class="tag t-g">📦 프로젝트 준비</span></td><td>촬영에 나갈 <b>장비 리스트를 만드는</b> 곳 (§5)</td></tr>
+      <tr><td><span class="tag t-g">📁 프로젝트</span></td><td>만든 프로젝트를 열어 <b>준비·랩업·반납</b>을 진행 (§6)</td></tr>
+      <tr><td>📅 캘린더</td><td>프로젝트를 <b>출고일 기준 일정</b>으로 보기</td></tr>
+      <tr><td>📊 재고 현황</td><td>품목별 <b>실재고</b> 확인 (자동 계산)</td></tr>
+      <tr><td>🔧 파손·분실</td><td>파손·수리 이력, 분실 관리</td></tr>
+      <tr><td>🗂 장비 마스터</td><td>회사 <b>전체 장비 DB</b> (약 660개), 새 장비 등록</td></tr>
+      <tr><td>🎨 LEE FILTER·SAVAGE</td><td><b>소모자재</b>(필터·배경지) 잔량 체크</td></tr>
+      <tr><td>🧾 매입내역</td><td>장비 <b>구매 기록</b></td></tr>
+      <tr><td>👥 명단</td><td><b>계정 승인·권한</b> 관리 (관리자)</td></tr>
+      <tr><td>📋 소싱시트</td><td>모든 라인의 <b>마스터 기록</b> + 백업</td></tr>
+    </table></div>
+    <p>주로 쓰는 건 앞의 두 개(📦 프로젝트 준비, 📁 프로젝트)입니다.</p>
+  </section>
+
+  <!-- 5 -->
+  <section id="s5">
+    <a href="#top" class="top">↑ 위로</a>
+    <div class="shead"><div class="snum">5</div><h2 class="stitle">프로젝트 준비 — 장비 리스트 만들기</h2></div>
+    <p class="lead"><span class="tag t-g">📦 프로젝트 준비</span> 탭. 위에서 아래로 ⓪ → ① → ② → ③ 순서예요.</p>
+    <ol class="step">
+      <li><b>⓪ 포토 리스트 붙여넣기 (선택)</b> — 포토가 준 장비 리스트를 텍스트로 붙여넣으면 <b>자동으로 우리 장비와 매칭</b>해줍니다. 없으면 건너뛰기.</li>
+      <li><b>① 카테고리 → 보유 장비 고르기</b> — 카테고리(카메라·조명 등)를 펼쳐 장비별 수량을 정합니다.</li>
+      <li><b>② 준비 리스트 확인</b> — 고른 장비 + 렌탈이 표로 뜹니다. 여기서 <b>STATUS·수량·조달처</b>를 확인·수정 (아래 설명).</li>
+      <li><b>③ 어느 프로젝트인가</b> — 프로젝트 이름·출고일·반납일을 정하고 <b>「이 구성으로 라인 만들기」</b> → 소싱 라인 생성.</li>
+    </ol>
+    <h3>② 준비 리스트의 주요 열</h3>
+    <div class="tw"><table>
+      <tr><th>열</th><th>뜻</th></tr>
+      <tr><td><b>STATUS</b></td><td>이 품목의 확정 상태를 표시 <span class="tag t-g">confirm 확정</span> <span class="tag t-a">alt 대체</span> <span class="tag t-r">short/n/a/remove 부족·해당없음·제외</span> <br><span style="color:var(--sub);font-size:12.5px">※ 팀 사용 기준에 맞게 — 정확한 뜻은 관리자 확인</span></td></tr>
+      <tr><td><b>조달처</b></td><td>어디서 몇 개 나가는지. <b>PA(자사)</b> 몇 개 + 렌탈샵(SLR·HK·조명·왈랄라·데이페이·프로렌탈 등) 몇 개</td></tr>
+      <tr><td><b>부족 수량 / 판정</b></td><td>보유보다 많이 필요하면 부족분을 <span class="tag t-a">렌탈</span>로 자동 표시</td></tr>
+      <tr><td><b>일수 · 단가 · 금액</b></td><td>일수=<b>반납−출고+1</b>, 금액=단가×수량×일수 (자동 계산)</td></tr>
+    </table></div>
+    <div class="box why"><span class="h">🤔 왜 부족분이 자동으로 "렌탈"이 되나요?</span> 보유 수량을 넘게 필요하면 <b>사람이 일일이 계산 안 해도</b> "몇 개 모자라니 렌탈해야 한다"를 앱이 바로 표시해줍니다. 조달처 칸에 렌탈샵별로 몇 개 뺄지 적으면 돼요.</div>
+  </section>
+
+  <!-- 6 -->
+  <section id="s6">
+    <a href="#top" class="top">↑ 위로</a>
+    <div class="shead"><div class="snum">6</div><h2 class="stitle">준비 → 랩업 → 반납 (현장 3단계)</h2></div>
+    <p class="lead"><span class="tag t-g">📁 프로젝트</span> 탭 → 프로젝트 클릭 → <b>준비 · 랩업 · 반납</b> 3개 서브탭.</p>
+    <div class="tw"><table>
+      <tr><th>단계</th><th>언제</th><th>여기서 하는 일</th><th>자동으로 되는 것</th></tr>
+      <tr><td><span class="tag t-g">📦 준비</span></td><td>창고 픽업</td><td><b>준비상태</b>를 「준비완료」로, 필요하면 노트</td><td>담당자·시간 자동 기록</td></tr>
+      <tr><td><span class="tag t-b">🎬 랩업</span></td><td>현장 철수</td><td>챙겨온 장비 <b>랩업상태</b> 확인</td><td>담당자·시간 자동</td></tr>
+      <tr><td><span class="tag t-a">↩️ 반납</span></td><td>반환</td><td>반납 체크 · <b>파손·분실 개수</b> 입력</td><td>정상 수량·반납상태 자동, <b>재고 자동 차감</b></td></tr>
+    </table></div>
+    <div class="box why"><span class="h">🤔 왜 담당·시간이 자동으로 박히나요?</span> 직원이 따로 이름·시간을 안 적어도, 「준비완료/반납」을 <b>체크한 사람과 그 순간</b>이 자동 기록됩니다. 나중에 <b>"이거 누가 언제 했지?"</b>를 바로 알 수 있어 책임 소재가 분명해져요.</div>
+    <div class="box why"><span class="h">🤔 왜 파손·분실이 재고를 자동으로 깎나요?</span> 재고를 따로 관리하면 <b>반드시 어긋납니다.</b> 반납할 때 파손·분실을 한 번 적으면, 그 수만큼 회사 재고(실재고)가 <b>자동으로 줄어</b> 항상 맞게 유지돼요.</div>
+    <div class="box warn"><span class="h">⚠️ 그래서 파손·분실은 꼭 정확히</span> 여기 적은 숫자가 <b>회사 재고를 그대로 깎습니다.</b> 실수로 많이 적으면 재고가 틀어져요.</div>
+  </section>
+
+  <!-- 7 -->
+  <section id="s7">
+    <a href="#top" class="top">↑ 위로</a>
+    <div class="shead"><div class="snum">7</div><h2 class="stitle">연관장비 챙기기</h2></div>
+    <p>품목 옆 <b>🔗 연관장비</b>는 <b>같이 챙겨야 하는 것</b>(배터리·케이블 등)이에요. 누르면 목록이 뜹니다.</p>
+    <ul>
+      <li><b>준비 화면</b>에서 체크 → <b>수량과 조달처를 고르는 창</b>이 떠서 그 장비를 프로젝트에 추가</li>
+      <li><b>재고 현황</b>에서는 그냥 <b>보기용</b> 목록</li>
+    </ul>
+    <div class="box why"><span class="h">🤔 왜 추가할 때 조달처를 고르게 하나요?</span> 누락분으로 추가하는 장비도 <b>PA(자사)에서 챙길지, 렌탈할지</b>가 제각각이라서요. 추가하는 순간 정해두면 조달 정보가 안 빠집니다. (대표 컨펌 후 추가하는 용도)</div>
+  </section>
+
+  <!-- 8 -->
+  <section id="s8">
+    <a href="#top" class="top">↑ 위로</a>
+    <div class="shead"><div class="snum">8</div><h2 class="stitle">복붙 모드 — 한 번에 여러 개 입력</h2></div>
+    <div class="box new"><span class="h">🆕 새 기능</span> 품목이 많을 때 하나하나 안 하고 <b>엑셀처럼 복사→붙여넣기</b>로 한 번에 채웁니다.</div>
+    <div class="box why"><span class="h">🤔 왜 만들었나요?</span> 나가는 프로젝트가 <b>품목 100개</b>면, 준비상태·수량 등을 하나하나 하려면 <b>손동작이 수백 번</b>이에요. 복붙 모드로 <b>한 번에</b> 처리합니다.</div>
+    <p><b>어디서:</b> 준비/랩업/반납 표, 그리고 프로젝트 준비 ② 준비 리스트.</p>
+    <ol class="step">
+      <li>표 위 <b>「📋 복붙 모드 켜기」</b> — 켜면 칸 입력이 잠기고 <b>선택 모드</b></li>
+      <li>칸을 <b>클릭</b> (또는 <b>드래그</b>·<span class="kbd">Shift</span>+클릭으로 여러 칸·범위)</li>
+      <li><b>복사</b> (<span class="kbd">⌘C</span>)</li>
+      <li>붙여넣을 칸 선택 → <b>붙여넣기</b> (<span class="kbd">⌘V</span>)</li>
+    </ol>
+    <ul>
+      <li><b>한 칸 복사 → 넓은 범위에 붙여넣기 = 전부 같은 값</b> (예: 준비상태 100개를 「준비완료」 한 방에)</li>
+      <li>잘못 붙였으면 <b>↩︎ 되돌리기</b> (1회)</li>
+      <li>같은 종류 칸끼리만 들어갑니다 (안 맞으면 건너뜀 → 실수 방지)</li>
+    </ul>
+  </section>
+
+  <!-- 9 -->
+  <section id="s9">
+    <a href="#top" class="top">↑ 위로</a>
+    <div class="shead"><div class="snum">9</div><h2 class="stitle">수량+품명 카톡 복사</h2></div>
+    <div class="box new"><span class="h">🆕 새 기능</span> 챙길 장비 목록을 <b>품명+수량만 깔끔하게</b> 복사해서 카톡·시트에 붙여넣기.</div>
+    <ol class="step">
+      <li><b>복붙 모드</b>를 켠다</li>
+      <li>원하는 <b>품명·수량 칸</b>을 드래그로 선택 (원하는 품목들만 자유롭게)</li>
+      <li><b>복사</b> (<span class="kbd">⌘C</span>) → 카톡·시트에 <b>붙여넣기</b> (<span class="kbd">⌘V</span>)</li>
+    </ol>
+    <div class="box why"><span class="h">🤔 왜 이게 필요한가요?</span> 가끔 <b>"이 장비들 챙겨줘"</b>를 카톡으로 보낼 때, 앱에서 그냥 긁으면 온갖 칸이 다 붙어 지저분해요. 원하는 <b>품명·수량만</b> 골라 깔끔하게 보내려는 겁니다.</div>
+    <p>붙으면 이렇게 나옵니다:</p>
+    <div class="box"><span style="font-family:ui-monospace,monospace;font-size:13px;white-space:pre-line">CANON R5 MARK II&#9;1
+Battery(A1)&#9;2</span></div>
+  </section>
+
+  <!-- 10 -->
+  <section id="s10">
+    <a href="#top" class="top">↑ 위로</a>
+    <div class="shead"><div class="snum">10</div><h2 class="stitle">소싱시트 백업 · 견적서</h2></div>
+    <p class="lead"><span class="tag t-g">📋 소싱시트</span> 탭. 정리된 내용을 백업 시트에 안전하게 넣어둡니다.</p>
+    <ol class="step">
+      <li><b>「📋 백업용 전체 복사」</b> → 그 시점 전체가 복사됨</li>
+      <li><b>「📗 백업 0번시트 열기」</b> → 시트 <b>데이터 자리(A1)</b>에 붙여넣기 <span class="kbd">⌘V</span></li>
+    </ol>
+    <div class="box why"><span class="h">🤔 왜 견적서를 앱에 안 만들고 시트에서 하나요?</span> 견적서는 <b>상황마다 형태가 달라요.</b> 앱은 <b>정확한 값(장비·수량·단가)만</b> 넘겨주고, 그 값으로 <b>견적서는 시트에서 유연하게</b> 만드는 게 낫습니다. 그래서 앱=값 정리, 시트=견적서 제작으로 역할을 나눴어요.</div>
+    <div class="box tip"><span class="h">💡 언제 백업?</span> 정리가 끝났거나 중요한 변경 후, <b>필요할 때</b>. 그 시점 상태가 통째로 백업되고, 나중에 값을 고쳐도 다시 복사하면 최신으로 갱신됩니다.</div>
+  </section>
+
+  <!-- 11 -->
+  <section id="s11">
+    <a href="#top" class="top">↑ 위로</a>
+    <div class="shead"><div class="snum">11</div><h2 class="stitle">나머지 탭들</h2></div>
+    <h3>📊 재고 현황</h3>
+    <p>품목별로 묶어 <b>실재고</b>를 봅니다. 줄을 클릭하면 개체별 시리얼·현재 위치가 열려요.</p>
+    <div class="box tip"><span class="h">📐 실재고 공식 (자동)</span> <b>실재고 = 보유 − 분실 − 파손 + 수리완료</b><br><span style="font-size:13px;color:var(--sub)">그래서 반납에서 파손·분실을 적으면 여기 실재고가 자동으로 바뀝니다. 수리가 끝나면 다시 올라가고요.</span></div>
+    <h3>🎨 LEE FILTER · SAVAGE (소모자재)</h3>
+    <p>필터·배경지 같은 <b>소모품 잔량</b>을 체크. <b>50% 이하만 체크 → 구매 필요</b> 신호로 씁니다.</p>
+    <h3>🗂 장비 마스터</h3>
+    <p>회사 전체 장비 DB(약 660개). <b>시트 원본 그대로 보기</b>, 줄 클릭=편집, <b>「＋ 새 장비 추가」</b>로 신규 등록. 붙여넣기에서 못 찾은 장비는 <b>「추가여부 검토리스트」</b>로 모여서 등록 여부를 확인합니다.</p>
+    <h3>🧾 매입내역</h3>
+    <p>장비 <b>구매 기록</b>. 칸을 직접 고치면 서버에 저장돼 다른 기기·관리자에게도 반영됩니다.</p>
+    <h3>🔧 파손·분실</h3>
+    <p>파손·<b>수리 이력</b>과 <b>분실 관리</b>. 반납에서 들어온 파손·분실이 여기로 이어집니다.</p>
+    <h3>📅 캘린더</h3>
+    <p>프로젝트를 <b>출고일 기준</b>으로 달력에서 봅니다. (기간이 안 들어간 프로젝트는 안 보이니, 프로젝트 수정에서 기간을 넣어주세요.)</p>
+    <h3>👥 명단</h3>
+    <p>계정 <b>승인·권한 관리</b> (관리자 전용). 승인 대기자를 여기서 관리자/프리랜서로 승인합니다.</p>
+  </section>
+
+  <!-- 12 -->
+  <section id="s12">
+    <a href="#top" class="top">↑ 위로</a>
+    <div class="shead"><div class="snum">12</div><h2 class="stitle">저장·동시작업 규칙</h2></div>
+    <ul>
+      <li><b>칸을 다 쓰고 다른 칸으로 넘어가면 저장</b>됩니다 (글자 하나하나가 아니라, 그 칸을 벗어날 때).</li>
+      <li><b>실시간</b> — 2명 이상이 같은 프로젝트를 봐도 서로 수정이 바로 보입니다.</li>
+      <li><b>새로고침해도</b> 보던 프로젝트·서브탭 그대로 유지됩니다.</li>
+      <li>같은 칸을 두 명이 동시에 고치면 <b>나중에 저장한 값</b>이 남습니다.</li>
+    </ul>
+    <div class="box why"><span class="h">🤔 왜 실시간이 중요한가요?</span> 창고와 현장에서 <b>2명 이상이 동시에</b> 작업하는 경우가 많아요. 한 명이 준비완료 체크한 걸 다른 명이 <b>새로고침 없이 바로</b> 볼 수 있어야 중복·누락이 안 생깁니다.</div>
+  </section>
+
+  <!-- 13 -->
+  <section id="s13">
+    <a href="#top" class="top">↑ 위로</a>
+    <div class="shead"><div class="snum">13</div><h2 class="stitle">문제 해결 · 주의</h2></div>
+    <div class="tw"><table>
+      <tr><th>이럴 때</th><th>이렇게</th></tr>
+      <tr><td>화면이 옛날 그대로 / 이상함</td><td>강제 새로고침 <span class="kbd">⌘</span>+<span class="kbd">Shift</span>+<span class="kbd">R</span></td></tr>
+      <tr><td>🟢 서버 연결됨이 안 뜸</td><td>저장이 안 되는 상태 → 새로고침 후 다시 로그인</td></tr>
+      <tr><td>내 프로젝트가 안 보임 (프리랜서)</td><td>관리자가 <b>배정</b>해야 보입니다</td></tr>
+      <tr><td>연습하고 싶음</td><td>연습용 데모 앱에서 (실제 저장 안 됨)</td></tr>
+    </table></div>
+    <div class="box warn"><span class="h">⚠️ 꼭 기억</span> ① 🟢 서버 연결됨 확인 후 입력 · ② <b>파손·분실 숫자는 정확히</b>(재고에 바로 반영) · ③ 앱이 원본, 시트는 백업.</div>
+    <div class="box tip"><span class="h">🙋 질문은 미팅 때</span> 매뉴얼 보다가 헷갈리는 건 메모해뒀다가 <b>미팅 때 말씀</b>해주세요!</div>
+  </section>
+
+  <p class="foot">PA 장비관리 · 직원 매뉴얼(요약본) · 준비 → 랩업 → 반납 · 구조와 이유까지</p>
+
+  </main>
+</div>
