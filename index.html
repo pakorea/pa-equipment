@@ -3,7 +3,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>PA 장비관리 — 관리자 사이트 (3번) · v260807_5.9a</title>
+<title>PA 장비관리 — 관리자 사이트 (3번) · v260807_6.9a</title>
 <style>
 :root{--bg:#f7f5f0;--card:#fff;--ink:#222;--sub:#666;--line:#e6e1d8;--accent:#2f6db0;
  --ok:#1f7a52;--okbg:#e7f4ec;--warn:#b1442f;--warnbg:#fbeae5;--rent:#8a5a1a;--rentbg:#f7efe0}
@@ -380,8 +380,8 @@ function _procCell(r){
 var cpMode=false, cpAnchor=null, cpFocus=null, cpClip=null, cpUndo=null, cpSelecting=false;
 function cpToggle(){ cpMode=!cpMode; cpAnchor=cpFocus=null; cpSelecting=false; render(); }
 function cpBar(){
-  if(!cpMode) return '<div class="cpbar"><button onclick="cpToggle()">📋 복붙 모드 켜기</button><span style="color:#7a7566;font-size:12px">여러 칸을 한 번에 복사·붙여넣기(엑셀처럼). 켜면 칸 입력은 잠시 멈춥니다.</span></div>';
-  return '<div class="cpbar"><button class="on" onclick="cpToggle()">📋 복붙 모드 끄기</button>'
+  if(!cpMode) return '<div class="cpbar"><button onclick="cpToggle()">📋 복붙 모드 켜기</button><button onclick="cpKakao()" style="background:#fff3d6;border-color:#e5cf8f;color:#8a5a12">📤 수량+품명 복사(카톡)</button><span style="color:#7a7566;font-size:12px">여러 칸을 한 번에 복사·붙여넣기(엑셀처럼). 켜면 칸 입력은 잠시 멈춥니다.</span></div>';
+  return '<div class="cpbar"><button class="on" onclick="cpToggle()">📋 복붙 모드 끄기</button><button onclick="cpKakao()" style="background:#fff3d6;border-color:#e5cf8f;color:#8a5a12">📤 수량+품명 복사(카톡)</button>'
     +'<button onclick="cpCopy()">복사 ⌘C</button><button onclick="cpPaste()">붙여넣기 ⌘V</button><button onclick="cpUndoRun()">↩︎ 되돌리기</button>'
     +'<span class="info" id="cpInfo">칸 클릭·드래그로 선택 → 복사 → 붙여넣을 칸 선택 → 붙여넣기</span></div>';
 }
@@ -391,6 +391,16 @@ function _cpAt(dr,dc){ var tb=_cpBody(); if(!tb||!tb.rows[dr])return null; var t
 function _cpCells(){ return [].slice.call(document.querySelectorAll('td[data-cp]')); }
 function _cellVal(td){ if(!td)return ''; var el=td.querySelector('input,select'); if(!el)return ''; if(el.type==='checkbox')return el.checked?'1':''; return el.value; }
 function cpToast(m){ var d=document.getElementById('cpToast'); if(!d){ d=document.createElement('div'); d.id='cpToast'; d.style.cssText='position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:#2b2a26;color:#fff;padding:9px 16px;border-radius:10px;font-size:13px;font-weight:700;z-index:9999;box-shadow:0 4px 16px rgba(0,0,0,.25);transition:opacity .4s'; document.body.appendChild(d); } d.textContent=m; d.style.opacity='1'; clearTimeout(window.__cpTt); window.__cpTt=setTimeout(function(){ d.style.opacity='0'; },2200); }
+function cpKakao(){
+  var rows; var sel=cpMode?document.querySelectorAll('td.cp-sel'):[];
+  if(sel.length){ var seen=[]; rows=[]; [].forEach.call(sel,function(td){ var tr=td.closest('tr'); if(tr&&tr.hasAttribute('data-nm')&&seen.indexOf(tr)<0){ seen.push(tr); rows.push(tr); } }); }
+  else { rows=[].slice.call(document.querySelectorAll('tr[data-nm]')); }
+  if(!rows.length){ cpToast('복사할 품목이 없습니다'); return; }
+  var lines=rows.map(function(tr){ var nm=tr.getAttribute('data-nm')||''; var q=tr.getAttribute('data-qty'); q=(q==null||q==='')?'':q; return (q!==''?q+'\t':'')+nm; });
+  _cpClipWrite(lines.join('\n'), lines.length);
+}
+function _cpClipWrite(txt,n){ try{ if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(txt).then(function(){ cpToast('📤 '+n+'개 품목 복사됨 · 카톡에 붙여넣으세요'); },function(){ _cpClipFallback(txt,n); }); return; } }catch(e){} _cpClipFallback(txt,n); }
+function _cpClipFallback(txt,n){ var ta=document.createElement('textarea'); ta.value=txt; ta.style.cssText='position:fixed;left:-9999px;top:0'; document.body.appendChild(ta); ta.focus(); ta.select(); var ok=false; try{ ok=document.execCommand('copy'); }catch(e){} document.body.removeChild(ta); cpToast(ok?('📤 '+n+'개 품목 복사됨 · 카톡에 붙여넣으세요'):'복사 실패 — 다시 시도'); }
 function cpPaint(){
   var cells=_cpCells(); if(!cpAnchor||!cpFocus){ cells.forEach(function(td){td.classList.remove('cp-sel');}); return; }
   var r1=Math.min(cpAnchor.dr,cpFocus.dr), r2=Math.max(cpAnchor.dr,cpFocus.dr), c1=Math.min(cpAnchor.dc,cpFocus.dc), c2=Math.max(cpAnchor.dc,cpFocus.dc);
@@ -431,7 +441,7 @@ function prepTable(rows){
   const stOpts=(cur)=>['미완료','준비완료','확인필요'].map(o=>`<option ${cur===o?'selected':''}>${o}</option>`).join('');
   const body=rows.map((r,i)=>{
     const l=r[S.line]; const st=val(r,S.prepSt)||'미완료'; const done=st==='준비완료';
-    return `<tr><td>${Q(val(r,S.cat))}</td><td>${relCell(r)}</td><td class="n">${Q(val(r,S.asgQ))}</td><td>${_procCell(r)}</td>
+    return `<tr data-nm="${Q(val(r,S.item)||r[S.reqItem])}" data-qty="${Q(val(r,S.asgQ))}"><td>${Q(val(r,S.cat))}</td><td>${relCell(r)}</td><td class="n">${Q(val(r,S.asgQ))}</td><td>${_procCell(r)}</td>
       <td data-cp data-line="${Q(l)}" data-col="${S.eqnote}" data-dr="${i}" data-dc="0"><input class="note note-eq" value="${Q(val(r,S.eqnote))}" onchange="setValNoRender('${QJ(l)}',${S.eqnote},this.value)" placeholder="포토 공유 비고"></td>
       <td data-cp data-line="${Q(l)}" data-col="${S.prepSt}" data-dr="${i}" data-dc="1"><select onchange="onPrepSt('${QJ(l)}',this.value)">${stOpts(st)}</select></td>
       <td data-cp data-line="${Q(l)}" data-col="${S.prepNote}" data-dr="${i}" data-dc="2"><input class="note" value="${Q(val(r,S.prepNote))}" onchange="setValNoRender('${QJ(l)}',${S.prepNote},this.value)" placeholder="준비노트"></td>
@@ -451,7 +461,7 @@ function onPrepSt(line,v){ setValNoRender(line,S.prepSt,v); if(v==='준비완료
 function wrapTable(rows){
   const stOpts=(cur)=>['미완료','랩업완료','확인필요'].map(o=>`<option ${cur===o?'selected':''}>${o}</option>`).join('');
   const body=rows.map((r,i)=>{ const l=r[S.line]; const st=val(r,S.wrapSt)||'미완료'; const done=st==='랩업완료';
-    return `<tr><td>${Q(val(r,S.cat))}</td><td>${Q(val(r,S.item)||r[S.reqItem])}</td><td class="n">${Q(val(r,S.asgQ))}</td><td>${_procCell(r)}</td>
+    return `<tr data-nm="${Q(val(r,S.item)||r[S.reqItem])}" data-qty="${Q(val(r,S.asgQ))}"><td>${Q(val(r,S.cat))}</td><td>${Q(val(r,S.item)||r[S.reqItem])}</td><td class="n">${Q(val(r,S.asgQ))}</td><td>${_procCell(r)}</td>
       <td data-cp data-line="${Q(l)}" data-col="${S.wrapSt}" data-dr="${i}" data-dc="0"><select onchange="onWrapSt('${QJ(l)}',this.value)">${stOpts(st)}</select></td>
       <td data-cp data-line="${Q(l)}" data-col="${S.wrapNote}" data-dr="${i}" data-dc="1"><input class="note" value="${Q(val(r,S.wrapNote))}" onchange="setValNoRender('${QJ(l)}',${S.wrapNote},this.value)" placeholder="랩업노트"></td>
       <td data-cp data-line="${Q(l)}" data-col="${S.eqnote}" data-dr="${i}" data-dc="2"><input class="note note-eq" value="${Q(val(r,S.eqnote))}" onchange="setValNoRender('${QJ(l)}',${S.eqnote},this.value)" placeholder="포토 공유 비고"></td>
@@ -469,7 +479,7 @@ function retTable(rows){
     const thumbs=photos.map((p,i)=>`<span style="position:relative;display:inline-block;margin:1px"><img src="${p}" onclick="viewPhoto('${QJ(l)}',${i})" style="width:32px;height:32px;object-fit:cover;border-radius:4px;cursor:pointer;border:1px solid #ccc"><button onclick="delPhoto('${QJ(l)}',${i})" style="position:absolute;top:-6px;right:-6px;background:#b23b25;color:#fff;border:none;border-radius:50%;width:15px;height:15px;font-size:9px;cursor:pointer;line-height:1">×</button></span>`).join('');
     const photoCell=`<label style="cursor:pointer;font-size:11px;border:1px solid #cbb;border-radius:6px;padding:3px 8px;background:#fff;white-space:nowrap">📷<input type="file" accept="image/*" capture="environment" style="display:none" onchange="addPhoto('${QJ(l)}',this)"></label> ${thumbs}`;
     const lowCell='';
-    return `<tr><td>${Q(val(r,S.cat))}</td><td>${Q(val(r,S.item)||r[S.reqItem])}</td><td class="n">${asg}</td><td>${_procCell(r)}</td>
+    return `<tr data-nm="${Q(val(r,S.item)||r[S.reqItem])}" data-qty="${asg}"><td>${Q(val(r,S.cat))}</td><td>${Q(val(r,S.item)||r[S.reqItem])}</td><td class="n">${asg}</td><td>${_procCell(r)}</td>
       <td class="n" data-cp data-line="${Q(l)}" data-col="${S.retBy}" data-dr="${i}" data-dc="0"><input type="checkbox" ${by?'checked':''} onchange="onRetBy('${QJ(l)}',this.checked)"></td>
       <td class="n" data-cp data-line="${Q(l)}" data-col="${S.broken}" data-dr="${i}" data-dc="1"><input class="num" type="number" min="0" value="${Q(val(r,S.broken))||''}" placeholder="0" onchange="setVal('${QJ(l)}',${S.broken},this.value);_retSave('${QJ(l)}')"></td>
       <td class="n" data-cp data-line="${Q(l)}" data-col="${S.lost}" data-dr="${i}" data-dc="2"><input class="num" type="number" min="0" value="${Q(val(r,S.lost))||''}" placeholder="0" onchange="setVal('${QJ(l)}',${S.lost},this.value);_retSave('${QJ(l)}')"></td>
@@ -2410,7 +2420,7 @@ function vPrepNew(){
     var qy=_sg[nm]; var av=npModelAvail(nm); var own=npUnits(nm).reduce(function(a,e){return a+num(ev(e,E.own));},0);
     var short = qy>av;
     var j = !short ? '<span class="j-ok">보유 충당 ✔</span>' : ('<span class="j-rent">'+(qy-av)+'개 부족 → 렌탈</span>');
-    return '<tr><td style="color:#6b6258;font-size:12px">'+Q(npReq[nm]||'')+'</td>'
+    return '<tr data-nm="'+Q(nm)+'" data-qty="'+qy+'"><td style="color:#6b6258;font-size:12px">'+Q(npReq[nm]||'')+'</td>'
       +'<td class="n" data-cp><input value="'+Q(String(npNoteGet(nm,'reqq')||qy))+'" onchange="npNoteSet(\''+QJ(nm)+'\',\'reqq\',this.value)" style="width:44px;text-align:center;font-size:11px;border:1px solid var(--line);border-radius:5px;padding:3px 2px"></td>'
       +'<td data-cp>'+npStatusCell(nm)+'</td>'
       +'<td>'+Q(nm)+'</td>'
@@ -2428,7 +2438,7 @@ function vPrepNew(){
     var qy=npMat[key], av=Math.max(0,num(matQty(k,ri)));
     var short2 = qy>av;
     var j = !short2 ? '<span class="j-ok">보유 충당 ✔</span>' : ('<span class="j-rent">'+(qy-av)+'개 부족 → 구매</span>');
-    return '<tr style="background:#fbfaf5"><td></td>'
+    return '<tr data-nm="'+Q(npMatLabel(k,ri))+'" data-qty="'+qy+'" style="background:#fbfaf5"><td></td>'
       +'<td class="n" data-cp><input value="'+Q(String(npNoteGet(key,'reqq')||qy))+'" onchange="npNoteSet(\''+QJ(key)+'\',\'reqq\',this.value)" style="width:44px;text-align:center;font-size:11px;border:1px solid var(--line);border-radius:5px;padding:3px 2px"></td>'
       +'<td data-cp>'+npStatusCell(key)+'</td>'
       +'<td>'+Q(npMatLabel(k,ri))+'</td>'
@@ -2441,7 +2451,7 @@ function vPrepNew(){
       +npRentCols(key,true,qy,av,'')
       +'<td class="n"><button class="mini" onclick="npMatClear(\''+QJ(key)+'\')">×</button></td></tr>';
   }).join('');
-  const rentRows=npRent.map((r,i)=>`<tr><td style="color:#6b6258;font-size:12px">${Q(r.name)}</td><td class="n" data-cp><input value="${Q(String(npNoteGet('rent|'+i,'reqq')||r.qty))}" onchange="npNoteSet('rent|${i}','reqq',this.value)" style="width:44px;text-align:center;font-size:11px;border:1px solid var(--line);border-radius:5px;padding:3px 2px"></td><td data-cp>${npStatusCell('rent|'+i)}</td><td><span class="pill p-rent">렌탈</span></td><td class="n" style="font-weight:700">${r.qty}</td><td data-cp><input class="note note-eq" value="${Q(npNoteGet('rent|'+i,'eq'))}" placeholder="포토 공유 비고" onchange="npNoteSet('rent|${i}','eq',this.value)"></td><td data-cp><input class="note note-in" value="${Q(npNoteGet('rent|'+i,'in'))}" placeholder="팀·프리랜서 공유 비고" onchange="npNoteSet('rent|${i}','in',this.value)"></td><td class="n"><span style="background:#fdeeeb;border:1px solid #f0c4bb;color:#c0392b;border-radius:999px;padding:2px 9px;font-weight:800;font-size:11px">✗ 미보유</span></td><td class="n" style="background:#fbdcdc;font-weight:800;color:#a83c28">${r.qty}</td><td><span class="j-rent">외부 렌탈</span></td>`
+  const rentRows=npRent.map((r,i)=>`<tr data-nm="${Q(r.name)}" data-qty="${r.qty}"><td style="color:#6b6258;font-size:12px">${Q(r.name)}</td><td class="n" data-cp><input value="${Q(String(npNoteGet('rent|'+i,'reqq')||r.qty))}" onchange="npNoteSet('rent|${i}','reqq',this.value)" style="width:44px;text-align:center;font-size:11px;border:1px solid var(--line);border-radius:5px;padding:3px 2px"></td><td data-cp>${npStatusCell('rent|'+i)}</td><td><span class="pill p-rent">렌탈</span></td><td class="n" style="font-weight:700">${r.qty}</td><td data-cp><input class="note note-eq" value="${Q(npNoteGet('rent|'+i,'eq'))}" placeholder="포토 공유 비고" onchange="npNoteSet('rent|${i}','eq',this.value)"></td><td data-cp><input class="note note-in" value="${Q(npNoteGet('rent|'+i,'in'))}" placeholder="팀·프리랜서 공유 비고" onchange="npNoteSet('rent|${i}','in',this.value)"></td><td class="n"><span style="background:#fdeeeb;border:1px solid #f0c4bb;color:#c0392b;border-radius:999px;padding:2px 9px;font-weight:800;font-size:11px">✗ 미보유</span></td><td class="n" style="background:#fbdcdc;font-weight:800;color:#a83c28">${r.qty}</td><td><span class="j-rent">외부 렌탈</span></td>`
     +npRentCols('rent|'+i,true,r.qty,0,r.name)+`<td class="n"><button class="mini" onclick="npRmRent(${i})">×</button></td></tr>`).join('');
   const listPanel=(selRows||rentRows)?`<table><thead><tr><th>요청품목<br><span style="font-weight:400;font-size:10px;color:#999">붙여넣기 원문</span></th><th class="n">요청<br>수량</th><th>STATUS</th><th>준비 품목</th><th class="n">준비<br>수량</th><th>EQ NOTE<br><span style="font-weight:400;font-size:10px;color:#8a7a5c">포토 공유</span></th><th>내부 노트<br><span style="font-weight:400;font-size:10px;color:#5c7a9a">팀·프리랜서 공유</span></th><th class="n">보유수량<br><span style="font-weight:400;font-size:10px;color:#0d652d">클릭=위치</span></th><th class="n">부족<br>수량</th><th>판정</th><th>렌탈가능업체</th><th>조달처<br>(자동)</th><th class="n">조달<br>수량</th><th class="n">PA</th><th class="n">SLR</th><th class="n">HK</th><th class="n">조명</th><th class="n">왈랄라</th><th class="n">데이페이</th><th class="n">프로렌탈</th><th class="n">렌탈8</th><th class="n">분배합</th><th>검증</th><th>출고</th><th>반납</th><th class="n">일수</th><th class="n">수기<br>단가</th><th class="n">단가<br><span style="font-weight:400;font-size:10px;color:#8a94a3">자동</span></th><th class="n">금액</th><th class="n">빼기</th></tr></thead><tbody>${selRows}${rentRows}</tbody></table>`
     :'<div style="color:#bbb;padding:10px">아직 고른 장비가 없습니다. 위에서 고르세요.</div>';
