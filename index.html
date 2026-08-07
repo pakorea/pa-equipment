@@ -3,7 +3,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>PA 장비관리 — 관리자 사이트 (3번) · v260807_1.2b</title>
+<title>PA 장비관리 — 관리자 사이트 (3번) · v260807_1.3b</title>
 <style>
 :root{--bg:#f7f5f0;--card:#fff;--ink:#222;--sub:#666;--line:#e6e1d8;--accent:#2f6db0;
  --ok:#1f7a52;--okbg:#e7f4ec;--warn:#b1442f;--warnbg:#fbeae5;--rent:#8a5a1a;--rentbg:#f7efe0}
@@ -114,7 +114,7 @@ function sortByLine(rows){
   });
 }
 function allSrc(){ return DB.sourcing.rows.concat(srcAdd); }
-let view='prepNew', edits={}, projFilter=LS('pa_v3_projfilter','전체'), q='', curProj=null, stage='prep';
+let view=LS('pa_v3_view','prepNew'), edits={}, projFilter=LS('pa_v3_projfilter','전체'), q='', curProj=LS('pa_v3_curproj',null), stage=LS('pa_v3_stage','prep');
 let _dmg=null, _dmgOrphan=0, _pdmax=null;
 const TODAYKEY=(function(){var d=new Date();return d.getFullYear()*10000+(d.getMonth()+1)*100+d.getDate();})();
 let eqOv={}, eqDel=[], eqAdd=[], mstSel=null, buyView='new', holdKey='', people={};
@@ -2729,6 +2729,7 @@ function sbBanner(){
 
 function go(v){view=v;q='';curProj=null;mstSel=null;relLine=null;window.__useId=null;unitOf=null;projEdit=null;matOpen=null; if((v==='mem'||v==='cal')&&serverOn)loadUsers();window.scrollTo(0,0);render();}  // 탭 전환 시 열려있던 모달 상태도 초기화(잔상 방지)
 function render(){
+  try{LSs('pa_v3_view',view);LSs('pa_v3_curproj',curProj);LSs('pa_v3_stage',stage);}catch(e){}
   var __sc=null, __el=document.querySelector('.panel');
   try{
     var __boxes=[].slice.call(document.querySelectorAll('[data-scrollbox]')).map(function(b){return {t:b.scrollTop,l:b.scrollLeft};});
