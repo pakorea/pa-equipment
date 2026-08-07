@@ -3,7 +3,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>PA 장비관리 — 프리랜서 사이트 · v260807_2.4b</title>
+<title>PA 장비관리 — 프리랜서 사이트 · v260807_2.5b</title>
 <style>
 :root{--bg:#f7f5f0;--card:#fff;--ink:#222;--sub:#666;--line:#e6e1d8;--accent:#2f6db0;
  --ok:#1f7a52;--okbg:#e7f4ec;--warn:#b1442f;--warnbg:#fbeae5;--rent:#8a5a1a;--rentbg:#f7efe0}
@@ -1721,7 +1721,8 @@ function vHold(){
 }
 
 // ===== 🔗 연관장비 체크 팝업 =====
-let relLine=null;
+let relLine=null, relAdd=null;
+var REL_VENDS=[['PA(자사)',S.vPA],['SLR',S.vSLR],['HK',S.vHK],['조명',S.vLight],['왈랄라',S.vLala],['데이페이',S.vDay],['프로렌탈',S.vPro],['렌탈8',S.v8]];
 function relItems(row){ const t=(val(row,S.related)||'').toString().trim(); if(!t)return []; return t.split(/[,\/\n·;]+/).map(x=>x.trim()).filter(Boolean); }
 function relCell(r){
   const items=relItems(r); const nm=Q(val(r,S.item)||r[S.reqItem]);
@@ -1737,29 +1738,9 @@ async function relToggle(it){
   if(!edits[l])edits[l]={}; if(!edits[l].relck)edits[l].relck={};
   var cur=edits[l].relck[it];
   if(!cur){
-    // 체크 → 이 프로젝트에 연관장비 라인 추가
+    // 체크 → 수량·조달처 선택 폼 열기(relAddConfirm에서 실제 추가)
     if(!serverOn){ alert('서버에 연결되지 않아 추가할 수 없습니다.'); return; }
-    var qs=prompt('"'+it+'" 수량을 입력하세요.\n(대표 컨펌 후 기입 — 프로젝트 준비 누락분 추가)', '1');
-    if(qs===null) return;
-    var qy=Math.max(1, parseInt(qs)||1);
-    var _itl=String(it).toLowerCase().trim(); var e=eqRows().find(function(x){ return String(ev(x,E.name)||'').toLowerCase().trim()===_itl; });
-    var proj=r[S.proj]; var n=maxLineSeq(proj)+1;
-    var row=new Array(SRC.headers.length).fill('');
-    row[S.line]=proj+'-'+String(n).padStart(2,'0'); row[S.proj]=proj;
-    row[S.reqItem]=it; row[S.item]=e?ev(e,E.name):it; row[S.asgQ]=qy; row[S.reqQ]=qy;
-    row[S.out]=val(r,S.out); row[S.due]=val(r,S.due);
-    if(e){ row[S.itemId]=e[E.id]; row[S.brand]=ev(e,E.brand); row[S.cat]=ev(e,E.cat); row[S.related]=ev(e,E.related); row[S.loc]=ev(e,E.loc); row[S.comp]=ev(e,E.comp); row[S.special]=ev(e,E.special); row[S.rentVendor]=ev(e,E.vendor); row[S.eqLink]=ev(e,E.link); row[S.own]=num(ev(e,E.own)); row[S.price]=num(ev(e,E.price)); } else { row[S.cat]=val(r,S.cat); }
-    row[S.vPA]=String(qy); row[S.distSum]=String(qy); row[S.verify]='✔';
-    row[S.innote]='연관장비 추가(누락분 · '+(val(r,S.item)||r[S.reqItem])+')';
-    sbBusy=true; sbMsg='추가 중…'; render();
-    try{
-      var o={}; SRC.headers.forEach(function(h,idx){ o[h]=row[idx]==null?'':String(row[idx]); });
-      var rr=await sbT('sourcing').insert([o]); if(rr&&rr.error) throw rr.error;
-      DB.sourcing.rows.push(row); edits[l].relck[it]=row[S.line]; save();
-      _dmg=null;_pdmax=null;_matEqCache=null;window.__invUse=null;
-      sbMsg='['+proj+'] '+row[S.item]+' '+qy+'개 추가됨';
-    }catch(err){ sbMsg='추가 실패: '+(err.message||err); alert('추가 실패: '+(err.message||err)); }
-    sbBusy=false; render();
+    relAdd={l:l, it:it}; render();
   } else {
     // 체크 해제 → 추가했던 라인 제거
     var addedId=(typeof cur==='string')?cur:null;
@@ -1780,6 +1761,43 @@ async function relToggle(it){
     delete edits[l].relck[it]; save(); render();
   }
 }
+function relAddCancel(){ relAdd=null; render(); }
+async function relAddConfirm(){
+  if(!relAdd)return; var l=relAdd.l, it=relAdd.it;
+  var r=allSrc().find(function(x){return x[S.line]===l;}); if(!r){ relAdd=null; render(); return; }
+  var qe=document.getElementById('relAddQty'), se=document.getElementById('relAddSrc');
+  var qy=Math.max(1, parseInt(qe&&qe.value)||1);
+  var sc=parseInt(se&&se.value); if(isNaN(sc))sc=S.vPA;
+  var _itl=String(it).toLowerCase().trim(); var e=eqRows().find(function(x){ return String(ev(x,E.name)||'').toLowerCase().trim()===_itl; });
+  var proj=r[S.proj]; var n=maxLineSeq(proj)+1;
+  var row=new Array(SRC.headers.length).fill('');
+  row[S.line]=proj+'-'+String(n).padStart(2,'0'); row[S.proj]=proj;
+  row[S.reqItem]=it; row[S.item]=e?ev(e,E.name):it; row[S.asgQ]=qy; row[S.reqQ]=qy;
+  row[S.out]=val(r,S.out); row[S.due]=val(r,S.due);
+  if(e){ row[S.itemId]=e[E.id]; row[S.brand]=ev(e,E.brand); row[S.cat]=ev(e,E.cat); row[S.related]=ev(e,E.related); row[S.loc]=ev(e,E.loc); row[S.comp]=ev(e,E.comp); row[S.special]=ev(e,E.special); row[S.rentVendor]=ev(e,E.vendor); row[S.eqLink]=ev(e,E.link); row[S.own]=num(ev(e,E.own)); row[S.price]=num(ev(e,E.price)); } else { row[S.cat]=val(r,S.cat); }
+  row[sc]=String(qy); row[S.distSum]=String(qy); row[S.verify]='\u2714';
+  row[S.innote]='\uc5f0\uad00\uc7a5\ube44 \ucd94\uac00(\ub204\ub77d\ubd84 \u00b7 '+(val(r,S.item)||r[S.reqItem])+')';
+  if(!edits[l])edits[l]={}; if(!edits[l].relck)edits[l].relck={};
+  relAdd=null; sbBusy=true; sbMsg='\ucd94\uac00 \uc911\u2026'; render();
+  try{
+    var o={}; SRC.headers.forEach(function(h,idx){ o[h]=row[idx]==null?'':String(row[idx]); });
+    var rr=await sbT('sourcing').insert([o]); if(rr&&rr.error) throw rr.error;
+    DB.sourcing.rows.push(row); edits[l].relck[it]=row[S.line]; save();
+    _dmg=null;_pdmax=null;_matEqCache=null;window.__invUse=null;
+    sbMsg='['+proj+'] '+row[S.item]+' '+qy+'\uac1c \ucd94\uac00\ub428';
+  }catch(err){ sbMsg='\ucd94\uac00 \uc2e4\ud328: '+(err.message||err); alert('\ucd94\uac00 \uc2e4\ud328: '+(err.message||err)); }
+  sbBusy=false; render();
+}
+function relAddModal(){
+  if(!relAdd)return '';
+  var opts=REL_VENDS.map(function(v){return '<option value="'+v[1]+'">'+v[0]+'</option>';}).join('');
+  return '<div class="modal-bg" style="z-index:60" onclick="if(event.target===this)relAddCancel()"><div class="modal">'
+    +'<h3>\u2795 \uc5f0\uad00\uc7a5\ube44 \ucd94\uac00 \u2014 '+Q(relAdd.it)+'</h3>'
+    +'<div style="font-size:13px;color:var(--sub);margin-bottom:12px">\ub300\ud45c \ucef4\ud380 \ud6c4 <b>\uc218\ub7c9</b>\uacfc <b>\uc870\ub2ec\ucc98</b>\ub97c \uc120\ud0dd\ud574 \ucd94\uac00\ud558\uc138\uc694. (\ud504\ub85c\uc81d\ud2b8 \uc900\ube44 \ub204\ub77d\ubd84)</div>'
+    +'<div style="display:flex;gap:12px;align-items:center;margin-bottom:9px"><label style="width:64px;font-weight:600">\uc218\ub7c9</label><input id="relAddQty" type="number" min="1" value="1" style="flex:1;padding:7px;border:1px solid #d8cfbc;border-radius:6px"></div>'
+    +'<div style="display:flex;gap:12px;align-items:center;margin-bottom:14px"><label style="width:64px;font-weight:600">\uc870\ub2ec\ucc98</label><select id="relAddSrc" style="flex:1;padding:7px;border:1px solid #d8cfbc;border-radius:6px">'+opts+'</select></div>'
+    +'<div class="mbtns"><button onclick="relAddCancel()">\ucde8\uc18c</button><button class="primary" onclick="relAddConfirm()">\ucd94\uac00</button></div></div></div>';
+}
 function relModal(){
   if(!relLine)return '';
   const r=allSrc().find(x=>x[S.line]===relLine); if(!r){relLine=null;return '';}
@@ -1789,7 +1807,7 @@ function relModal(){
     <h3>🔗 연관장비 체크 — ${Q(val(r,S.item)||r[S.reqItem])}</h3>
     <div style="font-size:13px;color:var(--sub);margin-bottom:8px">같이 챙겨야 하는 것들입니다. <b>체크하면 이 프로젝트에 그 장비가 추가</b>됩니다(수량 입력). 체크 해제하면 제거.</div>
     ${list||'연관장비 없음'}
-    <div class="mbtns"><button class="primary" onclick="relClose()">닫기</button></div></div></div>`;
+    <div class="mbtns"><button class="primary" onclick="relClose()">닫기</button></div></div></div>`+relAddModal();
 }
 // ===== 🔗 연관장비 확인 팝업 (재고현황 — 장비 기준) =====
 let relEqId=null, relckEq={};
@@ -2752,7 +2770,7 @@ function sbBanner(){
   return '<div class="note-box" style="background:#fde7e0;border-color:#e6bda8;color:#8a3a1e;display:flex;align-items:center;gap:10px;flex-wrap:wrap">🔴 <b>오프라인 — 지금 화면은 최신이 아닐 수 있습니다.</b> 서버에 연결되지 않아, <b>예전에 받아둔 낡은 목록</b>을 보여주는 중입니다. 재고·준비·반납 판단은 <b>서버 로그인 후</b> 하세요. 지금 고친 것은 이 컴퓨터에만 남습니다.'+(sbMsg?' <span style="font-size:11.5px">'+Q(sbMsg)+'</span>':'')+'<button onclick="forceReset()" style="margin-left:auto;background:#b1442f;color:#fff;border:none;border-radius:8px;padding:7px 15px;font-weight:800;font-size:13px;cursor:pointer">🔌 서버에 로그인</button></div>';
 }
 
-function go(v){view=v;q='';curProj=null;mstSel=null;relLine=null;window.__useId=null;unitOf=null;projEdit=null;matOpen=null; if((v==='mem'||v==='cal')&&serverOn)loadUsers();window.scrollTo(0,0);render();}  // 탭 전환 시 열려있던 모달 상태도 초기화(잔상 방지)
+function go(v){view=v;q='';curProj=null;mstSel=null;relLine=null;relAdd=null;window.__useId=null;unitOf=null;projEdit=null;matOpen=null; if((v==='mem'||v==='cal')&&serverOn)loadUsers();window.scrollTo(0,0);render();}  // 탭 전환 시 열려있던 모달 상태도 초기화(잔상 방지)
 function render(){
   try{LSs('pa_v3_view',view);LSs('pa_v3_curproj',curProj);LSs('pa_v3_stage',stage);}catch(e){}
   var __sc=null, __el=document.querySelector('.panel');
