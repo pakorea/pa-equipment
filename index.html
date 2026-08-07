@@ -3,7 +3,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>PA 장비관리 — 관리자 사이트 (3번) · v260807_4.9b</title>
+<title>PA 장비관리 — 관리자 사이트 (3번) · v260807_5.9a</title>
 <style>
 :root{--bg:#f7f5f0;--card:#fff;--ink:#222;--sub:#666;--line:#e6e1d8;--accent:#2f6db0;
  --ok:#1f7a52;--okbg:#e7f4ec;--warn:#b1442f;--warnbg:#fbeae5;--rent:#8a5a1a;--rentbg:#f7efe0}
@@ -376,61 +376,51 @@ function _procCell(r){
   if(!parts.length) return '<span style="color:#ccc">-</span>';
   return '<span style="font-size:11px;white-space:nowrap">'+parts.join(' · ')+' <b>(총 '+sum+')</b></span>';
 }
-// ===== 📋 복붙(스프레드시트식 복사·붙여넣기) 모드 — 데모: 프로젝트 준비/랩업/반납 =====
+// ===== 📋 복붙(스프레드시트식 복사·붙여넣기) 모드 =====
 var cpMode=false, cpAnchor=null, cpFocus=null, cpClip=null, cpUndo=null, cpSelecting=false;
 function cpToggle(){ cpMode=!cpMode; cpAnchor=cpFocus=null; cpSelecting=false; render(); }
 function cpBar(){
   if(!cpMode) return '<div class="cpbar"><button onclick="cpToggle()">📋 복붙 모드 켜기</button><span style="color:#7a7566;font-size:12px">여러 칸을 한 번에 복사·붙여넣기(엑셀처럼). 켜면 칸 입력은 잠시 멈춥니다.</span></div>';
   return '<div class="cpbar"><button class="on" onclick="cpToggle()">📋 복붙 모드 끄기</button>'
     +'<button onclick="cpCopy()">복사 ⌘C</button><button onclick="cpPaste()">붙여넣기 ⌘V</button><button onclick="cpUndoRun()">↩︎ 되돌리기</button>'
-    +'<span class="info" id="cpInfo">칸 클릭·드래그로 선택 → 복사 → 붙여넣을 칸 선택 → 붙여넣기 (같은 종류 칸끼리만 들어갑니다)</span></div>';
+    +'<span class="info" id="cpInfo">칸 클릭·드래그로 선택 → 복사 → 붙여넣을 칸 선택 → 붙여넣기</span></div>';
 }
+function _cpBody(){ var c=document.querySelector('td[data-cp]'); if(!c)return null; var t=c.closest('table'); return t?t.tBodies[0]:null; }
+function _cpCoord(td){ var tr=td.parentNode; var tb=tr.parentNode; return {dr:Array.prototype.indexOf.call(tb.rows,tr), dc:td.cellIndex}; }
+function _cpAt(dr,dc){ var tb=_cpBody(); if(!tb||!tb.rows[dr])return null; var td=tb.rows[dr].cells[dc]; return (td&&td.hasAttribute&&td.hasAttribute('data-cp'))?td:null; }
 function _cpCells(){ return [].slice.call(document.querySelectorAll('td[data-cp]')); }
-function _cpAt(dr,dc){ return document.querySelector('td[data-cp][data-dr="'+dr+'"][data-dc="'+dc+'"]'); }
-function _cellVal(td){ var el=td.querySelector('input,select'); if(!el)return ''; if(el.type==='checkbox')return el.checked?'1':''; return el.value; }
+function _cellVal(td){ if(!td)return ''; var el=td.querySelector('input,select'); if(!el)return ''; if(el.type==='checkbox')return el.checked?'1':''; return el.value; }
 function cpToast(m){ var d=document.getElementById('cpToast'); if(!d){ d=document.createElement('div'); d.id='cpToast'; d.style.cssText='position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:#2b2a26;color:#fff;padding:9px 16px;border-radius:10px;font-size:13px;font-weight:700;z-index:9999;box-shadow:0 4px 16px rgba(0,0,0,.25);transition:opacity .4s'; document.body.appendChild(d); } d.textContent=m; d.style.opacity='1'; clearTimeout(window.__cpTt); window.__cpTt=setTimeout(function(){ d.style.opacity='0'; },2200); }
 function cpPaint(){
   var cells=_cpCells(); if(!cpAnchor||!cpFocus){ cells.forEach(function(td){td.classList.remove('cp-sel');}); return; }
-  var r1=Math.min(cpAnchor.dr,cpFocus.dr), r2=Math.max(cpAnchor.dr,cpFocus.dr);
-  var c1=Math.min(cpAnchor.dc,cpFocus.dc), c2=Math.max(cpAnchor.dc,cpFocus.dc);
-  cells.forEach(function(td){ var dr=+td.dataset.dr, dc=+td.dataset.dc; td.classList.toggle('cp-sel', dr>=r1&&dr<=r2&&dc>=c1&&dc<=c2); });
-  var inf=document.getElementById('cpInfo'); if(inf){ var n=(r2-r1+1)*(c2-c1+1); inf.textContent=n>1?(n+'칸 선택됨 · 복사(⌘C) 또는 붙여넣기(⌘V)'):'1칸 선택됨 · 복사(⌘C)'; }
+  var r1=Math.min(cpAnchor.dr,cpFocus.dr), r2=Math.max(cpAnchor.dr,cpFocus.dr), c1=Math.min(cpAnchor.dc,cpFocus.dc), c2=Math.max(cpAnchor.dc,cpFocus.dc);
+  var n=0; cells.forEach(function(td){ var p=_cpCoord(td); var on=(p.dr>=r1&&p.dr<=r2&&p.dc>=c1&&p.dc<=c2); td.classList.toggle('cp-sel',on); if(on)n++; });
+  var inf=document.getElementById('cpInfo'); if(inf){ inf.textContent=n>1?(n+'칸 선택됨 · 복사(⌘C) / 붙여넣기(⌘V)'):'1칸 선택됨 · 복사(⌘C)'; }
 }
-function cpDown(e){ if(!cpMode)return; var td=e.target.closest&&e.target.closest('td[data-cp]'); if(!td)return; e.preventDefault();
-  var cell={dr:+td.dataset.dr, dc:+td.dataset.dc};
-  if(e.shiftKey&&cpAnchor){ cpFocus=cell; } else { cpAnchor=cell; cpFocus=cell; cpSelecting=true; }
-  cpPaint();
-}
-function cpOver(e){ if(!cpMode||!cpSelecting)return; var td=e.target.closest&&e.target.closest('td[data-cp]'); if(!td)return; cpFocus={dr:+td.dataset.dr, dc:+td.dataset.dc}; cpPaint(); }
+function cpDown(e){ if(!cpMode)return; var td=e.target.closest&&e.target.closest('td[data-cp]'); if(!td)return; e.preventDefault(); var p=_cpCoord(td); if(e.shiftKey&&cpAnchor){ cpFocus=p; } else { cpAnchor=p; cpFocus=p; cpSelecting=true; } cpPaint(); }
+function cpOver(e){ if(!cpMode||!cpSelecting)return; var td=e.target.closest&&e.target.closest('td[data-cp]'); if(!td)return; cpFocus=_cpCoord(td); cpPaint(); }
 function cpUp(){ cpSelecting=false; }
 function _cpRect(){ if(!cpAnchor||!cpFocus)return null; return {r1:Math.min(cpAnchor.dr,cpFocus.dr),r2:Math.max(cpAnchor.dr,cpFocus.dr),c1:Math.min(cpAnchor.dc,cpFocus.dc),c2:Math.max(cpAnchor.dc,cpFocus.dc)}; }
 function cpCopy(){ var R=_cpRect(); if(!R){ cpToast('복사할 칸을 먼저 선택하세요'); return; }
-  var grid=[]; for(var dr=R.r1;dr<=R.r2;dr++){ var row=[]; for(var dc=R.c1;dc<=R.c2;dc++){ var td=_cpAt(dr,dc); row.push(td?_cellVal(td):''); } grid.push(row); }
+  var grid=[], nEdit=0; for(var dr=R.r1;dr<=R.r2;dr++){ var row=[]; for(var dc=R.c1;dc<=R.c2;dc++){ var td=_cpAt(dr,dc); if(td)nEdit++; row.push(td?_cellVal(td):null); } grid.push(row); }
+  if(!nEdit){ cpToast('복사할 편집 칸이 없습니다'); return; }
   cpClip={grid:grid, h:R.r2-R.r1+1, w:R.c2-R.c1+1};
-  cpToast('복사됨: '+cpClip.h+'×'+cpClip.w+'칸 · 붙여넣을 칸 선택 후 ⌘V');
+  cpToast('복사됨: '+nEdit+'칸 · 붙여넣을 칸 선택 후 ⌘V');
 }
-function _cpApplyNR(line,colIdx,v){
-  v=String(v==null?'':v);
-  if(colIdx===S.prepSt){ if(['미완료','준비완료','확인필요'].indexOf(v)<0)return false; setValNoRender(line,S.prepSt,v); if(v==='준비완료'){setValNoRender(line,S.prepBy,ME);setValNoRender(line,S.prepAt,nowStamp());}else if(v==='미완료'){setValNoRender(line,S.prepBy,'');setValNoRender(line,S.prepAt,'');} return true; }
-  if(colIdx===S.wrapSt){ if(['미완료','랩업완료','확인필요'].indexOf(v)<0)return false; setValNoRender(line,S.wrapSt,v); if(v==='랩업완료'){setValNoRender(line,S.wrapBy,ME);setValNoRender(line,S.wrapAt,nowStamp());}else if(v==='미완료'){setValNoRender(line,S.wrapBy,'');setValNoRender(line,S.wrapAt,'');} return true; }
-  if(colIdx===S.retBy){ var ck=(v!==''&&v!=='0'&&v!=='false'); setValNoRender(line,S.retBy,ck?ME:''); setValNoRender(line,S.retAt,ck?nowStamp():''); _retSave(line); return true; }
-  if(colIdx===S.broken||colIdx===S.lost){ if(v!==''&&isNaN(+v))return false; setValNoRender(line,colIdx,v===''?'':String(Math.max(0,parseInt(v)||0))); _retSave(line); return true; }
-  setValNoRender(line,colIdx,v); return true;
-}
+function _cpSet(el,v){ v=String(v==null?'':v); if(el.type==='checkbox'){ el.checked=(v!==''&&v!=='0'&&v!=='false'); } else { el.value=v; } try{ el.dispatchEvent(new Event('change',{bubbles:true})); }catch(e){} }
 function cpPaste(){ if(!cpClip){ cpToast('먼저 복사(⌘C)하세요'); return; } var R=_cpRect(); if(!R){ cpToast('붙여넣을 칸을 선택하세요'); return; }
   var targets=[];
-  if(cpClip.h===1&&cpClip.w===1){ var v0=cpClip.grid[0][0];
-    for(var dr=R.r1;dr<=R.r2;dr++)for(var dc=R.c1;dc<=R.c2;dc++){ var td=_cpAt(dr,dc); if(td)targets.push({td:td,v:v0}); }
-  } else { for(var i=0;i<cpClip.h;i++)for(var j=0;j<cpClip.w;j++){ var td2=_cpAt(R.r1+i,R.c1+j); if(td2)targets.push({td:td2,v:cpClip.grid[i][j]}); } }
-  if(!targets.length){ cpToast('붙여넣을 칸이 없습니다'); return; }
+  if(cpClip.h===1&&cpClip.w===1){ var v0=cpClip.grid[0][0]; if(v0==null)v0='';
+    for(var dr=R.r1;dr<=R.r2;dr++)for(var dc=R.c1;dc<=R.c2;dc++){ var td=_cpAt(dr,dc); if(td)targets.push({dr:dr,dc:dc,v:v0}); }
+  } else { for(var i=0;i<cpClip.h;i++)for(var j=0;j<cpClip.w;j++){ var gv=cpClip.grid[i][j]; if(gv==null)continue; var td2=_cpAt(R.r1+i,R.c1+j); if(td2)targets.push({dr:R.r1+i,dc:R.c1+j,v:gv}); } }
+  if(!targets.length){ cpToast('붙여넣을 편집 칸이 없습니다'); return; }
   if(targets.length>=15 && !confirm(targets.length+'개 칸에 붙여넣을까요?')) return;
-  cpUndo=[]; var applied=0, skipped=0;
-  targets.forEach(function(t){ var line=t.td.dataset.line, colIdx=+t.td.dataset.col; var old=_cellVal(t.td);
-    var ok=_cpApplyNR(line,colIdx,t.v); if(ok){ cpUndo.push({line:line,colIdx:colIdx,old:old}); applied++; } else skipped++; });
-  save(); cpAnchor=cpFocus=null; render();
-  cpToast('붙여넣기: '+applied+'칸'+(skipped?(' · 종류 안 맞아 건너뜀 '+skipped+'칸'):''));
+  window.__cpBusy=true; cpUndo=[]; var applied=0;
+  targets.forEach(function(t){ var td=_cpAt(t.dr,t.dc); if(!td)return; var el=td.querySelector('input,select'); if(!el)return; cpUndo.push({dr:t.dr,dc:t.dc,old:_cellVal(td)}); _cpSet(el,t.v); applied++; });
+  window.__cpBusy=false; cpAnchor=cpFocus=null; render();
+  cpToast('붙여넣기: '+applied+'칸');
 }
-function cpUndoRun(){ if(!cpUndo||!cpUndo.length){ cpToast('되돌릴 게 없습니다'); return; } cpUndo.forEach(function(u){ _cpApplyNR(u.line,u.colIdx,u.old); }); save(); var n=cpUndo.length; cpUndo=null; render(); cpToast('되돌림: '+n+'칸'); }
+function cpUndoRun(){ if(!cpUndo||!cpUndo.length){ cpToast('되돌릴 게 없습니다'); return; } window.__cpBusy=true; cpUndo.forEach(function(u){ var td=_cpAt(u.dr,u.dc); if(!td)return; var el=td.querySelector('input,select'); if(el)_cpSet(el,u.old); }); window.__cpBusy=false; var n=cpUndo.length; cpUndo=null; render(); cpToast('되돌림: '+n+'칸'); }
 document.addEventListener('mousedown',cpDown,true);
 document.addEventListener('mouseover',cpOver);
 document.addEventListener('mouseup',cpUp);
@@ -1935,7 +1925,7 @@ function npRentCols(key,on,qty,av,nm){
   var procList=[]; vends.forEach(function(vn,vi){ if(vi>0 && vals[vi]>0) procList.push(vn); });
   var procAuto=procList.join(', ');                          // 조달처(자동)=PA 외 배분 업체
   var vcells=vends.map(function(vn,vi){ var vv=npNoteGet(key,'v'+vi)||'';
-    return '<td class="n"><input value="'+Q(String(vv))+'" onchange="npNoteSet(\''+QJ(key)+'\',\'v'+vi+'\',this.value);render()" style="width:32px;text-align:center;font-size:10.5px;border:1px solid #d9cbef;border-radius:5px;padding:3px 2px;background:#fbfaff"></td>'; }).join('');
+    return '<td class="n" data-cp><input value="'+Q(String(vv))+'" onchange="npNoteSet(\''+QJ(key)+'\',\'v'+vi+'\',this.value);render()" style="width:32px;text-align:center;font-size:10.5px;border:1px solid #d9cbef;border-radius:5px;padding:3px 2px;background:#fbfaff"></td>'; }).join('');
   var verify=(sum===qn)?'<span style="color:#1d7a43;font-weight:800">✔</span>':(sum<qn?'<span style="color:#c0392b;font-weight:800">✗ '+(qn-sum)+'부족</span>':'<span style="color:#c0392b;font-weight:800">✗ '+(sum-qn)+'초과</span>');
   var canV=nm?Q(vendorListText(nm)||''):'';
   var out=Q(npNoteGet(key,'out')||''), due=Q(npNoteGet(key,'due')||'');
@@ -1950,10 +1940,10 @@ function npRentCols(key,on,qty,av,nm){
     +vcells
     +'<td class="n" style="font-weight:800;'+AUTOBG+';color:'+(sum===qn?'#1d7a43':'#c0392b')+'" title="자동 · 업체 배분 합">'+sum+'</td>'
     +'<td class="n" style="'+AUTOBG+'" title="자동 · 분배합=배정수량이면 ✔">'+verify+'</td>'
-    +'<td><input type="date" value="'+out+'" onchange="npNoteSet(\''+QJ(key)+'\',\'out\',this.value);render()" style="font-size:10px;border:1px solid var(--line);border-radius:5px;padding:2px 3px"></td>'
-    +'<td><input type="date" value="'+due+'" onchange="npNoteSet(\''+QJ(key)+'\',\'due\',this.value);render()" style="font-size:10px;border:1px solid var(--line);border-radius:5px;padding:2px 3px"></td>'
+    +'<td data-cp><input type="date" value="'+out+'" onchange="npNoteSet(\''+QJ(key)+'\',\'out\',this.value);render()" style="font-size:10px;border:1px solid var(--line);border-radius:5px;padding:2px 3px"></td>'
+    +'<td data-cp><input type="date" value="'+due+'" onchange="npNoteSet(\''+QJ(key)+'\',\'due\',this.value);render()" style="font-size:10px;border:1px solid var(--line);border-radius:5px;padding:2px 3px"></td>'
     +'<td class="n" style="'+AUTOBG+'" title="자동 · 반납−출고+1">'+(days||'-')+'</td>'
-    +'<td class="n"><input value="'+Q(String(manual))+'" placeholder="수기" onchange="npNoteSet(\''+QJ(key)+'\',\'price\',this.value);render()" title="수기단가 · 입력하면 이 값으로 금액 계산(장비DB 단가 무시). 비우면 옆 [단가] 사용" style="width:56px;text-align:right;font-size:10.5px;border:1px solid #e5cf8f;border-radius:5px;padding:3px 4px;background:#fffdf5"></td>'
+    +'<td class="n" data-cp><input value="'+Q(String(manual))+'" placeholder="수기" onchange="npNoteSet(\''+QJ(key)+'\',\'price\',this.value);render()" title="수기단가 · 입력하면 이 값으로 금액 계산(장비DB 단가 무시). 비우면 옆 [단가] 사용" style="width:56px;text-align:right;font-size:10.5px;border:1px solid #e5cf8f;border-radius:5px;padding:3px 4px;background:#fffdf5"></td>'
     +'<td class="n" style="'+AUTOBG+';color:'+(dbPrice?'#26303b':'#bbb')+'" title="자동 · 장비DB 단가">'+(dbPrice?dbPrice.toLocaleString():'-')+'</td>'
     +'<td class="n" style="font-weight:700;'+AUTOBG+'" title="자동 · (수기단가 있으면 그것, 없으면 단가) × 준비수량 × 일수">'+(amt?amt.toLocaleString():'-')+'</td>';
 }
@@ -2421,12 +2411,12 @@ function vPrepNew(){
     var short = qy>av;
     var j = !short ? '<span class="j-ok">보유 충당 ✔</span>' : ('<span class="j-rent">'+(qy-av)+'개 부족 → 렌탈</span>');
     return '<tr><td style="color:#6b6258;font-size:12px">'+Q(npReq[nm]||'')+'</td>'
-      +'<td class="n"><input value="'+Q(String(npNoteGet(nm,'reqq')||qy))+'" onchange="npNoteSet(\''+QJ(nm)+'\',\'reqq\',this.value)" style="width:44px;text-align:center;font-size:11px;border:1px solid var(--line);border-radius:5px;padding:3px 2px"></td>'
-      +'<td>'+npStatusCell(nm)+'</td>'
+      +'<td class="n" data-cp><input value="'+Q(String(npNoteGet(nm,'reqq')||qy))+'" onchange="npNoteSet(\''+QJ(nm)+'\',\'reqq\',this.value)" style="width:44px;text-align:center;font-size:11px;border:1px solid var(--line);border-radius:5px;padding:3px 2px"></td>'
+      +'<td data-cp>'+npStatusCell(nm)+'</td>'
       +'<td>'+Q(nm)+'</td>'
       +'<td class="n" style="font-weight:700">'+qy+'</td>'
-      +'<td><input class="note note-eq" value="'+Q(npNoteGet(nm,'eq'))+'" placeholder="포토 공유 비고" onchange="npNoteSet(\''+QJ(nm)+'\',\'eq\',this.value)"></td>'
-      +'<td><input class="note note-in" value="'+Q(npNoteGet(nm,'in'))+'" placeholder="팀·프리랜서 공유 비고" onchange="npNoteSet(\''+QJ(nm)+'\',\'in\',this.value)"></td>'
+      +'<td data-cp><input class="note note-eq" value="'+Q(npNoteGet(nm,'eq'))+'" placeholder="포토 공유 비고" onchange="npNoteSet(\''+QJ(nm)+'\',\'eq\',this.value)"></td>'
+      +'<td data-cp><input class="note note-in" value="'+Q(npNoteGet(nm,'in'))+'" placeholder="팀·프리랜서 공유 비고" onchange="npNoteSet(\''+QJ(nm)+'\',\'in\',this.value)"></td>'
       +'<td class="n"><a onclick="npLocOpen(\''+QJ(nm)+'\')" style="display:inline-flex;align-items:center;gap:3px;background:#f2faf5;border:1px solid #bfe2cd;color:#1d7a43;border-radius:999px;padding:2px 10px;font-weight:800;cursor:pointer">'+own+' ▾</a></td>'
       +'<td class="n"'+(short?' style="background:#fbdcdc;font-weight:800;color:#a83c28"':'')+'>'+(short?(qy-av):0)+'</td>'
       +'<td>'+j+'</td>'
@@ -2439,19 +2429,19 @@ function vPrepNew(){
     var short2 = qy>av;
     var j = !short2 ? '<span class="j-ok">보유 충당 ✔</span>' : ('<span class="j-rent">'+(qy-av)+'개 부족 → 구매</span>');
     return '<tr style="background:#fbfaf5"><td></td>'
-      +'<td class="n"><input value="'+Q(String(npNoteGet(key,'reqq')||qy))+'" onchange="npNoteSet(\''+QJ(key)+'\',\'reqq\',this.value)" style="width:44px;text-align:center;font-size:11px;border:1px solid var(--line);border-radius:5px;padding:3px 2px"></td>'
-      +'<td>'+npStatusCell(key)+'</td>'
+      +'<td class="n" data-cp><input value="'+Q(String(npNoteGet(key,'reqq')||qy))+'" onchange="npNoteSet(\''+QJ(key)+'\',\'reqq\',this.value)" style="width:44px;text-align:center;font-size:11px;border:1px solid var(--line);border-radius:5px;padding:3px 2px"></td>'
+      +'<td data-cp>'+npStatusCell(key)+'</td>'
       +'<td>'+Q(npMatLabel(k,ri))+'</td>'
       +'<td class="n" style="font-weight:700">'+qy+'</td>'
-      +'<td><input class="note note-eq" value="'+Q(npNoteGet(key,'eq'))+'" placeholder="포토 공유 비고" onchange="npNoteSet(\''+QJ(key)+'\',\'eq\',this.value)"></td>'
-      +'<td><input class="note note-in" value="'+Q(npNoteGet(key,'in'))+'" placeholder="팀·프리랜서 공유 비고" onchange="npNoteSet(\''+QJ(key)+'\',\'in\',this.value)"></td>'
+      +'<td data-cp><input class="note note-eq" value="'+Q(npNoteGet(key,'eq'))+'" placeholder="포토 공유 비고" onchange="npNoteSet(\''+QJ(key)+'\',\'eq\',this.value)"></td>'
+      +'<td data-cp><input class="note note-in" value="'+Q(npNoteGet(key,'in'))+'" placeholder="팀·프리랜서 공유 비고" onchange="npNoteSet(\''+QJ(key)+'\',\'in\',this.value)"></td>'
       +'<td class="n">'+av+'</td>'
       +'<td class="n"'+(short2?' style="background:#fbdcdc;font-weight:800;color:#a83c28"':'')+'>'+(short2?(qy-av):0)+'</td>'
       +'<td>'+j+'</td>'
       +npRentCols(key,true,qy,av,'')
       +'<td class="n"><button class="mini" onclick="npMatClear(\''+QJ(key)+'\')">×</button></td></tr>';
   }).join('');
-  const rentRows=npRent.map((r,i)=>`<tr><td style="color:#6b6258;font-size:12px">${Q(r.name)}</td><td class="n"><input value="${Q(String(npNoteGet('rent|'+i,'reqq')||r.qty))}" onchange="npNoteSet('rent|${i}','reqq',this.value)" style="width:44px;text-align:center;font-size:11px;border:1px solid var(--line);border-radius:5px;padding:3px 2px"></td><td>${npStatusCell('rent|'+i)}</td><td><span class="pill p-rent">렌탈</span></td><td class="n" style="font-weight:700">${r.qty}</td><td><input class="note note-eq" value="${Q(npNoteGet('rent|'+i,'eq'))}" placeholder="포토 공유 비고" onchange="npNoteSet('rent|${i}','eq',this.value)"></td><td><input class="note note-in" value="${Q(npNoteGet('rent|'+i,'in'))}" placeholder="팀·프리랜서 공유 비고" onchange="npNoteSet('rent|${i}','in',this.value)"></td><td class="n"><span style="background:#fdeeeb;border:1px solid #f0c4bb;color:#c0392b;border-radius:999px;padding:2px 9px;font-weight:800;font-size:11px">✗ 미보유</span></td><td class="n" style="background:#fbdcdc;font-weight:800;color:#a83c28">${r.qty}</td><td><span class="j-rent">외부 렌탈</span></td>`
+  const rentRows=npRent.map((r,i)=>`<tr><td style="color:#6b6258;font-size:12px">${Q(r.name)}</td><td class="n" data-cp><input value="${Q(String(npNoteGet('rent|'+i,'reqq')||r.qty))}" onchange="npNoteSet('rent|${i}','reqq',this.value)" style="width:44px;text-align:center;font-size:11px;border:1px solid var(--line);border-radius:5px;padding:3px 2px"></td><td data-cp>${npStatusCell('rent|'+i)}</td><td><span class="pill p-rent">렌탈</span></td><td class="n" style="font-weight:700">${r.qty}</td><td data-cp><input class="note note-eq" value="${Q(npNoteGet('rent|'+i,'eq'))}" placeholder="포토 공유 비고" onchange="npNoteSet('rent|${i}','eq',this.value)"></td><td data-cp><input class="note note-in" value="${Q(npNoteGet('rent|'+i,'in'))}" placeholder="팀·프리랜서 공유 비고" onchange="npNoteSet('rent|${i}','in',this.value)"></td><td class="n"><span style="background:#fdeeeb;border:1px solid #f0c4bb;color:#c0392b;border-radius:999px;padding:2px 9px;font-weight:800;font-size:11px">✗ 미보유</span></td><td class="n" style="background:#fbdcdc;font-weight:800;color:#a83c28">${r.qty}</td><td><span class="j-rent">외부 렌탈</span></td>`
     +npRentCols('rent|'+i,true,r.qty,0,r.name)+`<td class="n"><button class="mini" onclick="npRmRent(${i})">×</button></td></tr>`).join('');
   const listPanel=(selRows||rentRows)?`<table><thead><tr><th>요청품목<br><span style="font-weight:400;font-size:10px;color:#999">붙여넣기 원문</span></th><th class="n">요청<br>수량</th><th>STATUS</th><th>준비 품목</th><th class="n">준비<br>수량</th><th>EQ NOTE<br><span style="font-weight:400;font-size:10px;color:#8a7a5c">포토 공유</span></th><th>내부 노트<br><span style="font-weight:400;font-size:10px;color:#5c7a9a">팀·프리랜서 공유</span></th><th class="n">보유수량<br><span style="font-weight:400;font-size:10px;color:#0d652d">클릭=위치</span></th><th class="n">부족<br>수량</th><th>판정</th><th>렌탈가능업체</th><th>조달처<br>(자동)</th><th class="n">조달<br>수량</th><th class="n">PA</th><th class="n">SLR</th><th class="n">HK</th><th class="n">조명</th><th class="n">왈랄라</th><th class="n">데이페이</th><th class="n">프로렌탈</th><th class="n">렌탈8</th><th class="n">분배합</th><th>검증</th><th>출고</th><th>반납</th><th class="n">일수</th><th class="n">수기<br>단가</th><th class="n">단가<br><span style="font-weight:400;font-size:10px;color:#8a94a3">자동</span></th><th class="n">금액</th><th class="n">빼기</th></tr></thead><tbody>${selRows}${rentRows}</tbody></table>`
     :'<div style="color:#bbb;padding:10px">아직 고른 장비가 없습니다. 위에서 고르세요.</div>';
@@ -2471,7 +2461,7 @@ function vPrepNew(){
       <div class="filt"><input type="text" value="${Q(q)}" id="srch10" oninput="q=this.value;renderKeep(this,event)" oncompositionend="q=this.value;renderKeepDone(this)" placeholder="🔍 장비 검색"></div>
       <div data-scrollbox style="max-height:44vh;overflow:auto;border:1px solid #eee;border-radius:8px;position:relative">
       <table><thead><tr><th class="n">EQ_NO</th><th>카테고리</th><th>장비</th><th class="n">가용</th><th class="n">선택 수량</th></tr></thead><tbody>${invRows}</tbody></table></div>`:''}</div>
-    <div class="panel" style="overflow:visible;max-height:none"><div style="font-weight:800;margin-bottom:8px">② 준비 리스트 (고른 것 + 렌탈)</div>
+    ${cpBar()}<div class="panel ${cpMode?'cpmode':''}" style="overflow:visible;max-height:none"><div style="font-weight:800;margin-bottom:8px">② 준비 리스트 (고른 것 + 렌탈)</div>
       <div data-scrollbox style="overflow:auto;max-height:66vh;overscroll-behavior:contain">${listPanel}</div>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px">
         <input id="npRentName" placeholder="렌탈 품목 (예: PROFOTO PRO 11)" style="width:220px">
@@ -2851,6 +2841,7 @@ function sbBanner(){
 
 function go(v){view=v;q='';curProj=null;mstSel=null;relLine=null;relAdd=null;window.__useId=null;unitOf=null;projEdit=null;matOpen=null; if((v==='mem'||v==='cal')&&serverOn)loadUsers();window.scrollTo(0,0);render();}  // 탭 전환 시 열려있던 모달 상태도 초기화(잔상 방지)
 function render(){
+  if(window.__cpBusy)return;
   try{LSs('pa_v3_view',view);LSs('pa_v3_curproj',curProj);LSs('pa_v3_stage',stage);}catch(e){}
   var __sc=null, __el=document.querySelector('.panel');
   try{
