@@ -3,7 +3,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>PA 장비관리 — 프리랜서 사이트 · v260807_7.9a</title>
+<title>PA 장비관리 — 프리랜서 사이트 · v260807_7.10j</title>
 <style>
 :root{--bg:#f7f5f0;--card:#fff;--ink:#222;--sub:#666;--line:#e6e1d8;--accent:#2f6db0;
  --ok:#1f7a52;--okbg:#e7f4ec;--warn:#b1442f;--warnbg:#fbeae5;--rent:#8a5a1a;--rentbg:#f7efe0}
@@ -1737,6 +1737,13 @@ function _srcResize(ev,key,defW){ ev.preventDefault();ev.stopPropagation();var s
   document.addEventListener('mousemove',mv);document.addEventListener('mouseup',up); }
 function clearSrcCols(){ srcColF={};srcColW={};try{localStorage.removeItem('pa_v3_srccolw');}catch(e){}render(); }
 function toggleSrcCol(i){ srcOn[i]=(srcOn[i]===false)?true:false; render(); }
+function srcBackupCopy(){
+  var cols=SRC_SHEET; var all=allSrc();
+  var lines=[cols.map(function(c){return c[0];}).join('\t')];   // 헤더행
+  all.forEach(function(r){ lines.push(cols.map(function(c){ var v=_srcVal(r,c[1]); return String(v==null?'':v).replace(/\t/g,' ').replace(/[\r\n]+/g,' '); }).join('\t')); });
+  _cpSysCopy(lines.join('\n'));
+  cpToast('📋 소싱 '+all.length+'줄 복사됨 · 백업 0번시트 열고 A1에 붙여넣기(⌘V)');
+}
 function vSrc(){
   var cols=SRC_SHEET.map(function(c,i){return {name:c[0],si:c[1],i:i};});
   var vis=cols.filter(function(c){return srcOn[c.i]!==false;});
@@ -1755,7 +1762,7 @@ function vSrc(){
   var more=rows.length>LIM?('<div class="note-box">전체 '+rows.length+'줄 중 처음 '+LIM+'줄만. 위/열별 검색으로 좁혀 보세요.</div>'):'';
   var anyF=Object.keys(srcColF).some(function(k){return srcColF[k];})||Object.keys(srcColW).length;
   return '<h2>📋 소싱시트 <span style="font-size:12px;color:var(--sub)">(대표 스프레드시트 소싱시트 기준 '+SRC_SHEET.length+'열 · 총 '+all.length+'라인)</span></h2>'+
-    '<div class="lead"><b>대표 스프레드시트 "소싱시트"와 동일 구조</b>입니다. 각 열 아래 칸에 입력하면 그 열에서 검색 · 열 경계를 끌면 너비 조절 · 아래 칩으로 열 켜고 끄기.</div>'+
+    '<div class="lead"><b>대표 스프레드시트 "소싱시트"와 동일 구조</b>입니다. 각 열 아래 칸에 입력하면 그 열에서 검색 · 열 경계를 끌면 너비 조절 · 아래 칩으로 열 켜고 끄기.</div>'+'<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;background:#edf6ef;border:1px solid #bfe0cb;border-radius:10px;padding:10px 14px;margin-bottom:12px"><button onclick="srcBackupCopy()" style="background:#1d7a43;color:#fff;border:none;border-radius:8px;padding:8px 15px;font-weight:800;font-size:13px;cursor:pointer">📋 백업용 전체 복사</button><a href="'+SHEET_URL+'" target="_blank" style="background:#fff;border:1px solid #bfe0cb;color:#1d7a43;border-radius:8px;padding:8px 13px;font-weight:700;font-size:13px;text-decoration:none">📗 백업 0번시트 열기 ↗</a><span style="font-size:12.5px;color:#5a6b5e">전체 복사 → 백업시트 열고 <b>A1 칸</b>에 붙여넣기(⌘V)하면 그 시점 백업 완료</span></div>'+
     '<div class="filt"><input type="text" value="'+Q(q)+'" id="srch8" oninput="q=this.value;renderKeep(this,event)" oncompositionend="q=this.value;renderKeepDone(this)" placeholder="🔍 전체 검색(프로젝트·품목·EQ_NO)">'+(anyF?'<button class="reset" onclick="clearSrcCols()">✕ 열 검색·너비 초기화</button>':'')+'</div>'+
     '<div class="filt" style="max-height:74px;overflow:auto">'+chips+'</div>'+
     more+
