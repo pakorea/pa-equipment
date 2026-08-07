@@ -3,7 +3,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>PA 장비관리 — 관리자 사이트 (3번) · v260807_6.9a</title>
+<title>PA 장비관리 — 관리자 사이트 (3번) · v260807_7.9a</title>
 <style>
 :root{--bg:#f7f5f0;--card:#fff;--ink:#222;--sub:#666;--line:#e6e1d8;--accent:#2f6db0;
  --ok:#1f7a52;--okbg:#e7f4ec;--warn:#b1442f;--warnbg:#fbeae5;--rent:#8a5a1a;--rentbg:#f7efe0}
@@ -88,8 +88,9 @@ input.cell{width:64px;font-size:12px;padding:2px 5px;text-align:center}
 .cpbar button.on{background:#3f5fa8;color:#fff;border-color:#3f5fa8}
 .cpbar .info{color:#3f5fa8;font-weight:700;font-size:12px}
 .cpmode input,.cpmode select{pointer-events:none;background:#fbfaf7;color:#333}
-.cpmode td[data-cp]{cursor:cell;user-select:none}
-.cpmode td[data-cp].cp-sel{outline:2px solid #3f5fa8;outline-offset:-2px;background:#e6eefb!important}
+.cpmode td{cursor:cell;user-select:none}
+.cpmode td.cp-sel{outline:2px solid #3f5fa8;outline-offset:-2px;background:#e6eefb!important}
+.cpmode button,.cpmode a{pointer-events:none}
 </style><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
@@ -380,57 +381,47 @@ function _procCell(r){
 var cpMode=false, cpAnchor=null, cpFocus=null, cpClip=null, cpUndo=null, cpSelecting=false;
 function cpToggle(){ cpMode=!cpMode; cpAnchor=cpFocus=null; cpSelecting=false; render(); }
 function cpBar(){
-  if(!cpMode) return '<div class="cpbar"><button onclick="cpToggle()">📋 복붙 모드 켜기</button><button onclick="cpKakao()" style="background:#fff3d6;border-color:#e5cf8f;color:#8a5a12">📤 수량+품명 복사(카톡)</button><span style="color:#7a7566;font-size:12px">여러 칸을 한 번에 복사·붙여넣기(엑셀처럼). 켜면 칸 입력은 잠시 멈춥니다.</span></div>';
-  return '<div class="cpbar"><button class="on" onclick="cpToggle()">📋 복붙 모드 끄기</button><button onclick="cpKakao()" style="background:#fff3d6;border-color:#e5cf8f;color:#8a5a12">📤 수량+품명 복사(카톡)</button>'
-    +'<button onclick="cpCopy()">복사 ⌘C</button><button onclick="cpPaste()">붙여넣기 ⌘V</button><button onclick="cpUndoRun()">↩︎ 되돌리기</button>'
-    +'<span class="info" id="cpInfo">칸 클릭·드래그로 선택 → 복사 → 붙여넣을 칸 선택 → 붙여넣기</span></div>';
+  if(!cpMode) return '<div class="cpbar"><button onclick="cpToggle()">📋 복붙 모드 켜기</button><span style="color:#7a7566;font-size:12px">원하는 칸(품명·수량 등)만 골라 복사 → 앱·카톡·시트 어디든 붙여넣기(엑셀처럼). 켜면 칸 입력은 잠시 멈춤.</span></div>';
+  return '<div class="cpbar"><button class="on" onclick="cpToggle()">📋 복붙 모드 끄기</button>'
+    +'<button onclick="cpCopy()">복사 ⌘C</button><button onclick="cpPaste()">앱에 붙여넣기 ⌘V</button><button onclick="cpUndoRun()">↩︎ 되돌리기</button>'
+    +'<span class="info" id="cpInfo">원하는 칸(품명·수량 등)을 드래그·클릭으로 골라 복사 → 카톡/시트/앱에 붙여넣기</span></div>';
 }
 function _cpBody(){ var c=document.querySelector('td[data-cp]'); if(!c)return null; var t=c.closest('table'); return t?t.tBodies[0]:null; }
 function _cpCoord(td){ var tr=td.parentNode; var tb=tr.parentNode; return {dr:Array.prototype.indexOf.call(tb.rows,tr), dc:td.cellIndex}; }
-function _cpAt(dr,dc){ var tb=_cpBody(); if(!tb||!tb.rows[dr])return null; var td=tb.rows[dr].cells[dc]; return (td&&td.hasAttribute&&td.hasAttribute('data-cp'))?td:null; }
-function _cpCells(){ return [].slice.call(document.querySelectorAll('td[data-cp]')); }
-function _cellVal(td){ if(!td)return ''; var el=td.querySelector('input,select'); if(!el)return ''; if(el.type==='checkbox')return el.checked?'1':''; return el.value; }
-function cpToast(m){ var d=document.getElementById('cpToast'); if(!d){ d=document.createElement('div'); d.id='cpToast'; d.style.cssText='position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:#2b2a26;color:#fff;padding:9px 16px;border-radius:10px;font-size:13px;font-weight:700;z-index:9999;box-shadow:0 4px 16px rgba(0,0,0,.25);transition:opacity .4s'; document.body.appendChild(d); } d.textContent=m; d.style.opacity='1'; clearTimeout(window.__cpTt); window.__cpTt=setTimeout(function(){ d.style.opacity='0'; },2200); }
-function cpKakao(){
-  var rows; var sel=cpMode?document.querySelectorAll('td.cp-sel'):[];
-  if(sel.length){ var seen=[]; rows=[]; [].forEach.call(sel,function(td){ var tr=td.closest('tr'); if(tr&&tr.hasAttribute('data-nm')&&seen.indexOf(tr)<0){ seen.push(tr); rows.push(tr); } }); }
-  else { rows=[].slice.call(document.querySelectorAll('tr[data-nm]')); }
-  if(!rows.length){ cpToast('복사할 품목이 없습니다'); return; }
-  var lines=rows.map(function(tr){ var nm=tr.getAttribute('data-nm')||''; var q=tr.getAttribute('data-qty'); q=(q==null||q==='')?'':q; return (q!==''?q+'\t':'')+nm; });
-  _cpClipWrite(lines.join('\n'), lines.length);
-}
-function _cpClipWrite(txt,n){ try{ if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(txt).then(function(){ cpToast('📤 '+n+'개 품목 복사됨 · 카톡에 붙여넣으세요'); },function(){ _cpClipFallback(txt,n); }); return; } }catch(e){} _cpClipFallback(txt,n); }
-function _cpClipFallback(txt,n){ var ta=document.createElement('textarea'); ta.value=txt; ta.style.cssText='position:fixed;left:-9999px;top:0'; document.body.appendChild(ta); ta.focus(); ta.select(); var ok=false; try{ ok=document.execCommand('copy'); }catch(e){} document.body.removeChild(ta); cpToast(ok?('📤 '+n+'개 품목 복사됨 · 카톡에 붙여넣으세요'):'복사 실패 — 다시 시도'); }
+function _cpCell(dr,dc){ var tb=_cpBody(); if(!tb||!tb.rows[dr])return null; return tb.rows[dr].cells[dc]||null; }
+function _cpEditable(td){ return !!(td&&td.querySelector('input,select')); }
+function _cellVal(td){ if(!td)return ''; var el=td.querySelector('input,select'); if(el){ if(el.type==='checkbox')return el.checked?'1':''; return el.value; } return (td.textContent||'').replace(/\s+/g,' ').trim(); }
+function cpToast(m){ var d=document.getElementById('cpToast'); if(!d){ d=document.createElement('div'); d.id='cpToast'; d.style.cssText='position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:#2b2a26;color:#fff;padding:9px 16px;border-radius:10px;font-size:13px;font-weight:700;z-index:9999;box-shadow:0 4px 16px rgba(0,0,0,.25);transition:opacity .4s'; document.body.appendChild(d); } d.textContent=m; d.style.opacity='1'; clearTimeout(window.__cpTt); window.__cpTt=setTimeout(function(){ d.style.opacity='0'; },2400); }
 function cpPaint(){
-  var cells=_cpCells(); if(!cpAnchor||!cpFocus){ cells.forEach(function(td){td.classList.remove('cp-sel');}); return; }
-  var r1=Math.min(cpAnchor.dr,cpFocus.dr), r2=Math.max(cpAnchor.dr,cpFocus.dr), c1=Math.min(cpAnchor.dc,cpFocus.dc), c2=Math.max(cpAnchor.dc,cpFocus.dc);
-  var n=0; cells.forEach(function(td){ var p=_cpCoord(td); var on=(p.dr>=r1&&p.dr<=r2&&p.dc>=c1&&p.dc<=c2); td.classList.toggle('cp-sel',on); if(on)n++; });
-  var inf=document.getElementById('cpInfo'); if(inf){ inf.textContent=n>1?(n+'칸 선택됨 · 복사(⌘C) / 붙여넣기(⌘V)'):'1칸 선택됨 · 복사(⌘C)'; }
+  var tb=_cpBody(); if(!tb)return; var R=_cpRect(); var n=0;
+  for(var r=0;r<tb.rows.length;r++){ var cs=tb.rows[r].cells; for(var c=0;c<cs.length;c++){ var on=!!(R&&r>=R.r1&&r<=R.r2&&c>=R.c1&&c<=R.c2); cs[c].classList.toggle('cp-sel',on); if(on)n++; } }
+  var inf=document.getElementById('cpInfo'); if(inf&&R){ inf.textContent=n+'칸 선택됨 · 복사(⌘C) → 카톡/시트/앱에 붙여넣기'; }
 }
-function cpDown(e){ if(!cpMode)return; var td=e.target.closest&&e.target.closest('td[data-cp]'); if(!td)return; e.preventDefault(); var p=_cpCoord(td); if(e.shiftKey&&cpAnchor){ cpFocus=p; } else { cpAnchor=p; cpFocus=p; cpSelecting=true; } cpPaint(); }
-function cpOver(e){ if(!cpMode||!cpSelecting)return; var td=e.target.closest&&e.target.closest('td[data-cp]'); if(!td)return; cpFocus=_cpCoord(td); cpPaint(); }
+function cpDown(e){ if(!cpMode)return; var tb=_cpBody(); if(!tb)return; var td=e.target.closest&&e.target.closest('td'); if(!td||!tb.contains(td))return; e.preventDefault(); var p=_cpCoord(td); if(e.shiftKey&&cpAnchor){ cpFocus=p; } else { cpAnchor=p; cpFocus=p; cpSelecting=true; } cpPaint(); }
+function cpOver(e){ if(!cpMode||!cpSelecting)return; var tb=_cpBody(); if(!tb)return; var td=e.target.closest&&e.target.closest('td'); if(!td||!tb.contains(td))return; cpFocus=_cpCoord(td); cpPaint(); }
 function cpUp(){ cpSelecting=false; }
 function _cpRect(){ if(!cpAnchor||!cpFocus)return null; return {r1:Math.min(cpAnchor.dr,cpFocus.dr),r2:Math.max(cpAnchor.dr,cpFocus.dr),c1:Math.min(cpAnchor.dc,cpFocus.dc),c2:Math.max(cpAnchor.dc,cpFocus.dc)}; }
+function _cpSysCopy(txt){ try{ if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(txt); return; } }catch(e){} var ta=document.createElement('textarea'); ta.value=txt; ta.style.cssText='position:fixed;left:-9999px;top:0'; document.body.appendChild(ta); ta.focus(); ta.select(); try{ document.execCommand('copy'); }catch(e){} document.body.removeChild(ta); }
 function cpCopy(){ var R=_cpRect(); if(!R){ cpToast('복사할 칸을 먼저 선택하세요'); return; }
-  var grid=[], nEdit=0; for(var dr=R.r1;dr<=R.r2;dr++){ var row=[]; for(var dc=R.c1;dc<=R.c2;dc++){ var td=_cpAt(dr,dc); if(td)nEdit++; row.push(td?_cellVal(td):null); } grid.push(row); }
-  if(!nEdit){ cpToast('복사할 편집 칸이 없습니다'); return; }
+  var grid=[]; for(var dr=R.r1;dr<=R.r2;dr++){ var row=[]; for(var dc=R.c1;dc<=R.c2;dc++){ var td=_cpCell(dr,dc); row.push(td?_cellVal(td):''); } grid.push(row); }
   cpClip={grid:grid, h:R.r2-R.r1+1, w:R.c2-R.c1+1};
-  cpToast('복사됨: '+nEdit+'칸 · 붙여넣을 칸 선택 후 ⌘V');
+  _cpSysCopy(grid.map(function(row){return row.join('\t');}).join('\n'));
+  cpToast('복사됨 '+(cpClip.h*cpClip.w)+'칸 · 카톡/시트/앱 어디든 붙여넣기');
 }
 function _cpSet(el,v){ v=String(v==null?'':v); if(el.type==='checkbox'){ el.checked=(v!==''&&v!=='0'&&v!=='false'); } else { el.value=v; } try{ el.dispatchEvent(new Event('change',{bubbles:true})); }catch(e){} }
 function cpPaste(){ if(!cpClip){ cpToast('먼저 복사(⌘C)하세요'); return; } var R=_cpRect(); if(!R){ cpToast('붙여넣을 칸을 선택하세요'); return; }
   var targets=[];
   if(cpClip.h===1&&cpClip.w===1){ var v0=cpClip.grid[0][0]; if(v0==null)v0='';
-    for(var dr=R.r1;dr<=R.r2;dr++)for(var dc=R.c1;dc<=R.c2;dc++){ var td=_cpAt(dr,dc); if(td)targets.push({dr:dr,dc:dc,v:v0}); }
-  } else { for(var i=0;i<cpClip.h;i++)for(var j=0;j<cpClip.w;j++){ var gv=cpClip.grid[i][j]; if(gv==null)continue; var td2=_cpAt(R.r1+i,R.c1+j); if(td2)targets.push({dr:R.r1+i,dc:R.c1+j,v:gv}); } }
-  if(!targets.length){ cpToast('붙여넣을 편집 칸이 없습니다'); return; }
+    for(var dr=R.r1;dr<=R.r2;dr++)for(var dc=R.c1;dc<=R.c2;dc++){ var td=_cpCell(dr,dc); if(td&&_cpEditable(td))targets.push({dr:dr,dc:dc,v:v0}); }
+  } else { for(var i=0;i<cpClip.h;i++)for(var j=0;j<cpClip.w;j++){ var gv=cpClip.grid[i][j]; if(gv==null)continue; var td2=_cpCell(R.r1+i,R.c1+j); if(td2&&_cpEditable(td2))targets.push({dr:R.r1+i,dc:R.c1+j,v:gv}); } }
+  if(!targets.length){ cpToast('붙여넣을 편집 칸이 없습니다 (읽기전용 칸엔 못 넣음)'); return; }
   if(targets.length>=15 && !confirm(targets.length+'개 칸에 붙여넣을까요?')) return;
   window.__cpBusy=true; cpUndo=[]; var applied=0;
-  targets.forEach(function(t){ var td=_cpAt(t.dr,t.dc); if(!td)return; var el=td.querySelector('input,select'); if(!el)return; cpUndo.push({dr:t.dr,dc:t.dc,old:_cellVal(td)}); _cpSet(el,t.v); applied++; });
+  targets.forEach(function(t){ var td=_cpCell(t.dr,t.dc); if(!td)return; var el=td.querySelector('input,select'); if(!el)return; cpUndo.push({dr:t.dr,dc:t.dc,old:_cellVal(td)}); _cpSet(el,t.v); applied++; });
   window.__cpBusy=false; cpAnchor=cpFocus=null; render();
   cpToast('붙여넣기: '+applied+'칸');
 }
-function cpUndoRun(){ if(!cpUndo||!cpUndo.length){ cpToast('되돌릴 게 없습니다'); return; } window.__cpBusy=true; cpUndo.forEach(function(u){ var td=_cpAt(u.dr,u.dc); if(!td)return; var el=td.querySelector('input,select'); if(el)_cpSet(el,u.old); }); window.__cpBusy=false; var n=cpUndo.length; cpUndo=null; render(); cpToast('되돌림: '+n+'칸'); }
+function cpUndoRun(){ if(!cpUndo||!cpUndo.length){ cpToast('되돌릴 게 없습니다'); return; } window.__cpBusy=true; cpUndo.forEach(function(u){ var td=_cpCell(u.dr,u.dc); if(!td)return; var el=td.querySelector('input,select'); if(el)_cpSet(el,u.old); }); window.__cpBusy=false; var n=cpUndo.length; cpUndo=null; render(); cpToast('되돌림: '+n+'칸'); }
 document.addEventListener('mousedown',cpDown,true);
 document.addEventListener('mouseover',cpOver);
 document.addEventListener('mouseup',cpUp);
