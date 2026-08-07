@@ -3,7 +3,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>PA 장비관리 — 관리자 사이트 (3번) · v260807_2.3b</title>
+<title>PA 장비관리 — 관리자 사이트 (3번) · v260807_2.4b</title>
 <style>
 :root{--bg:#f7f5f0;--card:#fff;--ink:#222;--sub:#666;--line:#e6e1d8;--accent:#2f6db0;
  --ok:#1f7a52;--okbg:#e7f4ec;--warn:#b1442f;--warnbg:#fbeae5;--rent:#8a5a1a;--rentbg:#f7efe0}
@@ -1742,13 +1742,14 @@ async function relToggle(it){
     var qs=prompt('"'+it+'" 수량을 입력하세요.\n(대표 컨펌 후 기입 — 프로젝트 준비 누락분 추가)', '1');
     if(qs===null) return;
     var qy=Math.max(1, parseInt(qs)||1);
-    var e=eqRows().find(function(x){ return (ev(x,E.name)||'')===it; });
+    var _itl=String(it).toLowerCase().trim(); var e=eqRows().find(function(x){ return String(ev(x,E.name)||'').toLowerCase().trim()===_itl; });
     var proj=r[S.proj]; var n=maxLineSeq(proj)+1;
     var row=new Array(SRC.headers.length).fill('');
     row[S.line]=proj+'-'+String(n).padStart(2,'0'); row[S.proj]=proj;
     row[S.reqItem]=it; row[S.item]=e?ev(e,E.name):it; row[S.asgQ]=qy; row[S.reqQ]=qy;
     row[S.out]=val(r,S.out); row[S.due]=val(r,S.due);
-    if(e){ row[S.itemId]=e[E.id]; row[S.brand]=ev(e,E.brand); row[S.cat]=ev(e,E.cat); row[S.related]=ev(e,E.related); row[S.loc]=ev(e,E.loc); row[S.comp]=ev(e,E.comp); row[S.special]=ev(e,E.special); row[S.rentVendor]=ev(e,E.vendor); row[S.eqLink]=ev(e,E.link); row[S.own]=num(ev(e,E.own)); row[S.price]=num(ev(e,E.price)); }
+    if(e){ row[S.itemId]=e[E.id]; row[S.brand]=ev(e,E.brand); row[S.cat]=ev(e,E.cat); row[S.related]=ev(e,E.related); row[S.loc]=ev(e,E.loc); row[S.comp]=ev(e,E.comp); row[S.special]=ev(e,E.special); row[S.rentVendor]=ev(e,E.vendor); row[S.eqLink]=ev(e,E.link); row[S.own]=num(ev(e,E.own)); row[S.price]=num(ev(e,E.price)); } else { row[S.cat]=val(r,S.cat); }
+    row[S.vPA]=String(qy); row[S.distSum]=String(qy); row[S.verify]='✔';
     row[S.innote]='연관장비 추가(누락분 · '+(val(r,S.item)||r[S.reqItem])+')';
     sbBusy=true; sbMsg='추가 중…'; render();
     try{
