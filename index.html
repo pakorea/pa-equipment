@@ -3,7 +3,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>PA 장비관리 — 관리자 사이트 (3번) · v260807_1.3b</title>
+<title>PA 장비관리 — 관리자 사이트 (3번) · v260807_2.3b</title>
 <style>
 :root{--bg:#f7f5f0;--card:#fff;--ink:#222;--sub:#666;--line:#e6e1d8;--accent:#2f6db0;
  --ok:#1f7a52;--okbg:#e7f4ec;--warn:#b1442f;--warnbg:#fbeae5;--rent:#8a5a1a;--rentbg:#f7efe0}
@@ -2556,6 +2556,30 @@ async function sbFetchAll(tbl,headers){
   }
   return objsToRows(out,headers);
 }
+// ===== 실시간(Realtime) 동시 사용 — 남의 수정 즉시 반영 =====
+function _rtRow(obj, headers){ return headers.map(function(h){ var v=obj[h]; return v==null?'':v; }); }
+function _applyRt(tbl, p){
+  var db=(tbl==='sourcing')?DB.sourcing:(tbl==='projects'?DB.projects:null); if(!db)return;
+  var key=(tbl==='sourcing')?'라인ID':'프로젝트'; var ki=db.headers.indexOf(key); if(ki<0)return;
+  if(p.eventType==='DELETE'){ var oid=p.old&&p.old[key]; if(oid!=null) db.rows=db.rows.filter(function(x){return x[ki]!==oid;}); }
+  else { var obj=p['new']; if(!obj)return; var id=obj[key]; var row=_rtRow(obj,db.headers); var idx=-1;
+    for(var i=0;i<db.rows.length;i++){ if(db.rows[i][ki]===id){idx=i;break;} }
+    if(idx>=0)db.rows[idx]=row; else db.rows.push(row); }
+  _dmg=null;_pdmax=null;_matEqCache=null;window.__invUse=null;
+  var ae=document.activeElement;
+  if(ae && /INPUT|TEXTAREA|SELECT/.test(ae.tagName||'')){ window._rtPending=true; return; }  // 입력 중이면 렌더 미룸(타이핑 방해 방지)
+  render();
+}
+function _subRealtime(){
+  var c=sbClient(); if(!c || window._rtChan) return;
+  try{
+    window._rtChan=c.channel('pa-rt')
+      .on('postgres_changes',{event:'*',schema:'public',table:'sourcing'},function(p){_applyRt('sourcing',p);})
+      .on('postgres_changes',{event:'*',schema:'public',table:'projects'},function(p){_applyRt('projects',p);})
+      .subscribe();
+    document.addEventListener('focusout',function(){ if(window._rtPending){ window._rtPending=false; setTimeout(function(){ var a=document.activeElement; if(!(a&&/INPUT|TEXTAREA|SELECT/.test(a.tagName||''))) render(); },60); } });
+  }catch(e){}
+}
 async function sbLoadAll(){
   sbBusy=true; sbMsg='서버에서 불러오는 중…'; render();
   try{
@@ -2577,7 +2601,7 @@ async function sbLoadAll(){
     try{localStorage.removeItem('pa_v3_eq');localStorage.removeItem('pa_v3_eqdel');localStorage.removeItem('pa_v3_eqadd');localStorage.removeItem('pa_v3_projst');localStorage.removeItem('pa_v3_crew');}catch(e){}
     _clearUnsynced();
     _dmg=null;_pdmax=null; serverOn=true;
-    sbMsg='서버 연결됨 · 장비 '+eq.length+' · 소싱 '+sr.length+' · 프로젝트 '+pj.length;
+    sbMsg='서버 연결됨 · 장비 '+eq.length+' · 소싱 '+sr.length+' · 프로젝트 '+pj.length; _subRealtime();
   }catch(e){ serverOn=false; sbMsg='서버 불러오기 실패: '+(e.message||e); }
   sbBusy=false; render();
 }
