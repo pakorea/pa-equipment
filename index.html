@@ -3,7 +3,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>PA 장비관리 — 관리자 사이트 (3번) · v260807_3.4b</title>
+<title>PA 장비관리 — 관리자 사이트 (3번) · v260807_3.5b</title>
 <style>
 :root{--bg:#f7f5f0;--card:#fff;--ink:#222;--sub:#666;--line:#e6e1d8;--accent:#2f6db0;
  --ok:#1f7a52;--okbg:#e7f4ec;--warn:#b1442f;--warnbg:#fbeae5;--rent:#8a5a1a;--rentbg:#f7efe0}
@@ -1791,7 +1791,7 @@ async function relAddConfirm(){
 function relAddModal(){
   if(!relAdd)return '';
   var opts=REL_VENDS.map(function(v){return '<option value="'+v[1]+'">'+v[0]+'</option>';}).join('');
-  return '<div class="modal-bg" style="z-index:60" onclick="if(event.target===this)relAddCancel()"><div class="modal">'
+  return '<div class="modal-bg" style="z-index:300" onclick="if(event.target===this)relAddCancel()"><div class="modal">'
     +'<h3>\u2795 \uc5f0\uad00\uc7a5\ube44 \ucd94\uac00 \u2014 '+Q(relAdd.it)+'</h3>'
     +'<div style="font-size:13px;color:var(--sub);margin-bottom:12px">\ub300\ud45c \ucef4\ud380 \ud6c4 <b>\uc218\ub7c9</b>\uacfc <b>\uc870\ub2ec\ucc98</b>\ub97c \uc120\ud0dd\ud574 \ucd94\uac00\ud558\uc138\uc694. (\ud504\ub85c\uc81d\ud2b8 \uc900\ube44 \ub204\ub77d\ubd84)</div>'
     +'<div style="display:flex;gap:12px;align-items:center;margin-bottom:9px"><label style="width:64px;font-weight:600">\uc218\ub7c9</label><input id="relAddQty" type="number" min="1" value="1" style="flex:1;padding:7px;border:1px solid #d8cfbc;border-radius:6px"></div>'
