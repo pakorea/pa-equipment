@@ -3,7 +3,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>PA 장비관리 — 관리자 사이트 (3번) · v260808_0.1b</title>
+<title>PA 장비관리 — 관리자 사이트 (3번) · v260808_1.1b</title>
 <style>
 :root{--bg:#f7f5f0;--card:#fff;--ink:#222;--sub:#666;--line:#e6e1d8;--accent:#2f6db0;
  --ok:#1f7a52;--okbg:#e7f4ec;--warn:#b1442f;--warnbg:#fbeae5;--rent:#8a5a1a;--rentbg:#f7efe0}
@@ -2513,6 +2513,8 @@ let ME=session?session.email:'';
 function isAdmin(){ return session&&session.role==='관리자'; }
 // ===== 2사이트 구조: 관리자 사이트(index.html) ↔ 프리랜서 사이트(free.html) =====
 var IS_FREE_SITE = /free\.html/i.test((typeof location!=='undefined'&&location.pathname)||'');
+var IS_DEMO = /demo\.html/i.test((typeof location!=='undefined'&&location.pathname)||'');
+if(IS_DEMO){ (function(){ function _inj(){ if(document.getElementById('demoBar'))return; var d=document.createElement('div'); d.id='demoBar'; d.innerHTML='\uD83E\uDDEA <b>\uC5F0\uC2B5\uC6A9 \uB370\uBAA8</b> \u2014 \uB9C8\uC74C\uAECF \uB20C\uB7EC\uBCF4\uC138\uC694. <b>\uC2E4\uC81C \uB370\uC774\uD130\uC5D0\uB294 \uC800\uC7A5\uB418\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4.</b> &nbsp;<a href="./index.html" style="color:#fff;text-decoration:underline;font-weight:800">\uC2E4\uC81C \uC571\uC73C\uB85C \u2192</a>'; d.style.cssText='position:fixed;left:0;right:0;bottom:0;z-index:99999;background:#b3620a;color:#fff;font-weight:700;font-size:13.5px;text-align:center;padding:9px 12px;box-shadow:0 -2px 12px rgba(0,0,0,.25)'; document.body.appendChild(d); document.body.style.paddingBottom='46px'; } if(document.body)_inj(); else document.addEventListener('DOMContentLoaded',_inj); })(); }
 function _freeTabs(){ return ALLTABS.filter(function(t){return ['proj','inv'].indexOf(t[0])>=0;}); }  // 담당 프로젝트·재고현황 (LEE·SAVAGE는 재고현황에 포함되어 별도 탭 제거)
 function myTabs(){ return IS_FREE_SITE ? _freeTabs() : ALLTABS; }
 function _freeRedirectHTML(){ return '<div style="max-width:520px;margin:56px auto;background:#fff;border:1px solid var(--line);border-radius:16px;padding:34px 30px;text-align:center;box-shadow:0 6px 24px rgba(0,0,0,.07)">'
@@ -2626,7 +2628,9 @@ const SB_URL='https://vpfscmojmbmmhzpjptca.supabase.co';
 const SHEET_URL='https://docs.google.com/spreadsheets/d/1KRB-0_xfeUcLQmOdn7t3M4ldlt6L447MIw_K2WSEceY/edit';
 const SB_KEY='sb_publishable_MKBLfZU_6xBfYJXqt_NP2w_wZTPn7kn';
 let sb=null, sbUser=null, serverOn=false, sbBusy=false, sbMsg='';
-function sbClient(){ if(!sb && window.supabase) sb=window.supabase.createClient(SB_URL,SB_KEY,{auth:{persistSession:true}}); if(!sb&&!window.supabase&&!sbMsg) sbMsg='서버 라이브러리를 못 불러왔습니다(인터넷 확인).'; return sb; }
+function _demoStub(){ var st={then:function(res){var v={data:null,error:null};if(res)res(v);return Promise.resolve(v);},catch:function(){return st;}}; ['eq','neq','in','select','order','limit','single','maybeSingle','match','gte','lte','is','filter','not','or','contains'].forEach(function(c){ st[c]=function(){return st;}; }); return st; }
+function _demoWrap(qb){ if(!qb)return qb; ['insert','update','delete','upsert'].forEach(function(m){ qb[m]=function(){ return _demoStub(); }; }); return qb; }
+function sbClient(){ if(!sb && window.supabase){ sb=window.supabase.createClient(SB_URL,SB_KEY,{auth:{persistSession:true}}); if(IS_DEMO && sb && sb.from){ var _rf=sb.from.bind(sb); sb.from=function(t){ return _demoWrap(_rf(t)); }; } } if(!sb&&!window.supabase&&!sbMsg) sbMsg='서버 라이브러리를 못 불러왔습니다(인터넷 확인).'; return sb; }
 function objsToRows(objs,headers){ return objs.map(function(o){ return headers.map(function(h){ var v=o[h]; return (v==null?'':v); }); }); }
 async function sbFetchAll(tbl,headers){
   var out=[], from=0, size=1000;
@@ -2654,6 +2658,7 @@ function _applyRt(tbl, p){
   render();
 }
 function _subRealtime(){
+  if(IS_DEMO) return;
   var c=sbClient(); if(!c || window._rtChan) return;
   try{
     window._rtChan=c.channel('pa-rt')
